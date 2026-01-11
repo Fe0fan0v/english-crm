@@ -16,8 +16,18 @@ async def login(
     db: DBSession,
 ) -> Token:
     """Authenticate user and return JWT token."""
+    print(
+        f"Login attempt: email={credentials.email}, password='{credentials.password}'"
+    )
+
     result = await db.execute(select(User).where(User.email == credentials.email))
     user = result.scalar_one_or_none()
+
+    print(f"User found: {user is not None}")
+    if user:
+        print(f"Password hash: {user.password_hash[:20]}...")
+        verify_result = verify_password(credentials.password, user.password_hash)
+        print(f"Verify result: {verify_result}")
 
     if not user or not verify_password(credentials.password, user.password_hash):
         raise HTTPException(
@@ -32,7 +42,7 @@ async def login(
             detail="Inactive user",
         )
 
-    access_token = create_access_token(data={"sub": user.id, "email": user.email})
+    access_token = create_access_token(data={"sub": str(user.id), "email": user.email})
     return Token(access_token=access_token)
 
 

@@ -108,6 +108,36 @@ const icons = {
       />
     </svg>
   ),
+  lessonTypes: (
+    <svg
+      className="w-5 h-5"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+      />
+    </svg>
+  ),
+  test: (
+    <svg
+      className="w-5 h-5"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+      />
+    </svg>
+  ),
   logout: (
     <svg
       className="w-5 h-5"
@@ -133,27 +163,45 @@ const navItems: NavItem[] = [
     roles: ["admin", "manager"],
   },
   {
+    path: "/schedule",
+    label: "Расписание",
+    icon: icons.calendar,
+    roles: ["admin", "manager"],
+  },
+  {
     path: "/users",
     label: "Пользователи",
     icon: icons.users,
     roles: ["admin", "manager"],
   },
   {
-    path: "/lessons",
-    label: "Расписание",
-    icon: icons.calendar,
-    roles: ["admin", "manager", "teacher"],
+    path: "/lesson-types",
+    label: "Типы занятий",
+    icon: icons.lessonTypes,
+    roles: ["admin"],
+  },
+  {
+    path: "/reports",
+    label: "Отчёты",
+    icon: icons.chart,
+    roles: ["admin"],
+  },
+  {
+    path: "/levels",
+    label: "Уровни",
+    icon: icons.settings,
+    roles: ["admin"],
   },
   {
     path: "/materials",
     label: "Материалы",
     icon: icons.book,
-    roles: ["admin", "manager", "teacher"],
+    roles: ["admin"],
   },
   {
-    path: "/settings",
-    label: "Настройки",
-    icon: icons.settings,
+    path: "/tests",
+    label: "Тесты",
+    icon: icons.test,
     roles: ["admin"],
   },
 ];

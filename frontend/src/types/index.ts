@@ -40,12 +40,22 @@ export interface Level {
   updated_at: string;
 }
 
+export interface LevelListResponse {
+  items: Level[];
+  total: number;
+}
+
 export interface LessonType {
   id: number;
   name: string;
   price: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface LessonTypeListResponse {
+  items: LessonType[];
+  total: number;
 }
 
 export type LessonStatus = 'scheduled' | 'completed' | 'cancelled' | 'no_show';
@@ -70,9 +80,86 @@ export interface Material {
   updated_at: string;
 }
 
+export interface MaterialListResponse {
+  items: Material[];
+  total: number;
+}
+
 export interface Test {
   id: number;
   title: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface TestListResponse {
+  items: Test[];
+  total: number;
+}
+
+// Reports
+export interface StudentReportRow {
+  student_name: string;
+  lesson_type: string;
+  lessons_count: number;
+  teacher_payment: string;
+}
+
+export interface TeacherReport {
+  teacher_id: number;
+  teacher_name: string;
+  rows: StudentReportRow[];
+  total: string;
+}
+
+export interface TeacherReportResponse {
+  teachers: TeacherReport[];
+  grand_total: string;
+  date_from: string;
+  date_to: string;
+}
+
+// Dashboard
+export interface DashboardStats {
+  total_balance: string;
+  students_count: number;
+  teachers_count: number;
+  lessons_this_month: number;
+}
+
+export interface ChartDataPoint {
+  date: string;
+  value: number;
+}
+
+export interface DashboardCharts {
+  lessons_chart: ChartDataPoint[];
+  income_chart: ChartDataPoint[];
+}
+
+export interface UpcomingLesson {
+  id: number;
+  title: string;
+  scheduled_at: string;
+  teacher_name: string;
+  student_names: string[];
+  meeting_url: string | null;
+}
+
+export interface DashboardResponse {
+  stats: DashboardStats;
+  charts: DashboardCharts;
+  upcoming_lessons: UpcomingLesson[];
+}
+
+// Schedule
+export interface ScheduleLesson {
+  id: number;
+  title: string;
+  teacher_id: number;
+  teacher_name: string;
+  lesson_type_name: string;
+  scheduled_at: string;
+  status: LessonStatus;
+  students_count: number;
 }

@@ -1,7 +1,7 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import type { User } from '../types';
-import { authApi } from '../services/api';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import type { User } from "../types";
+import { authApi } from "../services/api";
 
 interface AuthState {
   token: string | null;
@@ -23,32 +23,46 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true });
         try {
           const response = await authApi.login({ email, password });
-          localStorage.setItem('token', response.access_token);
-          set({ token: response.access_token });
-          await get().fetchUser();
+          const token = response.access_token;
+
+          // Save token to localStorage and state
+          localStorage.setItem("token", token);
+          set({ token });
+        } catch (error) {
+          localStorage.removeItem("token");
+          set({ token: null, user: null });
+          throw error;
         } finally {
           set({ isLoading: false });
         }
       },
 
       logout: () => {
-        localStorage.removeItem('token');
+        // Clear all auth data
+        localStorage.removeItem("token");
+        localStorage.removeItem("auth-storage");
         set({ token: null, user: null });
       },
 
       fetchUser: async () => {
+        const token = get().token || localStorage.getItem("token");
+        if (!token) {
+          set({ user: null });
+          return;
+        }
+
         try {
           const user = await authApi.me();
           set({ user });
         } catch {
-          set({ token: null, user: null });
-          localStorage.removeItem('token');
+          // Don't clear token here - let the component handle redirect
+          set({ user: null });
         }
       },
     }),
     {
-      name: 'auth-storage',
+      name: "auth-storage",
       partialize: (state) => ({ token: state.token }),
-    }
-  )
+    },
+  ),
 );

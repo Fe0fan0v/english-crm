@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 
 export default function LoginPage() {
@@ -7,7 +6,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const { login, isLoading } = useAuthStore();
-  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -15,7 +13,8 @@ export default function LoginPage() {
 
     try {
       await login(email, password);
-      navigate("/");
+      // Use window.location to ensure full page reload with fresh token
+      window.location.href = "/";
     } catch {
       setError("Неверный email или пароль");
     }

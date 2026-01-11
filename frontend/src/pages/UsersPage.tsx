@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { usersApi } from "../services/api";
 import type { User, UserListResponse } from "../types";
 import Avatar from "../components/Avatar";
+import CreateUserModal, { type CreateUserData } from "../components/CreateUserModal";
 import clsx from "clsx";
 
 type TabType = "students" | "staff";
@@ -13,6 +14,7 @@ export default function UsersPage() {
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>("students");
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const navigate = useNavigate();
 
   const fetchUsers = async () => {
@@ -40,6 +42,12 @@ export default function UsersPage() {
     }) || [];
 
   const totalCount = filteredUsers.length;
+
+  const handleCreateUser = async (userData: CreateUserData) => {
+    await usersApi.create(userData);
+    // Refresh the list after creating
+    await fetchUsers();
+  };
 
   return (
     <div>
@@ -101,7 +109,10 @@ export default function UsersPage() {
 
       {/* Create button */}
       <div className="card mb-4 flex justify-center">
-        <button className="flex items-center gap-2 text-purple-600 font-medium hover:text-purple-700 transition-colors py-2">
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="flex items-center gap-2 text-cyan-500 font-medium hover:text-cyan-600 transition-colors py-2"
+        >
           <svg
             className="w-5 h-5"
             fill="none"
@@ -164,6 +175,14 @@ export default function UsersPage() {
           </button>
         </div>
       )}
+
+      {/* Create User Modal */}
+      <CreateUserModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleCreateUser}
+        defaultRole={activeTab === "students" ? "student" : "teacher"}
+      />
     </div>
   );
 }
@@ -181,6 +200,7 @@ function UserCard({ user, onProfile }: UserCardProps) {
       <div className="flex-1 min-w-0">
         <h3 className="font-semibold text-gray-800">{user.name}</h3>
         <div className="flex items-center gap-4 text-sm text-gray-500 mt-1">
+          {/* Phone */}
           <span className="flex items-center gap-1">
             <svg
               className="w-4 h-4"
@@ -192,11 +212,12 @@ function UserCard({ user, onProfile }: UserCardProps) {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"
+                d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
               />
             </svg>
-            {user.id}
+            {user.phone || "—"}
           </span>
+          {/* Email */}
           <span className="flex items-center gap-1">
             <svg
               className="w-4 h-4"
@@ -212,18 +233,6 @@ function UserCard({ user, onProfile }: UserCardProps) {
               />
             </svg>
             {user.email}
-          </span>
-        </div>
-        <div className="flex items-center gap-3 mt-2">
-          <span className="text-gray-400">
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" />
-            </svg>
-          </span>
-          <span className="text-gray-400">
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z" />
-            </svg>
           </span>
         </div>
       </div>

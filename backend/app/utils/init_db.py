@@ -14,21 +14,20 @@ async def init_db():
 
     async with async_session_maker() as session:
         result = await session.execute(select(User).where(User.role == UserRole.ADMIN))
-        )
         admin = result.scalar_one_or_none()
 
         if not admin:
             # Create default admin
             admin = User(
                 name="Администратор",
-                email="admin@engcrm.local",
+                email="admin@engcrm.com",
                 password_hash=get_password_hash("admin123"),
                 role=UserRole.ADMIN,
             )
             session.add(admin)
             await session.commit()
             print("Default admin user created:")
-            print("  Email: admin@engcrm.local")
+            print("  Email: admin@engcrm.com")
             print("  Password: admin123")
         else:
             print("Admin user already exists")

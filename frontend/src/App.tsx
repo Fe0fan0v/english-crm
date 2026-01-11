@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuthStore } from "./store/authStore";
 import Layout from "./components/Layout";
@@ -6,21 +6,48 @@ import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import UsersPage from "./pages/UsersPage";
 import UserProfilePage from "./pages/UserProfilePage";
+import LessonTypesPage from "./pages/LessonTypesPage";
+import ReportsPage from "./pages/ReportsPage";
+import LevelsPage from "./pages/LevelsPage";
+import MaterialsPage from "./pages/MaterialsPage";
+import TestsPage from "./pages/TestsPage";
+import SchedulePage from "./pages/SchedulePage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { token, user, fetchUser } = useAuthStore();
+  const { token, user, fetchUser, logout } = useAuthStore();
+  const [isLoading, setIsLoading] = useState(true);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
-    if (token && !user) {
-      fetchUser();
-    }
-  }, [token, user, fetchUser]);
+    const loadUser = async () => {
+      if (!token) {
+        setIsLoading(false);
+        return;
+      }
+
+      if (!user) {
+        try {
+          await fetchUser();
+        } catch {
+          // If fetch fails after retries, logout
+          if (retryCount >= 2) {
+            logout();
+          } else {
+            setRetryCount((c) => c + 1);
+          }
+        }
+      }
+      setIsLoading(false);
+    };
+
+    loadUser();
+  }, [token, user, fetchUser, logout, retryCount]);
 
   if (!token) {
     return <Navigate to="/login" replace />;
   }
 
-  if (!user) {
+  if (isLoading || (!user && retryCount < 2)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="flex items-center gap-3 text-gray-500">
@@ -50,13 +77,34 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
   return <Layout>{children}</Layout>;
+}
+
+function PublicRoute({ children }: { children: React.ReactNode }) {
+  const { token } = useAuthStore();
+
+  if (token) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
 }
 
 export default function App() {
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
+      <Route
+        path="/login"
+        element={
+          <PublicRoute>
+            <LoginPage />
+          </PublicRoute>
+        }
+      />
       <Route
         path="/"
         element={
@@ -86,6 +134,54 @@ export default function App() {
         element={
           <ProtectedRoute>
             <UserProfilePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/lesson-types"
+        element={
+          <ProtectedRoute>
+            <LessonTypesPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/reports"
+        element={
+          <ProtectedRoute>
+            <ReportsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/levels"
+        element={
+          <ProtectedRoute>
+            <LevelsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/materials"
+        element={
+          <ProtectedRoute>
+            <MaterialsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/tests"
+        element={
+          <ProtectedRoute>
+            <TestsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/schedule"
+        element={
+          <ProtectedRoute>
+            <SchedulePage />
           </ProtectedRoute>
         }
       />
