@@ -1,23 +1,161 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../store/authStore';
-import type { UserRole } from '../types';
-import clsx from 'clsx';
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuthStore } from "../store/authStore";
+import type { UserRole } from "../types";
+import clsx from "clsx";
 
 interface NavItem {
   path: string;
   label: string;
+  icon: React.ReactNode;
   roles: UserRole[];
 }
 
+// Иконки SVG
+const icons = {
+  dashboard: (
+    <svg
+      className="w-5 h-5"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
+      />
+    </svg>
+  ),
+  users: (
+    <svg
+      className="w-5 h-5"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+      />
+    </svg>
+  ),
+  calendar: (
+    <svg
+      className="w-5 h-5"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+      />
+    </svg>
+  ),
+  book: (
+    <svg
+      className="w-5 h-5"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+      />
+    </svg>
+  ),
+  settings: (
+    <svg
+      className="w-5 h-5"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+      />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+      />
+    </svg>
+  ),
+  chart: (
+    <svg
+      className="w-5 h-5"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+      />
+    </svg>
+  ),
+  logout: (
+    <svg
+      className="w-5 h-5"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+      />
+    </svg>
+  ),
+};
+
 const navItems: NavItem[] = [
-  { path: '/users', label: 'Пользователи', roles: ['admin', 'manager'] },
-  { path: '/lesson-types', label: 'Типы занятий', roles: ['admin'] },
-  { path: '/levels', label: 'Уровни', roles: ['admin'] },
-  { path: '/materials', label: 'Материалы', roles: ['admin', 'manager', 'teacher'] },
-  { path: '/tests', label: 'Тесты', roles: ['admin', 'manager', 'teacher'] },
-  { path: '/lessons', label: 'Занятия', roles: ['admin', 'manager', 'teacher'] },
-  { path: '/reports', label: 'Отчеты', roles: ['admin'] },
-  { path: '/profile', label: 'Профиль', roles: ['admin', 'manager', 'teacher', 'student'] },
+  {
+    path: "/",
+    label: "Показатели",
+    icon: icons.dashboard,
+    roles: ["admin", "manager"],
+  },
+  {
+    path: "/users",
+    label: "Пользователи",
+    icon: icons.users,
+    roles: ["admin", "manager"],
+  },
+  {
+    path: "/lessons",
+    label: "Расписание",
+    icon: icons.calendar,
+    roles: ["admin", "manager", "teacher"],
+  },
+  {
+    path: "/materials",
+    label: "Материалы",
+    icon: icons.book,
+    roles: ["admin", "manager", "teacher"],
+  },
+  {
+    path: "/settings",
+    label: "Настройки",
+    icon: icons.settings,
+    roles: ["admin"],
+  },
 ];
 
 interface LayoutProps {
@@ -31,55 +169,94 @@ export default function Layout({ children }: LayoutProps) {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate("/login");
   };
 
   const filteredNavItems = navItems.filter(
-    (item) => user && item.roles.includes(user.role)
+    (item) => user && item.roles.includes(user.role),
   );
 
+  const getAvatarColor = (name: string) => {
+    const colors = [
+      "bg-avatar-green",
+      "bg-avatar-yellow",
+      "bg-avatar-pink",
+      "bg-avatar-purple",
+      "bg-avatar-blue",
+    ];
+    const index = name.charCodeAt(0) % colors.length;
+    return colors[index];
+  };
+
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
-      <aside className="fixed left-0 top-0 h-full w-64 bg-white shadow-lg">
-        <div className="p-6 border-b">
-          <h1 className="text-xl font-bold text-primary-600">EngCRM</h1>
+      <aside className="fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-100 flex flex-col">
+        {/* Logo */}
+        <div className="p-6">
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-500 to-purple-500 bg-clip-text text-transparent">
+            EngCRM
+          </h1>
         </div>
 
-        <nav className="p-4">
-          <ul className="space-y-2">
+        {/* Navigation */}
+        <nav className="flex-1 px-4">
+          <ul className="space-y-1">
             {filteredNavItems.map((item) => (
               <li key={item.path}>
                 <Link
                   to={item.path}
                   className={clsx(
-                    'block px-4 py-3 rounded-xl transition-colors',
+                    "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200",
                     location.pathname === item.path
-                      ? 'bg-primary-50 text-primary-600 font-medium'
-                      : 'text-gray-600 hover:bg-gray-50'
+                      ? "bg-gradient-to-r from-cyan-50 to-purple-50 text-purple-600"
+                      : "text-gray-600 hover:bg-gray-50",
                   )}
                 >
-                  {item.label}
+                  <span
+                    className={clsx(
+                      location.pathname === item.path
+                        ? "text-purple-500"
+                        : "text-gray-400",
+                    )}
+                  >
+                    {item.icon}
+                  </span>
+                  <span className="font-medium">{item.label}</span>
                 </Link>
               </li>
             ))}
           </ul>
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t">
-          <div className="text-sm text-gray-600 mb-2">{user?.name}</div>
+        {/* User section */}
+        <div className="p-4 border-t border-gray-100">
+          <div className="flex items-center gap-3 mb-4">
+            <div className={clsx("avatar", getAvatarColor(user?.name || "U"))}>
+              {user?.name?.charAt(0).toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium text-gray-800 truncate">
+                {user?.name}
+              </div>
+              <div className="text-xs text-gray-500 truncate">
+                {user?.email}
+              </div>
+            </div>
+          </div>
           <button
             onClick={handleLogout}
-            className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            className="flex items-center gap-2 w-full px-4 py-2 text-gray-600 hover:bg-red-50 hover:text-red-600 rounded-xl transition-colors"
           >
-            Выйти
+            {icons.logout}
+            <span>Выйти</span>
           </button>
         </div>
       </aside>
 
       {/* Main content */}
-      <main className="ml-64 p-8">
-        {children}
+      <main className="flex-1 ml-64">
+        <div className="p-8">{children}</div>
       </main>
     </div>
   );

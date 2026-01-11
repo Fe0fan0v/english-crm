@@ -2,6 +2,92 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-family:
+        "Inter",
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
+        sans-serif;
+    background-color: #f8fafc;
+}
+
+@layer components {
+    /* Кнопки */
+    .btn {
+        @apply px-4 py-2 rounded-xl font-medium transition-all duration-200 inline-flex items-center gap-2;
+    }
+
+    .btn-primary {
+        @apply bg-gradient-to-r from-cyan-400 to-cyan-500 text-white hover:from-cyan-500 hover:to-cyan-600 shadow-sm;
+    }
+
+    .btn-secondary {
+        @apply bg-white border border-gray-200 text-gray-700 hover:bg-gray-50;
+    }
+
+    .btn-ghost {
+        @apply bg-transparent text-gray-600 hover:bg-gray-100;
+    }
+
+    /* Карточки */
+    .card {
+        @apply bg-white rounded-2xl shadow-card p-6;
+    }
+
+    .card-hover {
+        @apply hover:shadow-card-hover transition-shadow duration-200;
+    }
+
+    /* Инпуты */
+    .input {
+        @apply w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-cyan-400 focus:border-transparent outline-none transition-all;
+    }
+
+    /* Табы */
+    .tab {
+        @apply px-4 py-2 text-gray-500 font-medium border-b-2 border-transparent transition-colors;
+    }
+
+    .tab-active {
+        @apply text-purple-600 border-purple-600;
+    }
+
+    /* Аватар */
+    .avatar {
+        @apply w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm;
+    }
+
+    .avatar-lg {
+        @apply w-16 h-16 text-xl;
+    }
+
+    /* Бейджи */
+    .badge {
+        @apply px-2 py-1 rounded-lg text-xs font-medium;
+    }
+
+    .badge-success {
+        @apply bg-green-100 text-green-700;
+    }
+
+    .badge-warning {
+        @apply bg-yellow-100 text-yellow-700;
+    }
+
+    .badge-info {
+        @apply bg-cyan-100 text-cyan-700;
+    }
+
+    /* Заголовки */
+    .page-title {
+        @apply text-2xl font-bold text-gray-800 mb-6;
+    }
+
+    .section-title {
+        @apply text-lg font-semibold text-gray-700 mb-4;
+    }
 }
