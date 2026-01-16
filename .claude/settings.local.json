@@ -3,7 +3,27 @@
     "allow": [
       "mcp__figma__get_design_context",
       "mcp__figma__get_screenshot",
-      "mcp__figma__whoami"
+      "mcp__figma__whoami",
+      "Bash(tree:*)",
+      "mcp__figma__get_metadata",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(docker-compose:*)",
+      "Bash(docker exec:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git remote set-url:*)",
+      "Bash(ssh:*)",
+      "Bash(git ls-files:*)",
+      "Bash(gh workflow run:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run watch:*)",
+      "Bash(gh run view:*)",
+      "Bash(npm run lint)",
+      "Bash(npm run build:*)",
+      "Bash(python:*)",
+      "Bash(alembic revision:*)"
     ]
   }
 }
