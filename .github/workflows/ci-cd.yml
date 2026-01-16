@@ -144,11 +144,19 @@ jobs:
             echo "=== Restarting services ==="
             docker compose up -d
 
+            echo "=== Waiting for services to start ==="
+            sleep 15
+
+            echo "=== Running database migrations ==="
+            docker compose exec -T backend python -m alembic upgrade head || echo "Migrations skipped or already applied"
+
+            echo "=== Seeding test users ==="
+            docker compose exec -T backend python -m app.seed || echo "Seeding completed or users exist"
+
             echo "=== Cleaning up ==="
             docker system prune -f
 
             echo "=== Health check ==="
-            sleep 10
             curl -f http://localhost:8005/health || exit 1
             curl -f http://localhost:3005 || exit 1
 

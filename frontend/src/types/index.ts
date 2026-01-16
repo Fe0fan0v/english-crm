@@ -163,3 +163,72 @@ export interface ScheduleLesson {
   status: LessonStatus;
   students_count: number;
 }
+
+// Groups
+export interface GroupStudent {
+  id: number;
+  student_id: number;
+  student_name: string;
+  student_email: string;
+  balance: string;
+  joined_at: string;
+}
+
+export interface Group {
+  id: number;
+  name: string;
+  description: string | null;
+  teacher_id: number | null;
+  teacher_name: string | null;
+  students_count: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GroupDetail extends Omit<Group, 'students_count'> {
+  students: GroupStudent[];
+}
+
+export interface GroupListResponse {
+  items: Group[];
+  total: number;
+  page: number;
+  size: number;
+  pages: number;
+}
+
+// Transactions
+export type TransactionType = 'credit' | 'debit';
+
+export interface Transaction {
+  id: number;
+  amount: string;
+  type: TransactionType;
+  description: string | null;
+  lesson_id: number | null;
+  created_at: string;
+}
+
+export interface TransactionListResponse {
+  items: Transaction[];
+  total: number;
+  page: number;
+  size: number;
+  pages: number;
+}
+
+// Balance
+export interface BalanceChange {
+  amount: number;
+  description?: string;
+}
+
+// User Groups
+export interface UserGroup {
+  id: number;
+  name: string;
+  description: string | null;
+  teacher_name: string | null;
+  joined_at: string;
+}

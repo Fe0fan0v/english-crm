@@ -12,6 +12,8 @@ import LevelsPage from "./pages/LevelsPage";
 import MaterialsPage from "./pages/MaterialsPage";
 import TestsPage from "./pages/TestsPage";
 import SchedulePage from "./pages/SchedulePage";
+import GroupsPage from "./pages/GroupsPage";
+import GroupDetailPage from "./pages/GroupDetailPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { token, user, fetchUser, logout } = useAuthStore();
@@ -182,6 +184,22 @@ export default function App() {
         element={
           <ProtectedRoute>
             <SchedulePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/groups"
+        element={
+          <ProtectedRoute>
+            <GroupsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/groups/:id"
+        element={
+          <ProtectedRoute>
+            <GroupDetailPage />
           </ProtectedRoute>
         }
       />

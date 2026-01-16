@@ -53,3 +53,39 @@ class UserListResponse(BaseModel):
     page: int
     size: int
     pages: int
+
+
+class BalanceChange(BaseModel):
+    amount: Decimal = Field(..., description="Amount to add (positive) or subtract (negative)")
+    description: str | None = Field(None, max_length=500)
+
+
+class TransactionResponse(BaseModel):
+    id: int
+    amount: Decimal
+    type: str
+    description: str | None
+    lesson_id: int | None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class TransactionListResponse(BaseModel):
+    items: list[TransactionResponse]
+    total: int
+    page: int
+    size: int
+    pages: int
+
+
+class UserGroupResponse(BaseModel):
+    id: int
+    name: str
+    description: str | None
+    teacher_name: str | None
+    joined_at: datetime
+
+    class Config:
+        from_attributes = True

@@ -15,6 +15,12 @@ import type {
   TeacherReportResponse,
   DashboardResponse,
   ScheduleLesson,
+  Group,
+  GroupDetail,
+  GroupListResponse,
+  BalanceChange,
+  TransactionListResponse,
+  UserGroup,
 } from "../types";
 
 const api = axios.create({
@@ -93,6 +99,93 @@ export const usersApi = {
 
   delete: async (id: number): Promise<void> => {
     await api.delete(`/users/${id}`);
+  },
+
+  changeBalance: async (id: number, data: BalanceChange): Promise<User> => {
+    const response = await api.post<User>(`/users/${id}/balance`, data);
+    return response.data;
+  },
+
+  getTransactions: async (
+    id: number,
+    page = 1,
+    size = 20,
+  ): Promise<TransactionListResponse> => {
+    const params = new URLSearchParams({
+      page: String(page),
+      size: String(size),
+    });
+    const response = await api.get<TransactionListResponse>(
+      `/users/${id}/transactions?${params}`,
+    );
+    return response.data;
+  },
+
+  getGroups: async (id: number): Promise<UserGroup[]> => {
+    const response = await api.get<UserGroup[]>(`/users/${id}/groups`);
+    return response.data;
+  },
+};
+
+// Groups
+export const groupsApi = {
+  list: async (
+    page = 1,
+    size = 20,
+    search?: string,
+    teacherId?: number,
+  ): Promise<GroupListResponse> => {
+    const params = new URLSearchParams({
+      page: String(page),
+      size: String(size),
+    });
+    if (search) params.append("search", search);
+    if (teacherId) params.append("teacher_id", String(teacherId));
+    const response = await api.get<GroupListResponse>(`/groups?${params}`);
+    return response.data;
+  },
+
+  get: async (id: number): Promise<GroupDetail> => {
+    const response = await api.get<GroupDetail>(`/groups/${id}`);
+    return response.data;
+  },
+
+  create: async (data: {
+    name: string;
+    description?: string;
+    teacher_id?: number;
+  }): Promise<Group> => {
+    const response = await api.post<Group>("/groups", data);
+    return response.data;
+  },
+
+  update: async (
+    id: number,
+    data: { name?: string; description?: string; teacher_id?: number | null },
+  ): Promise<Group> => {
+    const response = await api.put<Group>(`/groups/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/groups/${id}`);
+  },
+
+  addStudents: async (id: number, studentIds: number[]): Promise<GroupDetail> => {
+    const response = await api.post<GroupDetail>(`/groups/${id}/students`, {
+      student_ids: studentIds,
+    });
+    return response.data;
+  },
+
+  removeStudents: async (
+    id: number,
+    studentIds: number[],
+  ): Promise<GroupDetail> => {
+    const response = await api.delete<GroupDetail>(`/groups/${id}/students`, {
+      data: { student_ids: studentIds },
+    });
+    return response.data;
   },
 };
 

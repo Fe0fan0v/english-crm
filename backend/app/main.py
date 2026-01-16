@@ -2,16 +2,20 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
 from app.api import api_router
 from app.config import settings
+from app.database import Base, engine
+from app.models import *  # noqa: F401, F403 - Import all models to register them
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
+    # Startup - create tables if they don't exist
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
     yield
     # Shutdown
+    await engine.dispose()
 
 
 app = FastAPI(
