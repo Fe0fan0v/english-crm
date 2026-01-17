@@ -96,7 +96,7 @@ export default function BalanceChangeModal({
           <p className="font-medium text-gray-800">{userName}</p>
           <div className="flex items-center justify-between mt-2">
             <span className="text-sm text-gray-500">Текущий баланс:</span>
-            <span className="font-semibold text-gray-800">{currentBalance} руб.</span>
+            <span className="font-semibold text-gray-800">{currentBalance} тг</span>
           </div>
         </div>
 
@@ -170,7 +170,7 @@ export default function BalanceChangeModal({
                   "font-semibold text-lg",
                   newBalance >= 0 ? "text-green-600" : "text-red-600"
                 )}>
-                  {newBalance.toFixed(2)} руб.
+                  {newBalance.toFixed(2)} тг
                 </span>
               </div>
               <div className="flex items-center justify-between mt-1">
@@ -179,7 +179,7 @@ export default function BalanceChangeModal({
                   "font-medium",
                   numericAmount > 0 ? "text-green-600" : "text-red-600"
                 )}>
-                  {numericAmount > 0 ? "+" : ""}{numericAmount.toFixed(2)} руб.
+                  {numericAmount > 0 ? "+" : ""}{numericAmount.toFixed(2)} тг
                 </span>
               </div>
             </div>

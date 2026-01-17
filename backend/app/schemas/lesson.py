@@ -11,10 +11,11 @@ class LessonBase(BaseModel):
     lesson_type_id: int
     scheduled_at: datetime
     meeting_url: str | None = None
+    group_id: int | None = None
 
 
 class LessonCreate(LessonBase):
-    student_ids: list[int] = []
+    student_ids: list[int] = []  # If group_id is provided, students are auto-populated from group
 
 
 class LessonUpdate(BaseModel):
@@ -23,6 +24,7 @@ class LessonUpdate(BaseModel):
     lesson_type_id: int | None = None
     scheduled_at: datetime | None = None
     meeting_url: str | None = None
+    group_id: int | None = None
     status: LessonStatus | None = None
 
 
@@ -52,6 +54,8 @@ class LessonResponse(BaseModel):
     title: str
     teacher_id: int
     teacher_name: str
+    group_id: int | None
+    group_name: str | None
     lesson_type_id: int
     lesson_type_name: str
     scheduled_at: datetime
@@ -75,6 +79,8 @@ class ScheduleLesson(BaseModel):
     title: str
     teacher_id: int
     teacher_name: str
+    group_id: int | None
+    group_name: str | None
     lesson_type_name: str
     scheduled_at: datetime
     status: LessonStatus

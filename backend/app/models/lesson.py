@@ -8,6 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 if TYPE_CHECKING:
+    from app.models.group import Group
     from app.models.lesson_type import LessonType
     from app.models.user import User
 
@@ -32,6 +33,9 @@ class Lesson(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     teacher_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    group_id: Mapped[int | None] = mapped_column(
+        ForeignKey("groups.id", ondelete="SET NULL"), nullable=True
+    )
     lesson_type_id: Mapped[int] = mapped_column(
         ForeignKey("lesson_types.id"), nullable=False
     )
@@ -47,11 +51,12 @@ class Lesson(Base):
 
     # Relationships
     teacher: Mapped["User"] = relationship("User", foreign_keys=[teacher_id])
+    group: Mapped["Group | None"] = relationship("Group", foreign_keys=[group_id])
     lesson_type: Mapped["LessonType"] = relationship(
         "LessonType", back_populates="lessons"
     )
     students: Mapped[list["LessonStudent"]] = relationship(
-        "LessonStudent", back_populates="lesson"
+        "LessonStudent", back_populates="lesson", cascade="all, delete-orphan"
     )
 
 

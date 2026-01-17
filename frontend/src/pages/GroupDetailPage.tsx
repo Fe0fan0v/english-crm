@@ -230,7 +230,7 @@ function StudentCard({ student, onRemove, onProfile }: StudentCardProps) {
 
       <div className="text-right mr-4">
         <p className="text-sm text-gray-500">Баланс</p>
-        <p className="font-medium text-gray-800">{student.balance} руб.</p>
+        <p className="font-medium text-gray-800">{student.balance} тг</p>
       </div>
 
       <div className="flex items-center gap-2">

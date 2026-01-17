@@ -6,6 +6,7 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import DBSession, TeacherOnlyUser, ManagerUser
+from app.api.lessons import check_teacher_conflict, check_students_conflict
 from app.models import (
     AttendanceStatus,
     Group,
@@ -556,16 +557,60 @@ async def create_teacher_lesson(
     db: DBSession,
     current_user: TeacherOnlyUser,
 ):
-    """Create a new lesson for the teacher."""
+    """Create a new lesson for the teacher with conflict checking and group support."""
     # Verify lesson type exists
     lesson_type = await db.get(LessonType, data.lesson_type_id)
     if not lesson_type:
-        raise HTTPException(status_code=400, detail="Invalid lesson type")
+        raise HTTPException(status_code=400, detail="Тип занятия не найден")
+
+    # Verify group exists if provided
+    group = None
+    if data.group_id:
+        group = await db.get(Group, data.group_id)
+        if not group:
+            raise HTTPException(status_code=400, detail="Группа не найдена")
+        # Verify teacher owns this group
+        if group.teacher_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Это не ваша группа")
+
+    # Check teacher conflict
+    teacher_conflict = await check_teacher_conflict(db, current_user.id, data.scheduled_at)
+    if teacher_conflict:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"У вас уже есть урок в это время: {teacher_conflict.title}",
+        )
+
+    # Collect student IDs (from group if provided, otherwise from request)
+    student_ids = list(data.student_ids)
+    if data.group_id:
+        # Auto-populate students from group
+        group_students_result = await db.execute(
+            select(GroupStudent).where(GroupStudent.group_id == data.group_id)
+        )
+        group_students = group_students_result.scalars().all()
+        group_student_ids = [gs.student_id for gs in group_students]
+        student_ids = list(set(student_ids + group_student_ids))
+
+    # Check students conflicts
+    if student_ids:
+        student_conflicts = await check_students_conflict(db, student_ids, data.scheduled_at)
+        if student_conflicts:
+            conflict_details = ", ".join(
+                f"{c['student_name']}"
+                for c in student_conflicts[:3]
+            )
+            more = f" и ещё {len(student_conflicts) - 3}" if len(student_conflicts) > 3 else ""
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Ученики уже заняты в это время: {conflict_details}{more}",
+            )
 
     # Create lesson with teacher as owner
     lesson = Lesson(
         title=data.title,
         teacher_id=current_user.id,
+        group_id=data.group_id,
         lesson_type_id=data.lesson_type_id,
         scheduled_at=data.scheduled_at,
         meeting_url=data.meeting_url,
@@ -575,7 +620,7 @@ async def create_teacher_lesson(
     await db.flush()
 
     # Add students
-    for student_id in data.student_ids:
+    for student_id in student_ids:
         student = await db.get(User, student_id)
         if student and student.role.value == "student" and student.is_active:
             lesson_student = LessonStudent(
@@ -595,6 +640,7 @@ async def create_teacher_lesson(
         .options(
             selectinload(Lesson.students).selectinload(LessonStudent.student),
             selectinload(Lesson.lesson_type),
+            selectinload(Lesson.group),
         )
     )
     lesson = result.scalar_one()
@@ -602,8 +648,8 @@ async def create_teacher_lesson(
     return TeacherLesson(
         id=lesson.id,
         title=lesson.title,
-        group_id=None,
-        group_name=None,
+        group_id=lesson.group_id,
+        group_name=lesson.group.name if lesson.group else None,
         lesson_type_id=lesson.lesson_type_id,
         lesson_type_name=lesson.lesson_type.name,
         lesson_type_price=lesson.lesson_type.price,
@@ -629,16 +675,45 @@ async def update_teacher_lesson(
     db: DBSession,
     current_user: TeacherOnlyUser,
 ):
-    """Update a lesson (only teacher's own lessons)."""
+    """Update a lesson (only teacher's own lessons) with conflict checking."""
     result = await db.execute(
-        select(Lesson).where(
-            and_(Lesson.id == lesson_id, Lesson.teacher_id == current_user.id)
-        )
+        select(Lesson)
+        .where(and_(Lesson.id == lesson_id, Lesson.teacher_id == current_user.id))
+        .options(selectinload(Lesson.students))
     )
     lesson = result.scalar_one_or_none()
 
     if not lesson:
-        raise HTTPException(status_code=404, detail="Lesson not found")
+        raise HTTPException(status_code=404, detail="Урок не найден")
+
+    # Check for conflicts if time is changing
+    if data.scheduled_at is not None and data.scheduled_at != lesson.scheduled_at:
+        # Check teacher conflict
+        teacher_conflict = await check_teacher_conflict(
+            db, current_user.id, data.scheduled_at, exclude_lesson_id=lesson_id
+        )
+        if teacher_conflict:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"У вас уже есть урок в это время: {teacher_conflict.title}",
+            )
+
+        # Check students conflicts
+        student_ids = [ls.student_id for ls in lesson.students]
+        if student_ids:
+            student_conflicts = await check_students_conflict(
+                db, student_ids, data.scheduled_at, exclude_lesson_id=lesson_id
+            )
+            if student_conflicts:
+                conflict_details = ", ".join(
+                    f"{c['student_name']}"
+                    for c in student_conflicts[:3]
+                )
+                more = f" и ещё {len(student_conflicts) - 3}" if len(student_conflicts) > 3 else ""
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Ученики уже заняты в это время: {conflict_details}{more}",
+                )
 
     # Update allowed fields
     if data.title is not None:

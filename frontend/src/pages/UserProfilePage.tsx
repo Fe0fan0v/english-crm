@@ -191,7 +191,7 @@ export default function UserProfilePage() {
                 "text-2xl font-bold",
                 parseFloat(user.balance) >= 0 ? "text-green-600" : "text-red-600"
               )}>
-                {user.balance} руб.
+                {user.balance} тг
               </p>
             </div>
           )}
@@ -314,7 +314,7 @@ export default function UserProfilePage() {
             {isStudent && (
               <div>
                 <label className="block text-sm text-gray-500 mb-1">Баланс</label>
-                <p className="text-gray-800 font-medium">{user.balance} руб.</p>
+                <p className="text-gray-800 font-medium">{user.balance} тг</p>
               </div>
             )}
           </div>
@@ -406,7 +406,7 @@ export default function UserProfilePage() {
                       "font-semibold",
                       tx.type === 'credit' ? "text-green-600" : "text-red-600"
                     )}>
-                      {tx.type === 'credit' ? '+' : '-'}{tx.amount} руб.
+                      {tx.type === 'credit' ? '+' : '-'}{tx.amount} тг
                     </span>
                   </div>
                 ))}

@@ -1,11 +1,12 @@
-from datetime import datetime, time
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import ManagerUser, get_db
+from app.models.group import Group, GroupStudent
 from app.models.lesson import AttendanceStatus, Lesson, LessonStatus, LessonStudent
 from app.models.lesson_type import LessonType
 from app.models.user import User
@@ -17,6 +18,9 @@ from app.schemas.lesson import (
     StudentInfo,
     ScheduleLesson,
 )
+
+# Lesson duration in minutes (used for conflict checking)
+LESSON_DURATION_MINUTES = 60
 
 router = APIRouter()
 
@@ -39,6 +43,8 @@ def build_lesson_response(lesson: Lesson) -> LessonResponse:
         title=lesson.title,
         teacher_id=lesson.teacher_id,
         teacher_name=lesson.teacher.name,
+        group_id=lesson.group_id,
+        group_name=lesson.group.name if lesson.group else None,
         lesson_type_id=lesson.lesson_type_id,
         lesson_type_name=lesson.lesson_type.name,
         scheduled_at=lesson.scheduled_at,
@@ -50,11 +56,82 @@ def build_lesson_response(lesson: Lesson) -> LessonResponse:
     )
 
 
+async def check_teacher_conflict(
+    db: AsyncSession,
+    teacher_id: int,
+    scheduled_at: datetime,
+    exclude_lesson_id: int | None = None,
+) -> Lesson | None:
+    """Check if teacher has a conflicting lesson at the given time."""
+    lesson_start = scheduled_at
+    lesson_end = scheduled_at + timedelta(minutes=LESSON_DURATION_MINUTES)
+
+    query = select(Lesson).where(
+        and_(
+            Lesson.teacher_id == teacher_id,
+            Lesson.status != LessonStatus.CANCELLED,
+            # Check for overlap: existing lesson overlaps with new lesson time
+            Lesson.scheduled_at < lesson_end,
+            Lesson.scheduled_at + timedelta(minutes=LESSON_DURATION_MINUTES) > lesson_start,
+        )
+    )
+
+    if exclude_lesson_id:
+        query = query.where(Lesson.id != exclude_lesson_id)
+
+    result = await db.execute(query)
+    return result.scalar_one_or_none()
+
+
+async def check_students_conflict(
+    db: AsyncSession,
+    student_ids: list[int],
+    scheduled_at: datetime,
+    exclude_lesson_id: int | None = None,
+) -> list[dict]:
+    """Check if any students have conflicting lessons at the given time."""
+    if not student_ids:
+        return []
+
+    lesson_start = scheduled_at
+    lesson_end = scheduled_at + timedelta(minutes=LESSON_DURATION_MINUTES)
+
+    # Find lessons that overlap with the given time
+    query = select(Lesson).where(
+        and_(
+            Lesson.status != LessonStatus.CANCELLED,
+            Lesson.scheduled_at < lesson_end,
+            Lesson.scheduled_at + timedelta(minutes=LESSON_DURATION_MINUTES) > lesson_start,
+        )
+    ).options(selectinload(Lesson.students).selectinload(LessonStudent.student))
+
+    if exclude_lesson_id:
+        query = query.where(Lesson.id != exclude_lesson_id)
+
+    result = await db.execute(query)
+    conflicting_lessons = result.scalars().all()
+
+    # Check which students are in conflicting lessons
+    conflicts = []
+    for lesson in conflicting_lessons:
+        for ls in lesson.students:
+            if ls.student_id in student_ids:
+                conflicts.append({
+                    "student_id": ls.student_id,
+                    "student_name": ls.student.name,
+                    "conflicting_lesson": lesson.title,
+                    "conflicting_time": lesson.scheduled_at.isoformat(),
+                })
+
+    return conflicts
+
+
 @router.get("", response_model=LessonListResponse)
 async def list_lessons(
     date_from: datetime | None = None,
     date_to: datetime | None = None,
     teacher_id: int | None = None,
+    group_id: int | None = None,
     status_filter: LessonStatus | None = Query(None, alias="status"),
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
@@ -64,6 +141,7 @@ async def list_lessons(
     """Get lessons with filters."""
     query = select(Lesson).options(
         selectinload(Lesson.teacher),
+        selectinload(Lesson.group),
         selectinload(Lesson.lesson_type),
         selectinload(Lesson.students).selectinload(LessonStudent.student),
     )
@@ -76,6 +154,8 @@ async def list_lessons(
         conditions.append(Lesson.scheduled_at <= date_to)
     if teacher_id:
         conditions.append(Lesson.teacher_id == teacher_id)
+    if group_id:
+        conditions.append(Lesson.group_id == group_id)
     if status_filter:
         conditions.append(Lesson.status == status_filter)
 
@@ -106,12 +186,14 @@ async def get_schedule(
     date_from: datetime,
     date_to: datetime,
     teacher_id: int | None = None,
+    group_id: int | None = None,
     db: AsyncSession = Depends(get_db),
     _: ManagerUser = None,
 ):
     """Get lessons for schedule view."""
     query = select(Lesson).options(
         selectinload(Lesson.teacher),
+        selectinload(Lesson.group),
         selectinload(Lesson.lesson_type),
         selectinload(Lesson.students),
     )
@@ -122,6 +204,8 @@ async def get_schedule(
     ]
     if teacher_id:
         conditions.append(Lesson.teacher_id == teacher_id)
+    if group_id:
+        conditions.append(Lesson.group_id == group_id)
 
     query = query.where(and_(*conditions)).order_by(Lesson.scheduled_at)
 
@@ -134,6 +218,8 @@ async def get_schedule(
             title=lesson.title,
             teacher_id=lesson.teacher_id,
             teacher_name=lesson.teacher.name,
+            group_id=lesson.group_id,
+            group_name=lesson.group.name if lesson.group else None,
             lesson_type_name=lesson.lesson_type.name,
             scheduled_at=lesson.scheduled_at,
             status=lesson.status,
@@ -154,6 +240,7 @@ async def get_lesson(
         select(Lesson)
         .options(
             selectinload(Lesson.teacher),
+            selectinload(Lesson.group),
             selectinload(Lesson.lesson_type),
             selectinload(Lesson.students).selectinload(LessonStudent.student),
         )
@@ -176,13 +263,13 @@ async def create_lesson(
     db: AsyncSession = Depends(get_db),
     _: ManagerUser = None,
 ):
-    """Create a new lesson."""
+    """Create a new lesson with conflict checking and group support."""
     # Verify teacher exists
     teacher = await db.get(User, data.teacher_id)
     if not teacher:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Teacher not found",
+            detail="Преподаватель не найден",
         )
 
     # Verify lesson type exists
@@ -190,13 +277,58 @@ async def create_lesson(
     if not lesson_type:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Lesson type not found",
+            detail="Тип занятия не найден",
         )
+
+    # Verify group exists if provided
+    group = None
+    if data.group_id:
+        group = await db.get(Group, data.group_id)
+        if not group:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Группа не найдена",
+            )
+
+    # Check teacher conflict
+    teacher_conflict = await check_teacher_conflict(db, data.teacher_id, data.scheduled_at)
+    if teacher_conflict:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Преподаватель уже занят в это время (урок: {teacher_conflict.title})",
+        )
+
+    # Collect student IDs (from group if provided, otherwise from request)
+    student_ids = list(data.student_ids)
+    if data.group_id:
+        # Auto-populate students from group
+        group_students_result = await db.execute(
+            select(GroupStudent).where(GroupStudent.group_id == data.group_id)
+        )
+        group_students = group_students_result.scalars().all()
+        group_student_ids = [gs.student_id for gs in group_students]
+        # Merge with any additional students from request
+        student_ids = list(set(student_ids + group_student_ids))
+
+    # Check students conflicts
+    if student_ids:
+        student_conflicts = await check_students_conflict(db, student_ids, data.scheduled_at)
+        if student_conflicts:
+            conflict_details = ", ".join(
+                f"{c['student_name']} ({c['conflicting_lesson']})"
+                for c in student_conflicts[:3]  # Show first 3 conflicts
+            )
+            more = f" и ещё {len(student_conflicts) - 3}" if len(student_conflicts) > 3 else ""
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Ученики уже заняты в это время: {conflict_details}{more}",
+            )
 
     # Create lesson
     lesson = Lesson(
         title=data.title,
         teacher_id=data.teacher_id,
+        group_id=data.group_id,
         lesson_type_id=data.lesson_type_id,
         scheduled_at=data.scheduled_at,
         meeting_url=data.meeting_url,
@@ -206,7 +338,7 @@ async def create_lesson(
     await db.flush()
 
     # Add students
-    for student_id in data.student_ids:
+    for student_id in student_ids:
         student = await db.get(User, student_id)
         if student:
             lesson_student = LessonStudent(
@@ -224,6 +356,7 @@ async def create_lesson(
         select(Lesson)
         .options(
             selectinload(Lesson.teacher),
+            selectinload(Lesson.group),
             selectinload(Lesson.lesson_type),
             selectinload(Lesson.students).selectinload(LessonStudent.student),
         )
@@ -241,11 +374,12 @@ async def update_lesson(
     db: AsyncSession = Depends(get_db),
     _: ManagerUser = None,
 ):
-    """Update a lesson."""
+    """Update a lesson with conflict checking."""
     result = await db.execute(
         select(Lesson)
         .options(
             selectinload(Lesson.teacher),
+            selectinload(Lesson.group),
             selectinload(Lesson.lesson_type),
             selectinload(Lesson.students).selectinload(LessonStudent.student),
         )
@@ -256,15 +390,61 @@ async def update_lesson(
     if not lesson:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Lesson not found",
+            detail="Урок не найден",
         )
 
     update_data = data.model_dump(exclude_unset=True)
+
+    # Check for conflicts if time or teacher is changing
+    new_scheduled_at = update_data.get("scheduled_at", lesson.scheduled_at)
+    new_teacher_id = update_data.get("teacher_id", lesson.teacher_id)
+
+    if new_scheduled_at != lesson.scheduled_at or new_teacher_id != lesson.teacher_id:
+        # Check teacher conflict
+        teacher_conflict = await check_teacher_conflict(
+            db, new_teacher_id, new_scheduled_at, exclude_lesson_id=lesson_id
+        )
+        if teacher_conflict:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Преподаватель уже занят в это время (урок: {teacher_conflict.title})",
+            )
+
+        # Check students conflicts
+        student_ids = [ls.student_id for ls in lesson.students]
+        if student_ids:
+            student_conflicts = await check_students_conflict(
+                db, student_ids, new_scheduled_at, exclude_lesson_id=lesson_id
+            )
+            if student_conflicts:
+                conflict_details = ", ".join(
+                    f"{c['student_name']} ({c['conflicting_lesson']})"
+                    for c in student_conflicts[:3]
+                )
+                more = f" и ещё {len(student_conflicts) - 3}" if len(student_conflicts) > 3 else ""
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Ученики уже заняты в это время: {conflict_details}{more}",
+                )
+
     for field, value in update_data.items():
         setattr(lesson, field, value)
 
     await db.commit()
     await db.refresh(lesson)
+
+    # Reload with all relationships
+    result = await db.execute(
+        select(Lesson)
+        .options(
+            selectinload(Lesson.teacher),
+            selectinload(Lesson.group),
+            selectinload(Lesson.lesson_type),
+            selectinload(Lesson.students).selectinload(LessonStudent.student),
+        )
+        .where(Lesson.id == lesson_id)
+    )
+    lesson = result.scalar_one()
 
     return build_lesson_response(lesson)
 

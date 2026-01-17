@@ -165,7 +165,7 @@ export default function AddStudentsModal({
                     <p className="font-medium text-gray-800">{student.name}</p>
                     <p className="text-sm text-gray-500">{student.email}</p>
                   </div>
-                  <span className="text-sm text-gray-500">{student.balance} руб.</span>
+                  <span className="text-sm text-gray-500">{student.balance} тг</span>
                 </label>
               ))}
             </div>
