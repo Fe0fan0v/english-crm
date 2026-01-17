@@ -14,6 +14,8 @@ import TestsPage from "./pages/TestsPage";
 import SchedulePage from "./pages/SchedulePage";
 import GroupsPage from "./pages/GroupsPage";
 import GroupDetailPage from "./pages/GroupDetailPage";
+import TeacherDashboardPage from "./pages/TeacherDashboardPage";
+import StudentDashboardPage from "./pages/StudentDashboardPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { token, user, fetchUser, logout } = useAuthStore();
@@ -87,13 +89,42 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { token } = useAuthStore();
+  const { token, user } = useAuthStore();
+
+  if (token && user) {
+    // Redirect based on role
+    switch (user.role) {
+      case "teacher":
+        return <Navigate to="/teacher" replace />;
+      case "student":
+        return <Navigate to="/student" replace />;
+      default:
+        return <Navigate to="/" replace />;
+    }
+  }
 
   if (token) {
+    // Token exists but user not loaded yet, wait
     return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;
+}
+
+// Component that redirects to appropriate dashboard based on user role
+function HomeRedirect() {
+  const { user } = useAuthStore();
+
+  if (!user) return null;
+
+  switch (user.role) {
+    case "teacher":
+      return <Navigate to="/teacher" replace />;
+    case "student":
+      return <Navigate to="/student" replace />;
+    default:
+      return <DashboardPage />;
+  }
 }
 
 export default function App() {
@@ -111,7 +142,23 @@ export default function App() {
         path="/"
         element={
           <ProtectedRoute>
-            <DashboardPage />
+            <HomeRedirect />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/teacher"
+        element={
+          <ProtectedRoute>
+            <TeacherDashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/student"
+        element={
+          <ProtectedRoute>
+            <StudentDashboardPage />
           </ProtectedRoute>
         }
       />

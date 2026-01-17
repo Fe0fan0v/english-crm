@@ -1,5 +1,6 @@
 from app.models.group import Group, GroupStudent
-from app.models.lesson import Lesson, LessonStudent
+from app.models.group_message import GroupMessage
+from app.models.lesson import AttendanceStatus, Lesson, LessonStudent
 from app.models.lesson_type import LessonType
 from app.models.level import Level
 from app.models.material import Material, MaterialAccess
@@ -13,6 +14,7 @@ __all__ = [
     "LessonType",
     "Lesson",
     "LessonStudent",
+    "AttendanceStatus",
     "Material",
     "MaterialAccess",
     "Test",
@@ -20,4 +22,5 @@ __all__ = [
     "Transaction",
     "Group",
     "GroupStudent",
+    "GroupMessage",
 ]

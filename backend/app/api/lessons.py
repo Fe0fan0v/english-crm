@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import ManagerUser, get_db
-from app.models.lesson import Lesson, LessonStatus, LessonStudent
+from app.models.lesson import AttendanceStatus, Lesson, LessonStatus, LessonStudent
 from app.models.lesson_type import LessonType
 from app.models.user import User
 from app.schemas.lesson import (
@@ -29,7 +29,8 @@ def build_lesson_response(lesson: Lesson) -> LessonResponse:
             name=ls.student.name,
             email=ls.student.email,
             phone=ls.student.phone,
-            attended=ls.attended,
+            attendance_status=ls.attendance_status,
+            charged=ls.charged,
         )
         for ls in lesson.students
     ]
@@ -211,7 +212,8 @@ async def create_lesson(
             lesson_student = LessonStudent(
                 lesson_id=lesson.id,
                 student_id=student_id,
-                attended=False,
+                attendance_status=AttendanceStatus.PENDING,
+                charged=False,
             )
             db.add(lesson_student)
 
@@ -291,11 +293,16 @@ async def delete_lesson(
 async def update_attendance(
     lesson_id: int,
     student_id: int,
-    attended: bool,
+    attendance_status: AttendanceStatus,
     db: AsyncSession = Depends(get_db),
     _: ManagerUser = None,
 ):
-    """Update student attendance for a lesson."""
+    """
+    Update student attendance for a lesson (manager endpoint).
+
+    Note: This is a simplified endpoint for managers. For full attendance
+    management with automatic balance deduction, use the teacher dashboard API.
+    """
     result = await db.execute(
         select(LessonStudent).where(
             LessonStudent.lesson_id == lesson_id,
@@ -310,7 +317,7 @@ async def update_attendance(
             detail="Student not found in this lesson",
         )
 
-    lesson_student.attended = attended
+    lesson_student.attendance_status = attendance_status
     await db.commit()
 
     return {"success": True}

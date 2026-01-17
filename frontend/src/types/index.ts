@@ -232,3 +232,121 @@ export interface UserGroup {
   teacher_name: string | null;
   joined_at: string;
 }
+
+// Attendance
+export type AttendanceStatus = 'pending' | 'present' | 'absent_excused' | 'absent_unexcused';
+
+export interface AttendanceUpdate {
+  student_id: number;
+  status: AttendanceStatus;
+}
+
+// Teacher Dashboard
+export interface TeacherStats {
+  lessons_conducted: number;
+  workload_percentage: number;
+  students_count: number;
+  groups_count: number;
+}
+
+export interface TeacherGroupSummary {
+  id: number;
+  name: string;
+  students_count: number;
+}
+
+export interface TeacherLessonStudent {
+  id: number;
+  name: string;
+  attendance_status: AttendanceStatus;
+  charged: boolean;
+}
+
+export interface TeacherLesson {
+  id: number;
+  title: string;
+  group_id: number | null;
+  group_name: string | null;
+  lesson_type_id: number;
+  lesson_type_name: string;
+  lesson_type_price: string;
+  scheduled_at: string;
+  meeting_url: string | null;
+  status: LessonStatus;
+  students: TeacherLessonStudent[];
+}
+
+export interface TeacherDashboardResponse {
+  stats: TeacherStats;
+  upcoming_lessons: TeacherLesson[];
+  groups: TeacherGroupSummary[];
+}
+
+export interface TeacherStudentInfo {
+  id: number;
+  name: string;
+  email: string;
+  phone: string | null;
+  balance: string;
+  group_names: string[];
+}
+
+// Student Dashboard
+export interface StudentStats {
+  balance: string;
+  upcoming_lessons_count: number;
+  groups_count: number;
+}
+
+export interface StudentGroupSummary {
+  id: number;
+  name: string;
+  teacher_name: string | null;
+  has_unread_messages: boolean;
+}
+
+export interface StudentLessonInfo {
+  id: number;
+  title: string;
+  scheduled_at: string;
+  teacher_name: string;
+  lesson_type_name: string;
+  meeting_url: string | null;
+  status: LessonStatus;
+  group_name: string | null;
+}
+
+export interface StudentDashboardResponse {
+  stats: StudentStats;
+  upcoming_lessons: StudentLessonInfo[];
+  groups: StudentGroupSummary[];
+}
+
+export interface StudentMaterialInfo {
+  id: number;
+  title: string;
+  file_url: string;
+  granted_at: string;
+}
+
+export interface StudentTestInfo {
+  id: number;
+  title: string;
+  granted_at: string;
+}
+
+// Group Messages (Chat)
+export interface GroupMessage {
+  id: number;
+  group_id: number;
+  sender_id: number;
+  sender_name: string;
+  content: string;
+  created_at: string;
+}
+
+export interface GroupMessagesResponse {
+  items: GroupMessage[];
+  total: number;
+  has_more: boolean;
+}

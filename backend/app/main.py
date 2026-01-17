@@ -5,13 +5,16 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import api_router
 from app.config import settings
+from app.database import engine
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
+    # Startup - store engine for WebSocket connections
+    app.state.engine = engine
     yield
-    # Shutdown
+    # Shutdown - dispose engine
+    await engine.dispose()
 
 
 app = FastAPI(

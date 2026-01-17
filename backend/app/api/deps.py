@@ -82,3 +82,6 @@ ManagerUser = Annotated[User, Depends(require_roles(UserRole.ADMIN, UserRole.MAN
 TeacherUser = Annotated[
     User, Depends(require_roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.TEACHER))
 ]
+# Role-specific dependencies (only that specific role)
+TeacherOnlyUser = Annotated[User, Depends(require_roles(UserRole.TEACHER))]
+StudentOnlyUser = Annotated[User, Depends(require_roles(UserRole.STUDENT))]

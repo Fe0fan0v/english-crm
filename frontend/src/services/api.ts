@@ -21,6 +21,18 @@ import type {
   BalanceChange,
   TransactionListResponse,
   UserGroup,
+  TeacherDashboardResponse,
+  TeacherLesson,
+  TeacherGroupSummary,
+  TeacherStudentInfo,
+  AttendanceUpdate,
+  StudentDashboardResponse,
+  StudentLessonInfo,
+  StudentGroupSummary,
+  StudentMaterialInfo,
+  StudentTestInfo,
+  GroupMessage,
+  GroupMessagesResponse,
 } from "../types";
 
 const api = axios.create({
@@ -360,6 +372,138 @@ export const lessonsApi = {
   getTeachers: async (): Promise<User[]> => {
     const response = await api.get<UserListResponse>("/users?size=100");
     return response.data.items.filter((u) => u.role === "teacher");
+  },
+};
+
+// Teacher Dashboard API
+export const teacherApi = {
+  getDashboard: async (): Promise<TeacherDashboardResponse> => {
+    const response = await api.get<TeacherDashboardResponse>("/teacher/dashboard");
+    return response.data;
+  },
+
+  getSchedule: async (dateFrom: string, dateTo: string): Promise<TeacherLesson[]> => {
+    const params = new URLSearchParams({
+      date_from: dateFrom,
+      date_to: dateTo,
+    });
+    const response = await api.get<TeacherLesson[]>(`/teacher/schedule?${params}`);
+    return response.data;
+  },
+
+  getGroups: async (): Promise<TeacherGroupSummary[]> => {
+    const response = await api.get<TeacherGroupSummary[]>("/teacher/groups");
+    return response.data;
+  },
+
+  getStudents: async (): Promise<TeacherStudentInfo[]> => {
+    const response = await api.get<TeacherStudentInfo[]>("/teacher/students");
+    return response.data;
+  },
+
+  getLesson: async (lessonId: number): Promise<TeacherLesson> => {
+    const response = await api.get<TeacherLesson>(`/teacher/lessons/${lessonId}`);
+    return response.data;
+  },
+
+  createLesson: async (data: {
+    title: string;
+    lesson_type_id: number;
+    scheduled_at: string;
+    meeting_url?: string;
+    student_ids?: number[];
+  }): Promise<TeacherLesson> => {
+    const response = await api.post<TeacherLesson>("/teacher/lessons", data);
+    return response.data;
+  },
+
+  updateLesson: async (
+    lessonId: number,
+    data: {
+      title?: string;
+      scheduled_at?: string;
+      meeting_url?: string;
+      status?: string;
+    }
+  ): Promise<TeacherLesson> => {
+    const response = await api.put<TeacherLesson>(`/teacher/lessons/${lessonId}`, data);
+    return response.data;
+  },
+
+  cancelLesson: async (lessonId: number): Promise<void> => {
+    await api.delete(`/teacher/lessons/${lessonId}`);
+  },
+
+  markAttendance: async (
+    lessonId: number,
+    attendances: AttendanceUpdate[]
+  ): Promise<void> => {
+    await api.post(`/teacher/lessons/${lessonId}/attendance`, { attendances });
+  },
+};
+
+// Student Dashboard API
+export const studentApi = {
+  getDashboard: async (): Promise<StudentDashboardResponse> => {
+    const response = await api.get<StudentDashboardResponse>("/student/dashboard");
+    return response.data;
+  },
+
+  getSchedule: async (dateFrom: string, dateTo: string): Promise<StudentLessonInfo[]> => {
+    const params = new URLSearchParams({
+      date_from: dateFrom,
+      date_to: dateTo,
+    });
+    const response = await api.get<StudentLessonInfo[]>(`/student/schedule?${params}`);
+    return response.data;
+  },
+
+  getGroups: async (): Promise<StudentGroupSummary[]> => {
+    const response = await api.get<StudentGroupSummary[]>("/student/groups");
+    return response.data;
+  },
+
+  getMaterials: async (): Promise<StudentMaterialInfo[]> => {
+    const response = await api.get<StudentMaterialInfo[]>("/student/materials");
+    return response.data;
+  },
+
+  getTests: async (): Promise<StudentTestInfo[]> => {
+    const response = await api.get<StudentTestInfo[]>("/student/tests");
+    return response.data;
+  },
+};
+
+// Group Messages (Chat) API
+export const groupMessagesApi = {
+  getMessages: async (
+    groupId: number,
+    page = 1,
+    size = 50
+  ): Promise<GroupMessagesResponse> => {
+    const params = new URLSearchParams({
+      page: String(page),
+      size: String(size),
+    });
+    const response = await api.get<GroupMessagesResponse>(
+      `/groups/${groupId}/messages?${params}`
+    );
+    return response.data;
+  },
+
+  sendMessage: async (groupId: number, content: string): Promise<GroupMessage> => {
+    const response = await api.post<GroupMessage>(`/groups/${groupId}/messages`, {
+      content,
+    });
+    return response.data;
+  },
+
+  // WebSocket URL helper
+  getWebSocketUrl: (groupId: number): string => {
+    const token = localStorage.getItem("token");
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const host = window.location.host;
+    return `${protocol}//${host}/api/groups/ws/${groupId}/chat?token=${token}`;
   },
 };
 

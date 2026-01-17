@@ -19,6 +19,13 @@ class LessonStatus(str, PyEnum):
     NO_SHOW = "no_show"
 
 
+class AttendanceStatus(str, PyEnum):
+    PENDING = "pending"
+    PRESENT = "present"
+    ABSENT_EXCUSED = "absent_excused"
+    ABSENT_UNEXCUSED = "absent_unexcused"
+
+
 class Lesson(Base):
     __tablename__ = "lessons"
 
@@ -54,7 +61,10 @@ class LessonStudent(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     lesson_id: Mapped[int] = mapped_column(ForeignKey("lessons.id"), nullable=False)
     student_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    attended: Mapped[bool] = mapped_column(Boolean, default=False)
+    attendance_status: Mapped[AttendanceStatus] = mapped_column(
+        Enum(AttendanceStatus), nullable=False, default=AttendanceStatus.PENDING
+    )
+    charged: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     # Relationships

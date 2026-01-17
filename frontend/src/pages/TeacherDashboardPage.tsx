@@ -1,0 +1,393 @@
+import { useEffect, useMemo, useState } from "react";
+import { teacherApi } from "../services/api";
+import { useAuthStore } from "../store/authStore";
+import Avatar from "../components/Avatar";
+import AttendanceModal from "../components/AttendanceModal";
+import type {
+  TeacherDashboardResponse,
+  TeacherLesson,
+  TeacherGroupSummary,
+  TeacherStudentInfo,
+} from "../types";
+
+type TabType = "info" | "groups" | "students" | "materials";
+
+// Icons
+const StatIcon = {
+  lessons: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+      />
+    </svg>
+  ),
+  workload: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M13 10V3L4 14h7v7l9-11h-7z"
+      />
+    </svg>
+  ),
+};
+
+function formatDate(date: Date): string {
+  return date.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+}
+
+function getWeekDates(baseDate: Date): Date[] {
+  const dates: Date[] = [];
+  const startOfWeek = new Date(baseDate);
+  const day = startOfWeek.getDay();
+  const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
+  startOfWeek.setDate(diff);
+  startOfWeek.setHours(0, 0, 0, 0);
+
+  for (let i = 0; i < 7; i++) {
+    const date = new Date(startOfWeek);
+    date.setDate(startOfWeek.getDate() + i);
+    dates.push(date);
+  }
+  return dates;
+}
+
+const dayNames = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+const timeSlots = Array.from({ length: 14 }, (_, i) => i + 8); // 8:00 - 21:00
+
+export default function TeacherDashboardPage() {
+  const { user } = useAuthStore();
+  const [data, setData] = useState<TeacherDashboardResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<TabType>("info");
+  const [currentWeek, setCurrentWeek] = useState(new Date());
+  const [schedule, setSchedule] = useState<TeacherLesson[]>([]);
+  const [students, setStudents] = useState<TeacherStudentInfo[]>([]);
+  const [selectedLesson, setSelectedLesson] = useState<TeacherLesson | null>(null);
+  const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+
+  const weekDates = useMemo(() => getWeekDates(currentWeek), [currentWeek]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await teacherApi.getDashboard();
+        setData(response);
+      } catch (error) {
+        console.error("Failed to fetch dashboard:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  useEffect(() => {
+    const fetchSchedule = async () => {
+      const dateFrom = weekDates[0].toISOString();
+      const dateTo = weekDates[6].toISOString();
+      try {
+        const lessons = await teacherApi.getSchedule(dateFrom, dateTo);
+        setSchedule(lessons);
+      } catch (error) {
+        console.error("Failed to fetch schedule:", error);
+      }
+    };
+    fetchSchedule();
+  }, [weekDates]);
+
+  useEffect(() => {
+    if (activeTab === "students") {
+      const fetchStudents = async () => {
+        try {
+          const result = await teacherApi.getStudents();
+          setStudents(result);
+        } catch (error) {
+          console.error("Failed to fetch students:", error);
+        }
+      };
+      fetchStudents();
+    }
+  }, [activeTab]);
+
+  const handleLessonClick = (lesson: TeacherLesson) => {
+    setSelectedLesson(lesson);
+    setShowAttendanceModal(true);
+  };
+
+  const handleAttendanceSave = async () => {
+    setShowAttendanceModal(false);
+    // Refresh schedule
+    const dateFrom = weekDates[0].toISOString();
+    const dateTo = weekDates[6].toISOString();
+    const lessons = await teacherApi.getSchedule(dateFrom, dateTo);
+    setSchedule(lessons);
+    // Refresh dashboard
+    const response = await teacherApi.getDashboard();
+    setData(response);
+  };
+
+  const getLessonsForSlot = (date: Date, hour: number): TeacherLesson[] => {
+    return schedule.filter((lesson) => {
+      const lessonDate = new Date(lesson.scheduled_at);
+      return (
+        lessonDate.getDate() === date.getDate() &&
+        lessonDate.getMonth() === date.getMonth() &&
+        lessonDate.getHours() === hour
+      );
+    });
+  };
+
+  const goToPrevWeek = () => {
+    const prev = new Date(currentWeek);
+    prev.setDate(prev.getDate() - 7);
+    setCurrentWeek(prev);
+  };
+
+  const goToNextWeek = () => {
+    const next = new Date(currentWeek);
+    next.setDate(next.getDate() + 7);
+    setCurrentWeek(next);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-gray-500">Загрузка...</div>
+      </div>
+    );
+  }
+
+  const stats = data?.stats;
+  const groups = data?.groups || [];
+
+  return (
+    <div>
+      {/* Profile Header */}
+      <div className="card mb-6">
+        <div className="flex items-start gap-6">
+          <Avatar name={user?.name || ""} photo={user?.photo_url} size="xl" />
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold text-gray-800">{user?.name}</h1>
+            <div className="flex items-center gap-4 mt-2 text-gray-500">
+              {user?.phone && (
+                <span className="flex items-center gap-1">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                  </svg>
+                  {user.phone}
+                </span>
+              )}
+              <span className="flex items-center gap-1">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                {user?.email}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2 mb-6">
+        {[
+          { key: "info" as TabType, label: "Учитель" },
+          { key: "groups" as TabType, label: "Классы" },
+          { key: "students" as TabType, label: "Ученики" },
+          { key: "materials" as TabType, label: "Личные материалы" },
+        ].map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`tab ${activeTab === tab.key ? "tab-active" : ""}`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === "info" && (
+        <div>
+          {/* Stats */}
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="card flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-cyan-100 text-cyan-600 flex items-center justify-center">
+                {StatIcon.lessons}
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Проведено уроков</p>
+                <p className="text-2xl font-bold text-gray-800">{stats?.lessons_conducted || 0}</p>
+              </div>
+            </div>
+            <div className="card flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-yellow-100 text-yellow-600 flex items-center justify-center">
+                {StatIcon.workload}
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Загруженность</p>
+                <p className="text-2xl font-bold text-gray-800">{stats?.workload_percentage || 0}%</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Schedule Calendar */}
+          <div className="card">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="section-title">Расписание уроков</h2>
+              <div className="flex items-center gap-2">
+                <button onClick={goToPrevWeek} className="p-2 hover:bg-gray-100 rounded-lg">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <span className="font-medium">
+                  {formatDate(weekDates[0])} - {formatDate(weekDates[6])}
+                </span>
+                <button onClick={goToNextWeek} className="p-2 hover:bg-gray-100 rounded-lg">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr>
+                    <th className="w-16 p-2 text-left text-xs text-gray-500 border-b"></th>
+                    {weekDates.map((date, i) => {
+                      const isToday = date.toDateString() === new Date().toDateString();
+                      return (
+                        <th
+                          key={i}
+                          className={`p-2 text-center border-b ${isToday ? "bg-cyan-50" : ""}`}
+                        >
+                          <div className="text-xs text-gray-500">{dayNames[i]}</div>
+                          <div className={`text-sm font-medium ${isToday ? "text-cyan-600" : ""}`}>
+                            {date.getDate()}
+                          </div>
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {timeSlots.map((hour) => (
+                    <tr key={hour} className="border-b border-gray-100">
+                      <td className="p-2 text-xs text-gray-500 align-top">{hour}:00</td>
+                      {weekDates.map((date, dayIndex) => {
+                        const lessons = getLessonsForSlot(date, hour);
+                        return (
+                          <td key={dayIndex} className="p-1 align-top min-w-[120px]">
+                            {lessons.map((lesson) => (
+                              <button
+                                key={lesson.id}
+                                onClick={() => handleLessonClick(lesson)}
+                                className={`w-full p-2 mb-1 rounded-lg text-left text-xs transition-colors ${
+                                  lesson.status === "completed"
+                                    ? "bg-green-100 text-green-700 hover:bg-green-200"
+                                    : lesson.status === "cancelled"
+                                    ? "bg-red-100 text-red-700"
+                                    : "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
+                                }`}
+                              >
+                                <div className="font-medium truncate">{lesson.title}</div>
+                                <div className="text-[10px] opacity-75">
+                                  {lesson.students.length} уч.
+                                </div>
+                              </button>
+                            ))}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "groups" && (
+        <div className="card">
+          <h2 className="section-title mb-4">Мои классы</h2>
+          {groups.length > 0 ? (
+            <div className="grid grid-cols-3 gap-4">
+              {groups.map((group) => (
+                <div key={group.id} className="p-4 bg-gray-50 rounded-xl">
+                  <h3 className="font-medium text-gray-800">{group.name}</h3>
+                  <p className="text-sm text-gray-500">{group.students_count} учеников</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-500 text-center py-8">У вас пока нет групп</p>
+          )}
+        </div>
+      )}
+
+      {activeTab === "students" && (
+        <div className="card">
+          <h2 className="section-title mb-4">Мои ученики</h2>
+          {students.length > 0 ? (
+            <div className="space-y-3">
+              {students.map((student) => (
+                <div
+                  key={student.id}
+                  className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl"
+                >
+                  <Avatar name={student.name} size="md" />
+                  <div className="flex-1">
+                    <h3 className="font-medium text-gray-800">{student.name}</h3>
+                    <p className="text-sm text-gray-500">{student.email}</p>
+                    <p className="text-xs text-gray-400">
+                      Группы: {student.group_names.join(", ")}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p
+                      className={`font-medium ${
+                        parseFloat(student.balance) >= 0 ? "text-green-600" : "text-red-600"
+                      }`}
+                    >
+                      {parseFloat(student.balance).toLocaleString("ru-RU")} тг
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-500 text-center py-8">У вас пока нет учеников</p>
+          )}
+        </div>
+      )}
+
+      {activeTab === "materials" && (
+        <div className="card">
+          <h2 className="section-title mb-4">Личные материалы</h2>
+          <p className="text-gray-500 text-center py-8">
+            Функция в разработке
+          </p>
+        </div>
+      )}
+
+      {/* Attendance Modal */}
+      {selectedLesson && (
+        <AttendanceModal
+          isOpen={showAttendanceModal}
+          onClose={() => setShowAttendanceModal(false)}
+          lesson={selectedLesson}
+          onSave={handleAttendanceSave}
+        />
+      )}
+    </div>
+  );
+}

@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from app.models.lesson import LessonStatus
+from app.models.lesson import AttendanceStatus, LessonStatus
 
 
 class LessonBase(BaseModel):
@@ -31,10 +31,20 @@ class StudentInfo(BaseModel):
     name: str
     email: str
     phone: str | None
-    attended: bool
+    attendance_status: AttendanceStatus
+    charged: bool
 
     class Config:
         from_attributes = True
+
+
+class AttendanceUpdate(BaseModel):
+    student_id: int
+    status: AttendanceStatus
+
+
+class AttendanceBulkUpdate(BaseModel):
+    attendances: list[AttendanceUpdate]
 
 
 class LessonResponse(BaseModel):
