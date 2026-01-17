@@ -9,6 +9,7 @@ import UserProfilePage from "./pages/UserProfilePage";
 import LessonTypesPage from "./pages/LessonTypesPage";
 import ReportsPage from "./pages/ReportsPage";
 import LevelsPage from "./pages/LevelsPage";
+import LevelDetailPage from "./pages/LevelDetailPage";
 import MaterialsPage from "./pages/MaterialsPage";
 import TestsPage from "./pages/TestsPage";
 import SchedulePage from "./pages/SchedulePage";
@@ -215,6 +216,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <LevelsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/levels/:id"
+        element={
+          <ProtectedRoute>
+            <LevelDetailPage />
           </ProtectedRoute>
         }
       />

@@ -45,6 +45,25 @@ export interface LevelListResponse {
   total: number;
 }
 
+// Level Payment Matrix
+export interface LevelPaymentMatrixItem {
+  lesson_type_id: number;
+  lesson_type_name: string;
+  lesson_type_price: string;
+  teacher_payment: string | null;
+}
+
+export interface LevelPaymentMatrix {
+  level_id: number;
+  level_name: string;
+  items: LevelPaymentMatrixItem[];
+}
+
+export interface LevelPaymentUpdate {
+  lesson_type_id: number;
+  teacher_payment: number;
+}
+
 export interface LessonType {
   id: number;
   name: string;

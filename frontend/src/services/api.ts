@@ -8,6 +8,8 @@ import type {
   LessonTypeListResponse,
   Level,
   LevelListResponse,
+  LevelPaymentMatrix,
+  LevelPaymentUpdate,
   Material,
   MaterialListResponse,
   Test,
@@ -267,6 +269,21 @@ export const levelsApi = {
 
   delete: async (id: number): Promise<void> => {
     await api.delete(`/levels/${id}`);
+  },
+
+  getPayments: async (id: number): Promise<LevelPaymentMatrix> => {
+    const response = await api.get<LevelPaymentMatrix>(`/levels/${id}/payments`);
+    return response.data;
+  },
+
+  updatePayments: async (
+    id: number,
+    payments: LevelPaymentUpdate[]
+  ): Promise<LevelPaymentMatrix> => {
+    const response = await api.put<LevelPaymentMatrix>(`/levels/${id}/payments`, {
+      payments,
+    });
+    return response.data;
   },
 };
 

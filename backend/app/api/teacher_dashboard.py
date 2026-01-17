@@ -13,6 +13,7 @@ from app.models import (
     Lesson,
     LessonStudent,
     LessonType,
+    LevelLessonTypePayment,
     Transaction,
     User,
 )
@@ -717,9 +718,9 @@ async def mark_attendance(
     Mark attendance for a lesson.
 
     Attendance statuses and their effects:
-    - present: Student attended, balance is charged
+    - present: Student attended, student balance is charged, teacher gets paid
     - absent_excused: Student absent with valid excuse, NO charge
-    - absent_unexcused: Student absent without excuse, balance is charged
+    - absent_unexcused: Student absent without excuse, student balance is charged, teacher gets paid
     """
     # Verify lesson belongs to this teacher
     result = await db.execute(
@@ -732,8 +733,12 @@ async def mark_attendance(
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
 
-    # Get lesson price
+    # Get lesson price (for student)
     price = lesson.lesson_type.price
+    lesson_type_id = lesson.lesson_type_id
+
+    # Get the teacher
+    teacher = await db.get(User, current_user.id)
 
     for attendance in data.attendances:
         # Get lesson_student record
@@ -764,12 +769,13 @@ async def mark_attendance(
         ]
 
         if should_charge and not was_charged:
-            # Charge student
+            # Get student with their level
             student = await db.get(User, attendance.student_id)
             if student:
+                # Charge student
                 student.balance -= price
 
-                # Create transaction
+                # Create student transaction (debit)
                 description = (
                     f"Урок: {lesson.title}"
                     if new_status == AttendanceStatus.PRESENT
@@ -784,6 +790,33 @@ async def mark_attendance(
                 )
                 db.add(transaction)
                 lesson_student.charged = True
+
+                # Pay teacher based on student's level and lesson type
+                if student.level_id and teacher:
+                    # Look up payment amount from matrix
+                    payment_result = await db.execute(
+                        select(LevelLessonTypePayment).where(
+                            and_(
+                                LevelLessonTypePayment.level_id == student.level_id,
+                                LevelLessonTypePayment.lesson_type_id == lesson_type_id,
+                            )
+                        )
+                    )
+                    payment_config = payment_result.scalar_one_or_none()
+
+                    if payment_config:
+                        teacher_payment = payment_config.teacher_payment
+                        teacher.balance += teacher_payment
+
+                        # Create teacher transaction (credit)
+                        teacher_transaction = Transaction(
+                            user_id=teacher.id,
+                            amount=teacher_payment,
+                            type=TransactionType.CREDIT,
+                            lesson_id=lesson_id,
+                            description=f"Оплата за урок: {lesson.title} ({student.name})",
+                        )
+                        db.add(teacher_transaction)
 
         elif not should_charge and was_charged:
             # Refund student (status changed from charged to excused)
@@ -801,6 +834,32 @@ async def mark_attendance(
                 )
                 db.add(transaction)
                 lesson_student.charged = False
+
+                # Reverse teacher payment
+                if student.level_id and teacher:
+                    payment_result = await db.execute(
+                        select(LevelLessonTypePayment).where(
+                            and_(
+                                LevelLessonTypePayment.level_id == student.level_id,
+                                LevelLessonTypePayment.lesson_type_id == lesson_type_id,
+                            )
+                        )
+                    )
+                    payment_config = payment_result.scalar_one_or_none()
+
+                    if payment_config:
+                        teacher_payment = payment_config.teacher_payment
+                        teacher.balance -= teacher_payment
+
+                        # Create teacher debit transaction (reversal)
+                        teacher_transaction = Transaction(
+                            user_id=teacher.id,
+                            amount=teacher_payment,
+                            type=TransactionType.DEBIT,
+                            lesson_id=lesson_id,
+                            description=f"Отмена оплаты за урок: {lesson.title} ({student.name})",
+                        )
+                        db.add(teacher_transaction)
 
     # Mark lesson as completed if all students have been marked
     all_marked_result = await db.execute(

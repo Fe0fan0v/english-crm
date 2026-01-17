@@ -9,6 +9,7 @@ from app.database import Base
 
 if TYPE_CHECKING:
     from app.models.lesson import Lesson
+    from app.models.level_lesson_type_payment import LevelLessonTypePayment
 
 
 class LessonType(Base):
@@ -25,4 +26,7 @@ class LessonType(Base):
     # Relationships
     lessons: Mapped[list["Lesson"]] = relationship(
         "Lesson", back_populates="lesson_type"
+    )
+    level_payments: Mapped[list["LevelLessonTypePayment"]] = relationship(
+        "LevelLessonTypePayment", back_populates="lesson_type", cascade="all, delete-orphan"
     )

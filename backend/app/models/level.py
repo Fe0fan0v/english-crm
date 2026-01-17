@@ -8,6 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 if TYPE_CHECKING:
+    from app.models.level_lesson_type_payment import LevelLessonTypePayment
     from app.models.user import User
 
 
@@ -24,3 +25,6 @@ class Level(Base):
 
     # Relationships
     users: Mapped[list["User"]] = relationship("User", back_populates="level")
+    lesson_type_payments: Mapped[list["LevelLessonTypePayment"]] = relationship(
+        "LevelLessonTypePayment", back_populates="level", cascade="all, delete-orphan"
+    )
