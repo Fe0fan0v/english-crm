@@ -6,7 +6,6 @@ import GroupChat from "../components/GroupChat";
 import type {
   StudentDashboardResponse,
   StudentLessonInfo,
-  StudentGroupSummary,
   StudentMaterialInfo,
   StudentTestInfo,
 } from "../types";

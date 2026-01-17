@@ -6,7 +6,6 @@ import AttendanceModal from "../components/AttendanceModal";
 import type {
   TeacherDashboardResponse,
   TeacherLesson,
-  TeacherGroupSummary,
   TeacherStudentInfo,
 } from "../types";
 
