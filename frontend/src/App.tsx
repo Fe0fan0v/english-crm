@@ -163,6 +163,14 @@ export default function App() {
         }
       />
       <Route
+        path="/teachers/:id"
+        element={
+          <ProtectedRoute>
+            <TeacherDashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/users"
         element={
           <ProtectedRoute>

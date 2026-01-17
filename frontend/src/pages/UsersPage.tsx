@@ -140,6 +140,7 @@ export default function UsersPage() {
               key={user.id}
               user={user}
               onProfile={() => navigate(`/users/${user.id}`)}
+              onSchedule={user.role === "teacher" ? () => navigate(`/teachers/${user.id}`) : undefined}
             />
           ))}
 
@@ -190,9 +191,10 @@ export default function UsersPage() {
 interface UserCardProps {
   user: User;
   onProfile: () => void;
+  onSchedule?: () => void;
 }
 
-function UserCard({ user, onProfile }: UserCardProps) {
+function UserCard({ user, onProfile, onSchedule }: UserCardProps) {
   return (
     <div className="card card-hover flex items-center gap-4 py-4">
       <Avatar name={user.name} photo={user.photo_url} size="lg" />
@@ -237,22 +239,43 @@ function UserCard({ user, onProfile }: UserCardProps) {
         </div>
       </div>
 
-      <button onClick={onProfile} className="btn btn-primary">
-        <svg
-          className="w-4 h-4"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-          />
-        </svg>
-        Профиль {user.role === "student" ? "ученика" : ""}
-      </button>
+      <div className="flex items-center gap-2">
+        {/* Schedule button for teachers */}
+        {user.role === "teacher" && onSchedule && (
+          <button onClick={onSchedule} className="btn btn-secondary">
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+            </svg>
+            Расписание
+          </button>
+        )}
+        <button onClick={onProfile} className="btn btn-primary">
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+            />
+          </svg>
+          Профиль
+        </button>
+      </div>
     </div>
   );
 }

@@ -382,12 +382,28 @@ export const teacherApi = {
     return response.data;
   },
 
+  // Manager can view specific teacher's dashboard
+  getDashboardByTeacherId: async (teacherId: number): Promise<TeacherDashboardResponse> => {
+    const response = await api.get<TeacherDashboardResponse>(`/teacher/dashboard/${teacherId}`);
+    return response.data;
+  },
+
   getSchedule: async (dateFrom: string, dateTo: string): Promise<TeacherLesson[]> => {
     const params = new URLSearchParams({
       date_from: dateFrom,
       date_to: dateTo,
     });
     const response = await api.get<TeacherLesson[]>(`/teacher/schedule?${params}`);
+    return response.data;
+  },
+
+  // Manager can view specific teacher's schedule
+  getScheduleByTeacherId: async (teacherId: number, dateFrom: string, dateTo: string): Promise<TeacherLesson[]> => {
+    const params = new URLSearchParams({
+      date_from: dateFrom,
+      date_to: dateTo,
+    });
+    const response = await api.get<TeacherLesson[]>(`/teacher/schedule/${teacherId}?${params}`);
     return response.data;
   },
 
@@ -398,6 +414,12 @@ export const teacherApi = {
 
   getStudents: async (): Promise<TeacherStudentInfo[]> => {
     const response = await api.get<TeacherStudentInfo[]>("/teacher/students");
+    return response.data;
+  },
+
+  // Manager can view specific teacher's students
+  getStudentsByTeacherId: async (teacherId: number): Promise<TeacherStudentInfo[]> => {
+    const response = await api.get<TeacherStudentInfo[]>(`/teacher/students/${teacherId}`);
     return response.data;
   },
 

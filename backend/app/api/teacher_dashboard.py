@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import and_, func, select
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import DBSession, TeacherOnlyUser
+from app.api.deps import DBSession, TeacherOnlyUser, ManagerUser
 from app.models import (
     AttendanceStatus,
     Group,
@@ -267,6 +267,243 @@ async def get_teacher_students(
         )
         for data in students_map.values()
     ]
+
+
+# ============ MANAGER ENDPOINTS (view teacher data) ============
+
+
+@router.get("/dashboard/{teacher_id}", response_model=TeacherDashboardResponse)
+async def get_teacher_dashboard_by_id(
+    teacher_id: int,
+    db: DBSession,
+    current_user: ManagerUser,
+):
+    """Manager can view specific teacher's dashboard."""
+    # Verify teacher exists
+    teacher = await db.get(User, teacher_id)
+    if not teacher or teacher.role.value != "teacher":
+        raise HTTPException(status_code=404, detail="Teacher not found")
+
+    now = datetime.utcnow()
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    # Count completed lessons this month
+    lessons_conducted_result = await db.execute(
+        select(func.count(Lesson.id)).where(
+            and_(
+                Lesson.teacher_id == teacher_id,
+                Lesson.status == LessonStatus.COMPLETED,
+                Lesson.scheduled_at >= month_start,
+            )
+        )
+    )
+    lessons_conducted = lessons_conducted_result.scalar() or 0
+
+    # Get teacher's groups
+    groups_result = await db.execute(
+        select(Group)
+        .where(and_(Group.teacher_id == teacher_id, Group.is_active == True))
+        .options(selectinload(Group.students))
+    )
+    groups = groups_result.scalars().all()
+
+    # Count unique students across all groups
+    student_ids = set()
+    for group in groups:
+        for gs in group.students:
+            student_ids.add(gs.student_id)
+    students_count = len(student_ids)
+
+    # Calculate workload
+    week_start = now - timedelta(days=now.weekday())
+    week_start = week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+    week_end = week_start + timedelta(days=7)
+
+    lessons_this_week_result = await db.execute(
+        select(func.count(Lesson.id)).where(
+            and_(
+                Lesson.teacher_id == teacher_id,
+                Lesson.scheduled_at >= week_start,
+                Lesson.scheduled_at < week_end,
+            )
+        )
+    )
+    lessons_this_week = lessons_this_week_result.scalar() or 0
+    workload_percentage = min((lessons_this_week / 40) * 100, 100)
+
+    # Get upcoming lessons
+    upcoming_result = await db.execute(
+        select(Lesson)
+        .where(
+            and_(
+                Lesson.teacher_id == teacher_id,
+                Lesson.scheduled_at >= now,
+                Lesson.status == LessonStatus.SCHEDULED,
+            )
+        )
+        .options(
+            selectinload(Lesson.students).selectinload(LessonStudent.student),
+            selectinload(Lesson.lesson_type),
+        )
+        .order_by(Lesson.scheduled_at)
+        .limit(10)
+    )
+    upcoming_lessons = upcoming_result.scalars().all()
+
+    # Build response
+    stats = TeacherStats(
+        lessons_conducted=lessons_conducted,
+        workload_percentage=round(workload_percentage, 1),
+        students_count=students_count,
+        groups_count=len(groups),
+    )
+
+    groups_summary = [
+        TeacherGroupSummary(
+            id=g.id,
+            name=g.name,
+            students_count=len(g.students),
+        )
+        for g in groups
+    ]
+
+    lessons_list = []
+    for lesson in upcoming_lessons:
+        students = [
+            TeacherLessonStudent(
+                id=ls.student.id,
+                name=ls.student.name,
+                attendance_status=ls.attendance_status,
+                charged=ls.charged,
+            )
+            for ls in lesson.students
+        ]
+        lessons_list.append(
+            TeacherLesson(
+                id=lesson.id,
+                title=lesson.title,
+                group_id=None,
+                group_name=None,
+                lesson_type_id=lesson.lesson_type_id,
+                lesson_type_name=lesson.lesson_type.name,
+                lesson_type_price=lesson.lesson_type.price,
+                scheduled_at=lesson.scheduled_at,
+                meeting_url=lesson.meeting_url,
+                status=lesson.status,
+                students=students,
+            )
+        )
+
+    return TeacherDashboardResponse(
+        stats=stats,
+        upcoming_lessons=lessons_list,
+        groups=groups_summary,
+    )
+
+
+@router.get("/schedule/{teacher_id}", response_model=list[TeacherLesson])
+async def get_teacher_schedule_by_id(
+    teacher_id: int,
+    db: DBSession,
+    current_user: ManagerUser,
+    date_from: datetime,
+    date_to: datetime,
+):
+    """Manager can view specific teacher's schedule."""
+    # Verify teacher exists
+    teacher = await db.get(User, teacher_id)
+    if not teacher or teacher.role.value != "teacher":
+        raise HTTPException(status_code=404, detail="Teacher not found")
+
+    result = await db.execute(
+        select(Lesson)
+        .where(
+            and_(
+                Lesson.teacher_id == teacher_id,
+                Lesson.scheduled_at >= date_from,
+                Lesson.scheduled_at <= date_to,
+            )
+        )
+        .options(
+            selectinload(Lesson.students).selectinload(LessonStudent.student),
+            selectinload(Lesson.lesson_type),
+        )
+        .order_by(Lesson.scheduled_at)
+    )
+    lessons = result.scalars().all()
+
+    return [
+        TeacherLesson(
+            id=lesson.id,
+            title=lesson.title,
+            group_id=None,
+            group_name=None,
+            lesson_type_id=lesson.lesson_type_id,
+            lesson_type_name=lesson.lesson_type.name,
+            lesson_type_price=lesson.lesson_type.price,
+            scheduled_at=lesson.scheduled_at,
+            meeting_url=lesson.meeting_url,
+            status=lesson.status,
+            students=[
+                TeacherLessonStudent(
+                    id=ls.student.id,
+                    name=ls.student.name,
+                    attendance_status=ls.attendance_status,
+                    charged=ls.charged,
+                )
+                for ls in lesson.students
+            ],
+        )
+        for lesson in lessons
+    ]
+
+
+@router.get("/students/{teacher_id}", response_model=list[TeacherStudentInfo])
+async def get_teacher_students_by_id(
+    teacher_id: int,
+    db: DBSession,
+    current_user: ManagerUser,
+):
+    """Manager can view specific teacher's students."""
+    # Verify teacher exists
+    teacher = await db.get(User, teacher_id)
+    if not teacher or teacher.role.value != "teacher":
+        raise HTTPException(status_code=404, detail="Teacher not found")
+
+    # Get groups
+    groups_result = await db.execute(
+        select(Group)
+        .where(and_(Group.teacher_id == teacher_id, Group.is_active == True))
+        .options(selectinload(Group.students).selectinload(GroupStudent.student))
+    )
+    groups = groups_result.scalars().all()
+
+    # Collect students with their groups
+    students_map: dict[int, dict] = {}
+    for group in groups:
+        for gs in group.students:
+            student = gs.student
+            if student.id not in students_map:
+                students_map[student.id] = {
+                    "student": student,
+                    "group_names": [],
+                }
+            students_map[student.id]["group_names"].append(group.name)
+
+    return [
+        TeacherStudentInfo(
+            id=data["student"].id,
+            name=data["student"].name,
+            email=data["student"].email,
+            phone=data["student"].phone,
+            balance=data["student"].balance,
+            group_names=data["group_names"],
+        )
+        for data in students_map.values()
+    ]
+
+
+# ============ TEACHER LESSON ENDPOINTS ============
 
 
 @router.get("/lessons/{lesson_id}", response_model=TeacherLesson)

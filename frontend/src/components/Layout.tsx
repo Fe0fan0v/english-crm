@@ -295,10 +295,12 @@ export default function Layout({ children }: LayoutProps) {
       {/* Sidebar */}
       <aside className="fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-100 flex flex-col">
         {/* Logo */}
-        <div className="p-6">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-500 to-purple-500 bg-clip-text text-transparent">
-            EngCRM
-          </h1>
+        <div className="p-6 flex items-center justify-center">
+          <img
+            src="/logo1.png"
+            alt="Just Speak It"
+            className="h-8"
+          />
         </div>
 
         {/* Navigation */}

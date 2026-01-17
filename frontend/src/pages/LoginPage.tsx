@@ -25,10 +25,12 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-cyan-500 to-purple-500 bg-clip-text text-transparent">
-            EngCRM
-          </h1>
-          <p className="text-gray-500 mt-2">
+          <img
+            src="/logo2.png"
+            alt="Just Speak It - English Courses"
+            className="w-40 h-40 mx-auto"
+          />
+          <p className="text-gray-500 mt-4">
             Система управления образовательным центром
           </p>
         </div>
@@ -167,7 +169,7 @@ export default function LoginPage() {
 
         {/* Footer */}
         <p className="text-center text-gray-400 text-sm mt-6">
-          &copy; 2025 EngCRM. Все права защищены.
+          &copy; 2025 Just Speak It. Все права защищены.
         </p>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { teacherApi } from "../services/api";
+import { useParams, useNavigate } from "react-router-dom";
+import { teacherApi, usersApi } from "../services/api";
 import { useAuthStore } from "../store/authStore";
 import Avatar from "../components/Avatar";
 import AttendanceModal from "../components/AttendanceModal";
@@ -7,6 +8,7 @@ import type {
   TeacherDashboardResponse,
   TeacherLesson,
   TeacherStudentInfo,
+  User,
 } from "../types";
 
 type TabType = "info" | "groups" | "students" | "materials";
@@ -59,8 +61,16 @@ const dayNames = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 const timeSlots = Array.from({ length: 14 }, (_, i) => i + 8); // 8:00 - 21:00
 
 export default function TeacherDashboardPage() {
-  const { user } = useAuthStore();
+  const { id: teacherIdParam } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { user: currentUser } = useAuthStore();
+
+  // If viewing another teacher (manager mode)
+  const isManagerView = !!teacherIdParam;
+  const teacherId = teacherIdParam ? parseInt(teacherIdParam) : undefined;
+
   const [data, setData] = useState<TeacherDashboardResponse | null>(null);
+  const [teacher, setTeacher] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>("info");
   const [currentWeek, setCurrentWeek] = useState(new Date());
@@ -69,13 +79,25 @@ export default function TeacherDashboardPage() {
   const [selectedLesson, setSelectedLesson] = useState<TeacherLesson | null>(null);
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
 
+  // Determine which user to display
+  const displayUser = isManagerView ? teacher : currentUser;
+
   const weekDates = useMemo(() => getWeekDates(currentWeek), [currentWeek]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await teacherApi.getDashboard();
-        setData(response);
+        if (isManagerView && teacherId) {
+          // Manager viewing teacher - fetch teacher data
+          const teacherData = await usersApi.get(teacherId);
+          setTeacher(teacherData);
+          const response = await teacherApi.getDashboardByTeacherId(teacherId);
+          setData(response);
+        } else {
+          // Teacher viewing own dashboard
+          const response = await teacherApi.getDashboard();
+          setData(response);
+        }
       } catch (error) {
         console.error("Failed to fetch dashboard:", error);
       } finally {
@@ -83,27 +105,31 @@ export default function TeacherDashboardPage() {
       }
     };
     fetchData();
-  }, []);
+  }, [isManagerView, teacherId]);
 
   useEffect(() => {
     const fetchSchedule = async () => {
       const dateFrom = weekDates[0].toISOString();
       const dateTo = weekDates[6].toISOString();
       try {
-        const lessons = await teacherApi.getSchedule(dateFrom, dateTo);
+        const lessons = isManagerView && teacherId
+          ? await teacherApi.getScheduleByTeacherId(teacherId, dateFrom, dateTo)
+          : await teacherApi.getSchedule(dateFrom, dateTo);
         setSchedule(lessons);
       } catch (error) {
         console.error("Failed to fetch schedule:", error);
       }
     };
     fetchSchedule();
-  }, [weekDates]);
+  }, [weekDates, isManagerView, teacherId]);
 
   useEffect(() => {
     if (activeTab === "students") {
       const fetchStudents = async () => {
         try {
-          const result = await teacherApi.getStudents();
+          const result = isManagerView && teacherId
+            ? await teacherApi.getStudentsByTeacherId(teacherId)
+            : await teacherApi.getStudents();
           setStudents(result);
         } catch (error) {
           console.error("Failed to fetch students:", error);
@@ -111,7 +137,7 @@ export default function TeacherDashboardPage() {
       };
       fetchStudents();
     }
-  }, [activeTab]);
+  }, [activeTab, isManagerView, teacherId]);
 
   const handleLessonClick = (lesson: TeacherLesson) => {
     setSelectedLesson(lesson);
@@ -123,11 +149,20 @@ export default function TeacherDashboardPage() {
     // Refresh schedule
     const dateFrom = weekDates[0].toISOString();
     const dateTo = weekDates[6].toISOString();
-    const lessons = await teacherApi.getSchedule(dateFrom, dateTo);
+    const lessons = isManagerView && teacherId
+      ? await teacherApi.getScheduleByTeacherId(teacherId, dateFrom, dateTo)
+      : await teacherApi.getSchedule(dateFrom, dateTo);
     setSchedule(lessons);
     // Refresh dashboard
-    const response = await teacherApi.getDashboard();
+    const response = isManagerView && teacherId
+      ? await teacherApi.getDashboardByTeacherId(teacherId)
+      : await teacherApi.getDashboard();
     setData(response);
+    // Refresh teacher data if manager view
+    if (isManagerView && teacherId) {
+      const teacherData = await usersApi.get(teacherId);
+      setTeacher(teacherData);
+    }
   };
 
   const getLessonsForSlot = (date: Date, hour: number): TeacherLesson[] => {
@@ -166,27 +201,55 @@ export default function TeacherDashboardPage() {
 
   return (
     <div>
+      {/* Back button for manager view */}
+      {isManagerView && (
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-2 text-gray-600 hover:text-gray-800 mb-4"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Назад
+        </button>
+      )}
+
       {/* Profile Header */}
       <div className="card mb-6">
         <div className="flex items-start gap-6">
-          <Avatar name={user?.name || ""} photo={user?.photo_url} size="xl" />
+          <Avatar name={displayUser?.name || ""} photo={displayUser?.photo_url} size="xl" />
           <div className="flex-1">
-            <h1 className="text-2xl font-bold text-gray-800">{user?.name}</h1>
-            <div className="flex items-center gap-4 mt-2 text-gray-500">
-              {user?.phone && (
-                <span className="flex items-center gap-1">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                  </svg>
-                  {user.phone}
-                </span>
-              )}
-              <span className="flex items-center gap-1">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-                {user?.email}
-              </span>
+            <div className="flex items-start justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-800">{displayUser?.name}</h1>
+                <div className="flex items-center gap-4 mt-2 text-gray-500">
+                  {displayUser?.phone && (
+                    <span className="flex items-center gap-1">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                      </svg>
+                      {displayUser.phone}
+                    </span>
+                  )}
+                  <span className="flex items-center gap-1">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    {displayUser?.email}
+                  </span>
+                </div>
+              </div>
+              {/* Balance */}
+              <div className="text-right">
+                <p className="text-sm text-gray-500">Баланс</p>
+                <p
+                  className={`text-2xl font-bold ${
+                    parseFloat(displayUser?.balance || "0") >= 0 ? "text-green-600" : "text-red-600"
+                  }`}
+                >
+                  {parseFloat(displayUser?.balance || "0").toLocaleString("ru-RU")} тг
+                </p>
+              </div>
             </div>
           </div>
         </div>
