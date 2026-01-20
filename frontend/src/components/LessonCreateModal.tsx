@@ -14,6 +14,7 @@ export interface LessonFormData {
   teacher_id?: number;
   lesson_type_id: number;
   scheduled_at: string;
+  duration_minutes: number;
   meeting_url?: string;
   group_id?: number;
   student_ids: number[];
@@ -30,6 +31,7 @@ export default function LessonCreateModal({
   const [lessonTypeId, setLessonTypeId] = useState<number | "">("");
   const [scheduledDate, setScheduledDate] = useState("");
   const [scheduledTime, setScheduledTime] = useState("10:00");
+  const [durationMinutes, setDurationMinutes] = useState(60);
   const [meetingUrl, setMeetingUrl] = useState("");
   const [groupId, setGroupId] = useState<number | "">("");
   const [selectedStudentIds, setSelectedStudentIds] = useState<number[]>([]);
@@ -108,6 +110,7 @@ export default function LessonCreateModal({
         teacher_id: selectedTeacherId,
         lesson_type_id: Number(lessonTypeId),
         scheduled_at: scheduledAt,
+        duration_minutes: durationMinutes,
         meeting_url: meetingUrl.trim() || undefined,
         group_id: groupId ? Number(groupId) : undefined,
         student_ids: selectedStudentIds,
@@ -215,8 +218,8 @@ export default function LessonCreateModal({
               </select>
             </div>
 
-            {/* Date and Time */}
-            <div className="grid grid-cols-2 gap-4">
+            {/* Date, Time and Duration */}
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Дата *
@@ -239,20 +242,39 @@ export default function LessonCreateModal({
                   className="input w-full"
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Длительность *
+                </label>
+                <select
+                  value={durationMinutes}
+                  onChange={(e) => setDurationMinutes(Number(e.target.value))}
+                  className="input w-full"
+                >
+                  <option value={30}>30 мин</option>
+                  <option value={45}>45 мин</option>
+                  <option value={60}>1 час</option>
+                  <option value={90}>1.5 часа</option>
+                  <option value={120}>2 часа</option>
+                </select>
+              </div>
             </div>
 
             {/* Meeting URL */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Ссылка на урок (Zoom, Google Meet и т.д.)
+                Ссылка на урок
               </label>
               <input
                 type="url"
                 value={meetingUrl}
                 onChange={(e) => setMeetingUrl(e.target.value)}
                 className="input w-full"
-                placeholder="https://zoom.us/j/..."
+                placeholder="https://telemost.yandex.ru/..."
               />
+              <p className="text-xs text-gray-400 mt-1">
+                В будущем ссылка будет создаваться автоматически
+              </p>
             </div>
 
             {/* Group */}

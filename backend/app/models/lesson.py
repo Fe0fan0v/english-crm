@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum as PyEnum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, func
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -40,6 +40,7 @@ class Lesson(Base):
         ForeignKey("lesson_types.id"), nullable=False
     )
     scheduled_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=60)
     meeting_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     status: Mapped[LessonStatus] = mapped_column(
         Enum(LessonStatus, values_callable=lambda x: [e.value for e in x]),

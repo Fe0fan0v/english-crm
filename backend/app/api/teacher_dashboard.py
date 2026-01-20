@@ -147,6 +147,7 @@ async def get_teacher_dashboard(
                 lesson_type_name=lesson.lesson_type.name,
                 lesson_type_price=lesson.lesson_type.price,
                 scheduled_at=lesson.scheduled_at,
+                duration_minutes=lesson.duration_minutes,
                 meeting_url=lesson.meeting_url,
                 status=lesson.status,
                 students=students,
@@ -195,6 +196,7 @@ async def get_teacher_schedule(
             lesson_type_name=lesson.lesson_type.name,
             lesson_type_price=lesson.lesson_type.price,
             scheduled_at=lesson.scheduled_at,
+            duration_minutes=lesson.duration_minutes,
             meeting_url=lesson.meeting_url,
             status=lesson.status,
             students=[
@@ -392,6 +394,7 @@ async def get_teacher_dashboard_by_id(
                 lesson_type_name=lesson.lesson_type.name,
                 lesson_type_price=lesson.lesson_type.price,
                 scheduled_at=lesson.scheduled_at,
+                duration_minutes=lesson.duration_minutes,
                 meeting_url=lesson.meeting_url,
                 status=lesson.status,
                 students=students,
@@ -446,6 +449,7 @@ async def get_teacher_schedule_by_id(
             lesson_type_name=lesson.lesson_type.name,
             lesson_type_price=lesson.lesson_type.price,
             scheduled_at=lesson.scheduled_at,
+            duration_minutes=lesson.duration_minutes,
             meeting_url=lesson.meeting_url,
             status=lesson.status,
             students=[
@@ -539,6 +543,7 @@ async def get_teacher_lesson(
         lesson_type_name=lesson.lesson_type.name,
         lesson_type_price=lesson.lesson_type.price,
         scheduled_at=lesson.scheduled_at,
+        duration_minutes=lesson.duration_minutes,
         meeting_url=lesson.meeting_url,
         status=lesson.status,
         students=[
@@ -615,6 +620,7 @@ async def create_teacher_lesson(
         group_id=data.group_id,
         lesson_type_id=data.lesson_type_id,
         scheduled_at=data.scheduled_at,
+        duration_minutes=data.duration_minutes,
         meeting_url=data.meeting_url,
         status=LessonStatus.SCHEDULED,
     )
@@ -656,6 +662,7 @@ async def create_teacher_lesson(
         lesson_type_name=lesson.lesson_type.name,
         lesson_type_price=lesson.lesson_type.price,
         scheduled_at=lesson.scheduled_at,
+        duration_minutes=lesson.duration_minutes,
         meeting_url=lesson.meeting_url,
         status=lesson.status,
         students=[
@@ -749,6 +756,7 @@ async def update_teacher_lesson(
         lesson_type_name=lesson.lesson_type.name,
         lesson_type_price=lesson.lesson_type.price,
         scheduled_at=lesson.scheduled_at,
+        duration_minutes=lesson.duration_minutes,
         meeting_url=lesson.meeting_url,
         status=lesson.status,
         students=[

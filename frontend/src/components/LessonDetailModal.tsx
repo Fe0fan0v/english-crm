@@ -69,22 +69,6 @@ export default function LessonDetailModal({
     }
   };
 
-  const handleCompleteLesson = async () => {
-    if (!lesson) return;
-
-    try {
-      setIsCancelling(true);
-      await lessonsApi.updateLesson(lessonId, { status: "completed" });
-      onUpdate();
-      await loadLesson();
-    } catch (err) {
-      console.error("Failed to complete lesson:", err);
-      setError("Не удалось завершить урок");
-    } finally {
-      setIsCancelling(false);
-    }
-  };
-
   const handleAttendanceChange = async (studentId: number, status: AttendanceStatus) => {
     try {
       setUpdatingStudentId(studentId);
@@ -164,7 +148,7 @@ export default function LessonDetailModal({
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  {formatDateTime(lesson.scheduled_at)}
+                  {formatDateTime(lesson.scheduled_at)} ({lesson.duration_minutes} мин)
                 </div>
                 <div className="flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -303,19 +287,15 @@ export default function LessonDetailModal({
           <div className="flex gap-3">
             {lesson.status === "scheduled" && (
               <>
-                <button
-                  onClick={handleCompleteLesson}
-                  disabled={isCancelling}
-                  className="btn btn-primary flex-1"
-                >
-                  {isCancelling ? "Сохранение..." : "Завершить урок"}
+                <button onClick={onClose} className="btn btn-secondary flex-1">
+                  Закрыть
                 </button>
                 <button
                   onClick={handleCancelLesson}
                   disabled={isCancelling}
                   className="btn bg-red-500 text-white hover:bg-red-600 flex-1"
                 >
-                  {isCancelling ? "..." : "Отменить урок"}
+                  {isCancelling ? "Отмена..." : "Отменить урок"}
                 </button>
               </>
             )}

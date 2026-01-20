@@ -178,6 +178,7 @@ export default function TeacherDashboardPage() {
       title: formData.title,
       lesson_type_id: formData.lesson_type_id,
       scheduled_at: formData.scheduled_at,
+      duration_minutes: formData.duration_minutes,
       meeting_url: formData.meeting_url,
       group_id: formData.group_id,
       student_ids: formData.student_ids,

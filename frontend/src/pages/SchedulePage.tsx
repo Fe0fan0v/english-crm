@@ -200,6 +200,7 @@ export default function SchedulePage() {
       teacher_id: data.teacher_id,
       lesson_type_id: data.lesson_type_id,
       scheduled_at: data.scheduled_at,
+      duration_minutes: data.duration_minutes,
       meeting_url: data.meeting_url,
       group_id: data.group_id,
       student_ids: data.student_ids,

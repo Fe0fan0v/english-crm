@@ -402,6 +402,7 @@ export const lessonsApi = {
     teacher_id: number;
     lesson_type_id: number;
     scheduled_at: string;
+    duration_minutes?: number;
     meeting_url?: string;
     group_id?: number;
     student_ids?: number[];
@@ -495,6 +496,7 @@ export const teacherApi = {
     title: string;
     lesson_type_id: number;
     scheduled_at: string;
+    duration_minutes?: number;
     meeting_url?: string;
     group_id?: number;
     student_ids?: number[];

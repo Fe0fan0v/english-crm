@@ -10,6 +10,7 @@ class LessonBase(BaseModel):
     teacher_id: int
     lesson_type_id: int
     scheduled_at: datetime
+    duration_minutes: int = Field(default=60, ge=15, le=480)  # 15 min to 8 hours
     meeting_url: str | None = None
     group_id: int | None = None
 
@@ -23,6 +24,7 @@ class LessonUpdate(BaseModel):
     teacher_id: int | None = None
     lesson_type_id: int | None = None
     scheduled_at: datetime | None = None
+    duration_minutes: int | None = Field(None, ge=15, le=480)
     meeting_url: str | None = None
     group_id: int | None = None
     status: LessonStatus | None = None
@@ -59,6 +61,7 @@ class LessonResponse(BaseModel):
     lesson_type_id: int
     lesson_type_name: str
     scheduled_at: datetime
+    duration_minutes: int
     meeting_url: str | None
     status: LessonStatus
     students: list[StudentInfo]
@@ -83,5 +86,6 @@ class ScheduleLesson(BaseModel):
     group_name: str | None
     lesson_type_name: str
     scheduled_at: datetime
+    duration_minutes: int
     status: LessonStatus
     students_count: int

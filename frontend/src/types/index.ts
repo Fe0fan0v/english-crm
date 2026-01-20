@@ -179,6 +179,7 @@ export interface ScheduleLesson {
   teacher_name: string;
   lesson_type_name: string;
   scheduled_at: string;
+  duration_minutes: number;
   status: LessonStatus;
   students_count: number;
 }
@@ -203,6 +204,7 @@ export interface LessonDetail {
   lesson_type_id: number;
   lesson_type_name: string;
   scheduled_at: string;
+  duration_minutes: number;
   meeting_url: string | null;
   status: LessonStatus;
   students: LessonStudentDetail[];
@@ -317,6 +319,7 @@ export interface TeacherLesson {
   lesson_type_name: string;
   lesson_type_price: string;
   scheduled_at: string;
+  duration_minutes: number;
   meeting_url: string | null;
   status: LessonStatus;
   students: TeacherLessonStudent[];

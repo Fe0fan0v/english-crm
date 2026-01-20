@@ -69,6 +69,7 @@ class TeacherLesson(BaseModel):
     lesson_type_name: str
     lesson_type_price: Decimal
     scheduled_at: datetime
+    duration_minutes: int
     meeting_url: str | None
     status: LessonStatus
     students: list[TeacherLessonStudent]

@@ -48,6 +48,7 @@ def build_lesson_response(lesson: Lesson) -> LessonResponse:
         lesson_type_id=lesson.lesson_type_id,
         lesson_type_name=lesson.lesson_type.name,
         scheduled_at=lesson.scheduled_at,
+        duration_minutes=lesson.duration_minutes,
         meeting_url=lesson.meeting_url,
         status=lesson.status,
         students=students,
@@ -212,6 +213,19 @@ async def get_schedule(
     result = await db.execute(query)
     lessons = result.scalars().all()
 
+    # Auto-complete lessons that have ended
+    now = datetime.utcnow()
+    lessons_to_complete = []
+    for lesson in lessons:
+        if lesson.status == LessonStatus.SCHEDULED:
+            lesson_end = lesson.scheduled_at + timedelta(minutes=lesson.duration_minutes)
+            if now >= lesson_end:
+                lesson.status = LessonStatus.COMPLETED
+                lessons_to_complete.append(lesson)
+
+    if lessons_to_complete:
+        await db.commit()
+
     return [
         ScheduleLesson(
             id=lesson.id,
@@ -222,6 +236,7 @@ async def get_schedule(
             group_name=lesson.group.name if lesson.group else None,
             lesson_type_name=lesson.lesson_type.name,
             scheduled_at=lesson.scheduled_at,
+            duration_minutes=lesson.duration_minutes,
             status=lesson.status,
             students_count=len(lesson.students),
         )
@@ -253,6 +268,15 @@ async def get_lesson(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Lesson not found",
         )
+
+    # Auto-complete lesson if ended
+    if lesson.status == LessonStatus.SCHEDULED:
+        now = datetime.utcnow()
+        lesson_end = lesson.scheduled_at + timedelta(minutes=lesson.duration_minutes)
+        if now >= lesson_end:
+            lesson.status = LessonStatus.COMPLETED
+            await db.commit()
+            await db.refresh(lesson)
 
     return build_lesson_response(lesson)
 
@@ -331,6 +355,7 @@ async def create_lesson(
         group_id=data.group_id,
         lesson_type_id=data.lesson_type_id,
         scheduled_at=data.scheduled_at,
+        duration_minutes=data.duration_minutes,
         meeting_url=data.meeting_url,
         status=LessonStatus.SCHEDULED,
     )
