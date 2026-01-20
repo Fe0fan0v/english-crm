@@ -607,6 +607,13 @@ async def create_teacher_lesson(
         group_student_ids = [gs.student_id for gs in group_students]
         student_ids = list(set(student_ids + group_student_ids))
 
+    # Validate that at least one student is assigned
+    if not student_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Необходимо выбрать хотя бы одного ученика",
+        )
+
     # Check students conflicts
     if student_ids:
         student_conflicts = await check_students_conflict(db, student_ids, data.scheduled_at)

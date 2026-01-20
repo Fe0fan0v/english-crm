@@ -101,6 +101,10 @@ export default function LessonCreateModal({
       setError("Выберите преподавателя");
       return;
     }
+    if (selectedStudentIds.length === 0 && !groupId) {
+      setError("Выберите хотя бы одного ученика или группу");
+      return;
+    }
 
     setIsLoading(true);
     try {

@@ -342,6 +342,13 @@ async def create_lesson(
         # Merge with any additional students from request
         student_ids = list(set(student_ids + group_student_ids))
 
+    # Validate that at least one student is assigned
+    if not student_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Необходимо выбрать хотя бы одного ученика",
+        )
+
     # Check students conflicts
     if student_ids:
         student_conflicts = await check_students_conflict(db, student_ids, data.scheduled_at)
