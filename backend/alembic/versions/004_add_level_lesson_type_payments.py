@@ -1,7 +1,7 @@
 """Add level_lesson_type_payments table
 
-Revision ID: 004
-Revises: 003
+Revision ID: 004_add_level_lesson_type_payments
+Revises: 003_add_group_messages
 Create Date: 2026-01-17
 
 """
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '004'
-down_revision: Union[str, None] = '003'
+revision: str = '004_add_level_lesson_type_payments'
+down_revision: Union[str, None] = '003_add_group_messages'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
