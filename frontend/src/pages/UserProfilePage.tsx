@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { usersApi } from '../services/api';
-import type { User, UserGroup, Transaction, TransactionListResponse } from '../types';
+import { usersApi, levelsApi } from '../services/api';
+import type { User, UserGroup, Transaction, TransactionListResponse, Level } from '../types';
 import Avatar from '../components/Avatar';
 import BalanceChangeModal from '../components/BalanceChangeModal';
 import EditUserModal, { type EditUserData } from '../components/EditUserModal';
@@ -20,6 +20,7 @@ export default function UserProfilePage() {
   const [transactionsPage, setTransactionsPage] = useState(1);
   const [isBalanceModalOpen, setIsBalanceModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [levels, setLevels] = useState<Level[]>([]);
 
   const fetchUser = async () => {
     if (!id) return;
@@ -54,10 +55,27 @@ export default function UserProfilePage() {
     }
   };
 
+  const fetchLevels = async () => {
+    try {
+      const data = await levelsApi.list();
+      setLevels(data.items);
+    } catch (error) {
+      console.error('Failed to fetch levels:', error);
+    }
+  };
+
   useEffect(() => {
     fetchUser();
     fetchGroups();
+    fetchLevels();
   }, [id]);
+
+  // Helper to get level name by ID
+  const getLevelName = (levelId: number | null) => {
+    if (!levelId) return '—';
+    const level = levels.find((l) => l.id === levelId);
+    return level?.name || '—';
+  };
 
   useEffect(() => {
     if (activeTab === 'transactions') {
@@ -311,6 +329,12 @@ export default function UserProfilePage() {
               <label className="block text-sm text-gray-500 mb-1">Роль</label>
               <p className="text-gray-800 font-medium">{getRoleLabel(user.role)}</p>
             </div>
+            {(isStudent || isTeacher) && (
+              <div>
+                <label className="block text-sm text-gray-500 mb-1">Уровень</label>
+                <p className="text-gray-800 font-medium">{getLevelName(user.level_id)}</p>
+              </div>
+            )}
             {isStudent && (
               <div>
                 <label className="block text-sm text-gray-500 mb-1">Баланс</label>

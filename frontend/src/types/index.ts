@@ -423,3 +423,24 @@ export interface NotificationListResponse {
 export interface UnreadCountResponse {
   count: number;
 }
+
+// Teacher Availability
+export type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+
+export interface TeacherAvailability {
+  id: number;
+  teacher_id: number;
+  day_of_week: DayOfWeek;
+  start_time: string;
+  end_time: string;
+}
+
+export interface TeacherAvailabilityListResponse {
+  items: TeacherAvailability[];
+}
+
+export interface TeacherAvailabilityCreate {
+  day_of_week: DayOfWeek;
+  start_time: string;
+  end_time: string;
+}

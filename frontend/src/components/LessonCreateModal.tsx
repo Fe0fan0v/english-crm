@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { lessonTypesApi, groupsApi, usersApi } from "../services/api";
+import SearchableSelect, { type SearchableSelectOption } from "./SearchableSelect";
 import type { LessonType, Group, User } from "../types";
 
 interface LessonCreateModalProps {
@@ -7,6 +8,8 @@ interface LessonCreateModalProps {
   onSubmit: (data: LessonFormData) => Promise<void>;
   teacherId?: number; // Pre-selected teacher (for teacher dashboard)
   teachers?: User[]; // List of teachers (for admin/manager)
+  prefillDate?: string; // Pre-fill date (YYYY-MM-DD)
+  prefillTime?: string; // Pre-fill time (HH:mm)
 }
 
 export interface LessonFormData {
@@ -25,15 +28,16 @@ export default function LessonCreateModal({
   onSubmit,
   teacherId,
   teachers,
+  prefillDate,
+  prefillTime,
 }: LessonCreateModalProps) {
   const [title, setTitle] = useState("");
   const [selectedTeacherId, setSelectedTeacherId] = useState<number | undefined>(teacherId);
   const [lessonTypeId, setLessonTypeId] = useState<number | "">("");
-  const [scheduledDate, setScheduledDate] = useState("");
-  const [scheduledTime, setScheduledTime] = useState("10:00");
+  const [scheduledDate, setScheduledDate] = useState(prefillDate || "");
+  const [scheduledTime, setScheduledTime] = useState(prefillTime || "10:00");
   const [durationMinutes, setDurationMinutes] = useState(60);
-  const [meetingUrl, setMeetingUrl] = useState("");
-  const [groupId, setGroupId] = useState<number | "">("");
+  const [groupId, setGroupId] = useState<number | null>(null);
   const [selectedStudentIds, setSelectedStudentIds] = useState<number[]>([]);
 
   const [lessonTypes, setLessonTypes] = useState<LessonType[]>([]);
@@ -68,10 +72,10 @@ export default function LessonCreateModal({
 
   // When group is selected, load its students
   useEffect(() => {
-    if (groupId) {
+    if (groupId !== null) {
       const loadGroupStudents = async () => {
         try {
-          const group = await groupsApi.get(Number(groupId));
+          const group = await groupsApi.get(groupId);
           setSelectedStudentIds(group.students.map((s) => s.student_id));
         } catch (err) {
           console.error("Failed to load group students:", err);
@@ -80,6 +84,24 @@ export default function LessonCreateModal({
       loadGroupStudents();
     }
   }, [groupId]);
+
+  // Convert groups to SearchableSelect options
+  const groupOptions: SearchableSelectOption[] = useMemo(() => {
+    return groups.map((group) => ({
+      value: group.id,
+      label: group.name,
+      description: `${group.students_count} уч.`,
+    }));
+  }, [groups]);
+
+  // Convert students to SearchableSelect options
+  const studentOptions: SearchableSelectOption[] = useMemo(() => {
+    return students.map((student) => ({
+      value: student.id,
+      label: student.name,
+      description: student.email,
+    }));
+  }, [students]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,7 +123,7 @@ export default function LessonCreateModal({
       setError("Выберите преподавателя");
       return;
     }
-    if (selectedStudentIds.length === 0 && !groupId) {
+    if (selectedStudentIds.length === 0 && groupId === null) {
       setError("Выберите хотя бы одного ученика или группу");
       return;
     }
@@ -115,8 +137,7 @@ export default function LessonCreateModal({
         lesson_type_id: Number(lessonTypeId),
         scheduled_at: scheduledAt,
         duration_minutes: durationMinutes,
-        meeting_url: meetingUrl.trim() || undefined,
-        group_id: groupId ? Number(groupId) : undefined,
+        group_id: groupId !== null ? groupId : undefined,
         student_ids: selectedStudentIds,
       });
       onClose();
@@ -128,20 +149,14 @@ export default function LessonCreateModal({
     }
   };
 
-  const toggleStudent = (studentId: number) => {
-    setSelectedStudentIds((prev) =>
-      prev.includes(studentId)
-        ? prev.filter((id) => id !== studentId)
-        : [...prev, studentId]
-    );
-  };
-
-  // Set default date to tomorrow
+  // Set default date to tomorrow if not prefilled
   useEffect(() => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    setScheduledDate(tomorrow.toISOString().split("T")[0]);
-  }, []);
+    if (!prefillDate) {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      setScheduledDate(tomorrow.toISOString().split("T")[0]);
+    }
+  }, [prefillDate]);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -264,75 +279,31 @@ export default function LessonCreateModal({
               </div>
             </div>
 
-            {/* Meeting URL */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Ссылка на урок
-              </label>
-              <input
-                type="url"
-                value={meetingUrl}
-                onChange={(e) => setMeetingUrl(e.target.value)}
-                className="input w-full"
-                placeholder="https://telemost.yandex.ru/..."
-              />
-              <p className="text-xs text-gray-400 mt-1">
-                В будущем ссылка будет создаваться автоматически
-              </p>
-            </div>
-
             {/* Group */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Группа (опционально)
               </label>
-              <select
+              <SearchableSelect
+                options={groupOptions}
                 value={groupId}
-                onChange={(e) => setGroupId(e.target.value ? Number(e.target.value) : "")}
-                className="input w-full"
-              >
-                <option value="">Без группы (индивидуальный)</option>
-                {groups.map((group) => (
-                  <option key={group.id} value={group.id}>
-                    {group.name} ({group.students_count} уч.)
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setGroupId(val as number | null)}
+                placeholder="Без группы (индивидуальный)"
+              />
             </div>
 
             {/* Students */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Ученики {groupId ? "(из группы)" : ""}
+                Ученики {groupId !== null ? "(из группы)" : "*"}
               </label>
-              <div className="border border-gray-200 rounded-xl p-3 max-h-40 overflow-y-auto">
-                {students.length === 0 ? (
-                  <p className="text-gray-500 text-sm">Нет учеников</p>
-                ) : (
-                  <div className="space-y-2">
-                    {students.map((student) => (
-                      <label
-                        key={student.id}
-                        className="flex items-center gap-2 cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedStudentIds.includes(student.id)}
-                          onChange={() => toggleStudent(student.id)}
-                          className="w-4 h-4 text-cyan-600 rounded border-gray-300 focus:ring-cyan-500"
-                        />
-                        <span className="text-sm text-gray-700">{student.name}</span>
-                        <span className="text-xs text-gray-400">{student.email}</span>
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {selectedStudentIds.length > 0 && (
-                <p className="text-xs text-gray-500 mt-1">
-                  Выбрано: {selectedStudentIds.length}
-                </p>
-              )}
+              <SearchableSelect
+                options={studentOptions}
+                value={selectedStudentIds}
+                onChange={(val) => setSelectedStudentIds(val as number[])}
+                placeholder="Выберите учеников"
+                multiSelect
+              />
             </div>
           </div>
 

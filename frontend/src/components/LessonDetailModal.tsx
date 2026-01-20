@@ -10,9 +10,9 @@ interface LessonDetailModalProps {
 
 const attendanceStatusLabels: Record<AttendanceStatus, string> = {
   pending: "Ожидание",
-  present: "Присутствовал",
-  absent_excused: "Уважительная причина",
-  absent_unexcused: "Неуважительная причина",
+  present: "Был",
+  absent_excused: "Не был (ув.)",
+  absent_unexcused: "Не был",
 };
 
 const attendanceStatusColors: Record<AttendanceStatus, string> = {
@@ -277,9 +277,9 @@ export default function LessonDetailModal({
                           }`}
                         >
                           <option value="pending">Ожидание</option>
-                          <option value="present">Присутствовал</option>
-                          <option value="absent_excused">Уваж. причина</option>
-                          <option value="absent_unexcused">Неуваж. причина</option>
+                          <option value="present">Был</option>
+                          <option value="absent_excused">Не был (ув.)</option>
+                          <option value="absent_unexcused">Не был</option>
                         </select>
                       )}
                     </div>

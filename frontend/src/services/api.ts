@@ -41,6 +41,9 @@ import type {
   Notification,
   NotificationListResponse,
   UnreadCountResponse,
+  TeacherAvailability,
+  TeacherAvailabilityListResponse,
+  TeacherAvailabilityCreate,
 } from "../types";
 
 const api = axios.create({
@@ -531,6 +534,27 @@ export const teacherApi = {
     attendances: AttendanceUpdate[]
   ): Promise<void> => {
     await api.post(`/teacher/lessons/${lessonId}/attendance`, { attendances });
+  },
+
+  // Availability
+  getAvailability: async (): Promise<TeacherAvailabilityListResponse> => {
+    const response = await api.get<TeacherAvailabilityListResponse>("/teacher/availability");
+    return response.data;
+  },
+
+  createAvailability: async (data: TeacherAvailabilityCreate): Promise<TeacherAvailability> => {
+    const response = await api.post<TeacherAvailability>("/teacher/availability", data);
+    return response.data;
+  },
+
+  deleteAvailability: async (availabilityId: number): Promise<void> => {
+    await api.delete(`/teacher/availability/${availabilityId}`);
+  },
+
+  // Manager can view specific teacher's availability
+  getAvailabilityByTeacherId: async (teacherId: number): Promise<TeacherAvailabilityListResponse> => {
+    const response = await api.get<TeacherAvailabilityListResponse>(`/teacher/availability/${teacherId}`);
+    return response.data;
   },
 };
 

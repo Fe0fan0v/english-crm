@@ -151,6 +151,25 @@ export default function SchedulePage() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedLessonId, setSelectedLessonId] = useState<number | null>(null);
+  const [prefillDate, setPrefillDate] = useState<string | undefined>();
+  const [prefillTime, setPrefillTime] = useState<string | undefined>();
+
+  // Handle cell click to create lesson with prefilled date/time
+  const handleCellClick = (dayIndex: number, hour: number) => {
+    const date = getDateForDay(dayIndex);
+    const dateStr = date.toISOString().split("T")[0];
+    const timeStr = `${hour.toString().padStart(2, "0")}:00`;
+    setPrefillDate(dateStr);
+    setPrefillTime(timeStr);
+    setShowCreateModal(true);
+  };
+
+  // Close create modal and reset prefill
+  const handleCloseCreateModal = () => {
+    setShowCreateModal(false);
+    setPrefillDate(undefined);
+    setPrefillTime(undefined);
+  };
 
   const weekStart = useMemo(() => getWeekStart(currentDate), [currentDate]);
   const weekEnd = useMemo(() => getWeekEnd(currentDate), [currentDate]);
@@ -381,12 +400,14 @@ export default function SchedulePage() {
                     </td>
                     {WEEKDAYS.map((_, dayIndex) => {
                       const slotLessons = getLessonsForSlot(dayIndex, 9 + timeIndex);
+                      const hour = 9 + timeIndex;
                       return (
                         <td
                           key={dayIndex}
-                          className={`p-1 border-b border-r border-gray-100 align-top h-16 ${
+                          className={`p-1 border-b border-r border-gray-100 align-top h-16 cursor-pointer hover:bg-gray-50 transition-colors ${
                             isToday(dayIndex) ? "bg-cyan-50/30" : ""
                           }`}
+                          onClick={() => handleCellClick(dayIndex, hour)}
                         >
                           {slotLessons.map((lesson) => (
                             <div
@@ -452,9 +473,11 @@ export default function SchedulePage() {
       {/* Create lesson modal */}
       {showCreateModal && (
         <LessonCreateModal
-          onClose={() => setShowCreateModal(false)}
+          onClose={handleCloseCreateModal}
           onSubmit={handleCreateLesson}
           teachers={teachers}
+          prefillDate={prefillDate}
+          prefillTime={prefillTime}
         />
       )}
 

@@ -17,6 +17,7 @@ from app.models import (
     LevelLessonTypePayment,
     Notification,
     NotificationType,
+    TeacherAvailability,
     Transaction,
     User,
 )
@@ -31,6 +32,11 @@ from app.schemas.dashboard import (
     TeacherStudentInfo,
 )
 from app.schemas.lesson import AttendanceBulkUpdate, LessonCreate, LessonUpdate
+from app.schemas.teacher_availability import (
+    TeacherAvailabilityCreate,
+    TeacherAvailabilityListResponse,
+    TeacherAvailabilityResponse,
+)
 
 router = APIRouter()
 
@@ -1007,3 +1013,106 @@ async def mark_attendance(
     await db.commit()
 
     return {"success": True}
+
+
+# ============ TEACHER AVAILABILITY ENDPOINTS ============
+
+
+@router.get("/availability", response_model=TeacherAvailabilityListResponse)
+async def get_my_availability(
+    db: DBSession,
+    current_user: TeacherOnlyUser,
+):
+    """Get teacher's own availability slots."""
+    result = await db.execute(
+        select(TeacherAvailability)
+        .where(TeacherAvailability.teacher_id == current_user.id)
+        .order_by(TeacherAvailability.day_of_week, TeacherAvailability.start_time)
+    )
+    items = result.scalars().all()
+
+    return TeacherAvailabilityListResponse(items=items)
+
+
+@router.post(
+    "/availability",
+    response_model=TeacherAvailabilityResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_availability(
+    data: TeacherAvailabilityCreate,
+    db: DBSession,
+    current_user: TeacherOnlyUser,
+):
+    """Create a new availability slot for the teacher."""
+    from datetime import time as time_type
+
+    start_time = time_type.fromisoformat(data.start_time)
+    end_time = time_type.fromisoformat(data.end_time)
+
+    if start_time >= end_time:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Время начала должно быть раньше времени окончания",
+        )
+
+    availability = TeacherAvailability(
+        teacher_id=current_user.id,
+        day_of_week=data.day_of_week.value,
+        start_time=start_time,
+        end_time=end_time,
+    )
+    db.add(availability)
+    await db.commit()
+    await db.refresh(availability)
+
+    return availability
+
+
+@router.delete("/availability/{availability_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_availability(
+    availability_id: int,
+    db: DBSession,
+    current_user: TeacherOnlyUser,
+):
+    """Delete an availability slot."""
+    result = await db.execute(
+        select(TeacherAvailability).where(
+            and_(
+                TeacherAvailability.id == availability_id,
+                TeacherAvailability.teacher_id == current_user.id,
+            )
+        )
+    )
+    availability = result.scalar_one_or_none()
+
+    if not availability:
+        raise HTTPException(status_code=404, detail="Слот не найден")
+
+    await db.delete(availability)
+    await db.commit()
+
+
+@router.get(
+    "/availability/{teacher_id}",
+    response_model=TeacherAvailabilityListResponse,
+)
+async def get_teacher_availability(
+    teacher_id: int,
+    db: DBSession,
+    current_user: ManagerUser,
+):
+    """Manager can view specific teacher's availability."""
+    # Verify teacher exists
+    teacher = await db.get(User, teacher_id)
+    if not teacher or teacher.role.value != "teacher":
+        raise HTTPException(status_code=404, detail="Teacher not found")
+
+    result = await db.execute(
+        select(TeacherAvailability)
+        .where(TeacherAvailability.teacher_id == teacher_id)
+        .order_by(TeacherAvailability.day_of_week, TeacherAvailability.start_time)
+    )
+    items = result.scalars().all()
+
+    return TeacherAvailabilityListResponse(items=items)

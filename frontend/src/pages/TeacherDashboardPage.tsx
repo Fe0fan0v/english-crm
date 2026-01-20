@@ -6,6 +6,7 @@ import Avatar from "../components/Avatar";
 import AttendanceModal from "../components/AttendanceModal";
 import GroupChat from "../components/GroupChat";
 import LessonCreateModal, { type LessonFormData } from "../components/LessonCreateModal";
+import TeacherAvailabilityEditor from "../components/TeacherAvailabilityEditor";
 import type {
   TeacherDashboardResponse,
   TeacherLesson,
@@ -13,7 +14,7 @@ import type {
   User,
 } from "../types";
 
-type TabType = "info" | "groups" | "students" | "materials";
+type TabType = "info" | "groups" | "students" | "availability" | "materials";
 
 // Icons
 const StatIcon = {
@@ -82,6 +83,25 @@ export default function TeacherDashboardPage() {
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [showCreateLessonModal, setShowCreateLessonModal] = useState(false);
+  const [prefillDate, setPrefillDate] = useState<string | undefined>();
+  const [prefillTime, setPrefillTime] = useState<string | undefined>();
+
+  // Handle cell click to create lesson with prefilled date/time
+  const handleCellClick = (date: Date, hour: number) => {
+    if (isManagerView) return; // Only teachers can create lessons from their dashboard
+    const dateStr = date.toISOString().split("T")[0];
+    const timeStr = `${hour.toString().padStart(2, "0")}:00`;
+    setPrefillDate(dateStr);
+    setPrefillTime(timeStr);
+    setShowCreateLessonModal(true);
+  };
+
+  // Close create modal and reset prefill
+  const handleCloseCreateModal = () => {
+    setShowCreateLessonModal(false);
+    setPrefillDate(undefined);
+    setPrefillTime(undefined);
+  };
 
   // Determine which user to display
   const displayUser = isManagerView ? teacher : currentUser;
@@ -310,6 +330,7 @@ export default function TeacherDashboardPage() {
           { key: "info" as TabType, label: "Учитель" },
           { key: "groups" as TabType, label: "Группы" },
           { key: "students" as TabType, label: "Ученики" },
+          { key: "availability" as TabType, label: "Свободное время" },
           { key: "materials" as TabType, label: "Личные материалы" },
         ].map((tab) => (
           <button
@@ -409,11 +430,18 @@ export default function TeacherDashboardPage() {
                       {weekDates.map((date, dayIndex) => {
                         const lessons = getLessonsForSlot(date, hour);
                         return (
-                          <td key={dayIndex} className="p-1 align-top min-w-[120px]">
+                          <td
+                            key={dayIndex}
+                            className={`p-1 align-top min-w-[120px] ${!isManagerView ? "cursor-pointer hover:bg-gray-50" : ""}`}
+                            onClick={() => handleCellClick(date, hour)}
+                          >
                             {lessons.map((lesson) => (
                               <button
                                 key={lesson.id}
-                                onClick={() => handleLessonClick(lesson)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleLessonClick(lesson);
+                                }}
                                 className={`w-full p-2 mb-1 rounded-lg text-left text-xs transition-colors ${
                                   lesson.status === "completed"
                                     ? "bg-green-100 text-green-700 hover:bg-green-200"
@@ -486,21 +514,22 @@ export default function TeacherDashboardPage() {
                       Группы: {student.group_names.join(", ")}
                     </p>
                   </div>
-                  <div className="text-right">
-                    <p
-                      className={`font-medium ${
-                        parseFloat(student.balance) >= 0 ? "text-green-600" : "text-red-600"
-                      }`}
-                    >
-                      {parseFloat(student.balance).toLocaleString("ru-RU")} тг
-                    </p>
-                  </div>
                 </div>
               ))}
             </div>
           ) : (
             <p className="text-gray-500 text-center py-8">У вас пока нет учеников</p>
           )}
+        </div>
+      )}
+
+      {activeTab === "availability" && (
+        <div className="card">
+          <h2 className="section-title mb-4">Моё свободное время</h2>
+          <p className="text-sm text-gray-500 mb-4">
+            Укажите когда вы свободны для проведения занятий. Это поможет менеджерам при планировании расписания.
+          </p>
+          <TeacherAvailabilityEditor readOnly={isManagerView} teacherId={teacherId} />
         </div>
       )}
 
@@ -526,9 +555,11 @@ export default function TeacherDashboardPage() {
       {/* Create Lesson Modal */}
       {showCreateLessonModal && (
         <LessonCreateModal
-          onClose={() => setShowCreateLessonModal(false)}
+          onClose={handleCloseCreateModal}
           onSubmit={handleCreateLesson}
           teacherId={currentUser?.id}
+          prefillDate={prefillDate}
+          prefillTime={prefillTime}
         />
       )}
     </div>

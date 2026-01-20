@@ -130,9 +130,6 @@ export default function LevelsPage() {
                 <th className="text-left py-4 px-6 font-medium text-gray-600">
                   Название уровня
                 </th>
-                <th className="text-left py-4 px-6 font-medium text-gray-600">
-                  % преподавателю
-                </th>
                 <th className="text-right py-4 px-6 font-medium text-gray-600">
                   Действия
                 </th>
@@ -146,9 +143,6 @@ export default function LevelsPage() {
                 >
                   <td className="py-4 px-6 font-medium text-gray-800">
                     {level.name}
-                  </td>
-                  <td className="py-4 px-6 text-gray-600">
-                    {parseFloat(level.teacher_percentage)}%
                   </td>
                   <td className="py-4 px-6">
                     <div className="flex justify-end gap-2">
@@ -233,7 +227,7 @@ export default function LevelsPage() {
               ))}
               {data?.items.length === 0 && (
                 <tr>
-                  <td colSpan={3} className="py-12 text-center text-gray-500">
+                  <td colSpan={2} className="py-12 text-center text-gray-500">
                     Уровни не найдены
                   </td>
                 </tr>

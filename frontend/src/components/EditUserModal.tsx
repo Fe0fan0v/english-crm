@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import type { User } from "../types";
+import { levelsApi } from "../services/api";
+import type { User, Level } from "../types";
 
 interface EditUserModalProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ export interface EditUserData {
   email: string;
   phone: string | null;
   photo_url: string | null;
+  level_id: number | null;
 }
 
 export default function EditUserModal({
@@ -26,9 +28,18 @@ export default function EditUserModal({
     email: "",
     phone: null,
     photo_url: null,
+    level_id: null,
   });
   const [errors, setErrors] = useState<Partial<Record<keyof EditUserData, string>>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [levels, setLevels] = useState<Level[]>([]);
+
+  // Load levels
+  useEffect(() => {
+    if (isOpen) {
+      levelsApi.list().then((data) => setLevels(data.items)).catch(console.error);
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (user && isOpen) {
@@ -37,6 +48,7 @@ export default function EditUserModal({
         email: user.email,
         phone: user.phone || null,
         photo_url: user.photo_url || null,
+        level_id: user.level_id || null,
       });
       setErrors({});
     }
@@ -162,6 +174,32 @@ export default function EditUserModal({
               placeholder="+7 (999) 123-45-67"
             />
           </div>
+
+          {/* Level */}
+          {(user.role === "student" || user.role === "teacher") && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Уровень
+              </label>
+              <select
+                value={formData.level_id || ""}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    level_id: e.target.value ? parseInt(e.target.value) : null,
+                  }))
+                }
+                className="input w-full"
+              >
+                <option value="">Не указан</option>
+                {levels.map((level) => (
+                  <option key={level.id} value={level.id}>
+                    {level.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Photo URL */}
           <div>
