@@ -108,10 +108,10 @@ async def get_dashboard(
     )
     income_by_day = {str(row.date): row.income for row in income_query.all()}
 
-    # Build chart data for last 30 days
+    # Build chart data for last 30 days (including today)
     lessons_chart = []
     income_chart = []
-    for i in range(30):
+    for i in range(31):
         day = (thirty_days_ago + timedelta(days=i)).date()
         day_str = str(day)
         lessons_chart.append(ChartDataPoint(
