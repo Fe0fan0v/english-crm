@@ -369,3 +369,27 @@ export interface GroupMessagesResponse {
   total: number;
   has_more: boolean;
 }
+
+// Notifications
+export type NotificationType = 'lesson_cancelled' | 'low_balance';
+
+export interface Notification {
+  id: number;
+  user_id: number;
+  type: NotificationType;
+  title: string;
+  message: string;
+  data: Record<string, unknown> | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface NotificationListResponse {
+  items: Notification[];
+  total: number;
+  unread_count: number;
+}
+
+export interface UnreadCountResponse {
+  count: number;
+}

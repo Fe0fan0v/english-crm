@@ -4,6 +4,7 @@ import { teacherApi, usersApi } from "../services/api";
 import { useAuthStore } from "../store/authStore";
 import Avatar from "../components/Avatar";
 import AttendanceModal from "../components/AttendanceModal";
+import GroupChat from "../components/GroupChat";
 import type {
   TeacherDashboardResponse,
   TeacherLesson,
@@ -78,6 +79,7 @@ export default function TeacherDashboardPage() {
   const [students, setStudents] = useState<TeacherStudentInfo[]>([]);
   const [selectedLesson, setSelectedLesson] = useState<TeacherLesson | null>(null);
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
 
   // Determine which user to display
   const displayUser = isManagerView ? teacher : currentUser;
@@ -199,6 +201,29 @@ export default function TeacherDashboardPage() {
   const stats = data?.stats;
   const groups = data?.groups || [];
 
+  // If a group is selected for chat, show the chat view
+  if (selectedGroupId) {
+    const selectedGroup = groups.find((g) => g.id === selectedGroupId);
+    return (
+      <div className="h-[calc(100vh-120px)]">
+        <div className="flex items-center gap-4 mb-4">
+          <button
+            onClick={() => setSelectedGroupId(null)}
+            className="p-2 hover:bg-gray-100 rounded-lg"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <h2 className="text-xl font-semibold text-gray-800">
+            Чат группы: {selectedGroup?.name}
+          </h2>
+        </div>
+        <GroupChat groupId={selectedGroupId} />
+      </div>
+    );
+  }
+
   return (
     <div>
       {/* Back button for manager view */}
@@ -259,7 +284,7 @@ export default function TeacherDashboardPage() {
       <div className="flex gap-2 mb-6">
         {[
           { key: "info" as TabType, label: "Учитель" },
-          { key: "groups" as TabType, label: "Классы" },
+          { key: "groups" as TabType, label: "Группы" },
           { key: "students" as TabType, label: "Ученики" },
           { key: "materials" as TabType, label: "Личные материалы" },
         ].map((tab) => (
@@ -380,14 +405,24 @@ export default function TeacherDashboardPage() {
 
       {activeTab === "groups" && (
         <div className="card">
-          <h2 className="section-title mb-4">Мои классы</h2>
+          <h2 className="section-title mb-4">Мои группы</h2>
           {groups.length > 0 ? (
             <div className="grid grid-cols-3 gap-4">
               {groups.map((group) => (
-                <div key={group.id} className="p-4 bg-gray-50 rounded-xl">
+                <button
+                  key={group.id}
+                  onClick={() => setSelectedGroupId(group.id)}
+                  className="p-4 bg-gray-50 rounded-xl text-left hover:bg-gray-100 transition-colors"
+                >
                   <h3 className="font-medium text-gray-800">{group.name}</h3>
                   <p className="text-sm text-gray-500">{group.students_count} учеников</p>
-                </div>
+                  <div className="flex items-center gap-1 mt-2 text-cyan-600 text-sm">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    Открыть чат
+                  </div>
+                </button>
               ))}
             </div>
           ) : (

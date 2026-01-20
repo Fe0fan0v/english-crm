@@ -15,6 +15,8 @@ from app.models import (
     LessonStudent,
     LessonType,
     LevelLessonTypePayment,
+    Notification,
+    NotificationType,
     Transaction,
     User,
 )
@@ -767,11 +769,11 @@ async def cancel_teacher_lesson(
     db: DBSession,
     current_user: TeacherOnlyUser,
 ):
-    """Cancel a lesson (sets status to cancelled)."""
+    """Cancel a lesson (sets status to cancelled) and notify students."""
     result = await db.execute(
-        select(Lesson).where(
-            and_(Lesson.id == lesson_id, Lesson.teacher_id == current_user.id)
-        )
+        select(Lesson)
+        .where(and_(Lesson.id == lesson_id, Lesson.teacher_id == current_user.id))
+        .options(selectinload(Lesson.students))
     )
     lesson = result.scalar_one_or_none()
 
@@ -779,6 +781,19 @@ async def cancel_teacher_lesson(
         raise HTTPException(status_code=404, detail="Lesson not found")
 
     lesson.status = LessonStatus.CANCELLED
+
+    # Notify all students about the cancellation
+    formatted_date = lesson.scheduled_at.strftime("%d.%m.%Y %H:%M")
+    for lesson_student in lesson.students:
+        notification = Notification(
+            user_id=lesson_student.student_id,
+            type=NotificationType.LESSON_CANCELLED.value,
+            title="Урок отменён",
+            message=f"Урок \"{lesson.title}\" ({formatted_date}) был отменён преподавателем.",
+            data={"lesson_id": lesson_id},
+        )
+        db.add(notification)
+
     await db.commit()
 
 
@@ -865,6 +880,23 @@ async def mark_attendance(
                 )
                 db.add(transaction)
                 lesson_student.charged = True
+
+                # Check for low balance and create notification
+                LOW_BALANCE_THRESHOLD = Decimal("5000")
+                if student.balance < LOW_BALANCE_THRESHOLD:
+                    if student.balance < 0:
+                        notification_message = f"Ваш баланс стал отрицательным: {student.balance:,.0f} тг. Пожалуйста, пополните баланс."
+                    else:
+                        notification_message = f"Ваш баланс низкий: {student.balance:,.0f} тг. Рекомендуем пополнить баланс."
+
+                    notification = Notification(
+                        user_id=student.id,
+                        type=NotificationType.LOW_BALANCE.value,
+                        title="Низкий баланс",
+                        message=notification_message,
+                        data={"balance": str(student.balance)},
+                    )
+                    db.add(notification)
 
                 # Pay teacher based on student's level and lesson type
                 if student.level_id and teacher:

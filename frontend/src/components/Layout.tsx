@@ -2,6 +2,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 import type { UserRole } from "../types";
 import clsx from "clsx";
+import NotificationBell from "./NotificationBell";
 
 interface NavItem {
   path: string;
@@ -347,6 +348,7 @@ export default function Layout({ children }: LayoutProps) {
                 {user?.email}
               </div>
             </div>
+            <NotificationBell />
           </div>
           <button
             onClick={handleLogout}

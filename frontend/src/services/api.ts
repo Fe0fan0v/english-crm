@@ -35,6 +35,9 @@ import type {
   StudentTestInfo,
   GroupMessage,
   GroupMessagesResponse,
+  Notification,
+  NotificationListResponse,
+  UnreadCountResponse,
 } from "../types";
 
 const api = axios.create({
@@ -543,6 +546,32 @@ export const groupMessagesApi = {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const host = window.location.host;
     return `${protocol}//${host}/api/groups/ws/${groupId}/chat?token=${token}`;
+  },
+};
+
+// Notifications API
+export const notificationsApi = {
+  list: async (page = 1, size = 20): Promise<NotificationListResponse> => {
+    const params = new URLSearchParams({
+      page: String(page),
+      size: String(size),
+    });
+    const response = await api.get<NotificationListResponse>(`/notifications?${params}`);
+    return response.data;
+  },
+
+  getUnreadCount: async (): Promise<UnreadCountResponse> => {
+    const response = await api.get<UnreadCountResponse>("/notifications/unread-count");
+    return response.data;
+  },
+
+  markAsRead: async (id: number): Promise<Notification> => {
+    const response = await api.post<Notification>(`/notifications/${id}/read`);
+    return response.data;
+  },
+
+  markAllAsRead: async (): Promise<void> => {
+    await api.post("/notifications/read-all");
   },
 };
 
