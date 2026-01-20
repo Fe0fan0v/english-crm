@@ -85,6 +85,16 @@ export default function LessonCreateModal({
     }
   }, [groupId]);
 
+  // Convert teachers to SearchableSelect options
+  const teacherOptions: SearchableSelectOption[] = useMemo(() => {
+    if (!teachers) return [];
+    return teachers.map((teacher) => ({
+      value: teacher.id,
+      label: teacher.name,
+      description: teacher.email,
+    }));
+  }, [teachers]);
+
   // Convert groups to SearchableSelect options
   const groupOptions: SearchableSelectOption[] = useMemo(() => {
     return groups.map((group) => ({
@@ -203,18 +213,12 @@ export default function LessonCreateModal({
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Преподаватель *
                 </label>
-                <select
-                  value={selectedTeacherId || ""}
-                  onChange={(e) => setSelectedTeacherId(e.target.value ? Number(e.target.value) : undefined)}
-                  className="input w-full"
-                >
-                  <option value="">Выберите преподавателя</option>
-                  {teachers.map((teacher) => (
-                    <option key={teacher.id} value={teacher.id}>
-                      {teacher.name}
-                    </option>
-                  ))}
-                </select>
+                <SearchableSelect
+                  options={teacherOptions}
+                  value={selectedTeacherId ?? null}
+                  onChange={(val) => setSelectedTeacherId(val as number | undefined)}
+                  placeholder="Выберите преподавателя"
+                />
               </div>
             )}
 
