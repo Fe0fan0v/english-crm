@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { usersApi, levelsApi } from '../services/api';
-import type { User, UserGroup, Transaction, TransactionListResponse, Level } from '../types';
+import { usersApi, levelsApi, teacherApi } from '../services/api';
+import type { User, UserGroup, Transaction, TransactionListResponse, Level, TeacherDashboardResponse, TeacherStudentInfo } from '../types';
 import Avatar from '../components/Avatar';
 import BalanceChangeModal from '../components/BalanceChangeModal';
 import EditUserModal, { type EditUserData } from '../components/EditUserModal';
@@ -21,6 +21,8 @@ export default function UserProfilePage() {
   const [isBalanceModalOpen, setIsBalanceModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [levels, setLevels] = useState<Level[]>([]);
+  const [teacherDashboard, setTeacherDashboard] = useState<TeacherDashboardResponse | null>(null);
+  const [teacherStudents, setTeacherStudents] = useState<TeacherStudentInfo[]>([]);
 
   const fetchUser = async () => {
     if (!id) return;
@@ -64,11 +66,39 @@ export default function UserProfilePage() {
     }
   };
 
+  const fetchTeacherDashboard = async () => {
+    if (!id) return;
+    try {
+      const data = await teacherApi.getDashboardByTeacherId(parseInt(id));
+      setTeacherDashboard(data);
+    } catch (error) {
+      console.error('Failed to fetch teacher dashboard:', error);
+    }
+  };
+
+  const fetchTeacherStudents = async () => {
+    if (!id) return;
+    try {
+      const data = await teacherApi.getStudentsByTeacherId(parseInt(id));
+      setTeacherStudents(data);
+    } catch (error) {
+      console.error('Failed to fetch teacher students:', error);
+    }
+  };
+
   useEffect(() => {
     fetchUser();
     fetchGroups();
     fetchLevels();
   }, [id]);
+
+  // Fetch teacher-specific data when user is loaded and is a teacher
+  useEffect(() => {
+    if (user?.role === 'teacher') {
+      fetchTeacherDashboard();
+      fetchTeacherStudents();
+    }
+  }, [user?.id, user?.role]);
 
   // Helper to get level name by ID
   const getLevelName = (levelId: number | null) => {
@@ -290,7 +320,7 @@ export default function UserProfilePage() {
             </div>
             <div>
               <p className="text-sm text-gray-500">Провед. уроков</p>
-              <p className="text-2xl font-bold text-gray-800">308</p>
+              <p className="text-2xl font-bold text-gray-800">{teacherDashboard?.stats?.lessons_conducted || 0}</p>
             </div>
           </div>
 
@@ -302,7 +332,7 @@ export default function UserProfilePage() {
             </div>
             <div>
               <p className="text-sm text-gray-500">Загруженность</p>
-              <p className="text-2xl font-bold text-gray-800">83 %</p>
+              <p className="text-2xl font-bold text-gray-800">{teacherDashboard?.stats?.workload_percentage || 0} %</p>
             </div>
           </div>
         </div>
@@ -464,14 +494,57 @@ export default function UserProfilePage() {
       )}
 
       {activeTab === 'classes' && isTeacher && (
-        <div className="card text-center py-12 text-gray-500">
-          Раздел в разработке
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="section-title">Расписание занятий</h2>
+            <button
+              onClick={() => navigate(`/teachers/${user.id}`)}
+              className="btn btn-primary"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              Открыть полное расписание
+            </button>
+          </div>
+          <p className="text-gray-500">
+            Для просмотра и управления расписанием преподавателя перейдите в полный кабинет преподавателя.
+          </p>
         </div>
       )}
 
       {activeTab === 'students' && isTeacher && (
-        <div className="card text-center py-12 text-gray-500">
-          Раздел в разработке
+        <div className="card">
+          <h2 className="section-title mb-4">Ученики преподавателя</h2>
+          {teacherStudents.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              У преподавателя пока нет учеников
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {teacherStudents.map((student) => (
+                <div
+                  key={student.id}
+                  className="flex items-center gap-4 p-4 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors"
+                  onClick={() => navigate(`/users/${student.id}`)}
+                >
+                  <Avatar name={student.name} size="md" />
+                  <div className="flex-1">
+                    <h4 className="font-medium text-gray-800">{student.name}</h4>
+                    <p className="text-sm text-gray-500">{student.email}</p>
+                    {student.group_names.length > 0 && (
+                      <p className="text-xs text-gray-400 mt-1">
+                        Группы: {student.group_names.join(', ')}
+                      </p>
+                    )}
+                  </div>
+                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
