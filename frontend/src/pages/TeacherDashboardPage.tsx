@@ -88,8 +88,8 @@ export default function TeacherDashboardPage() {
   const [prefillTime, setPrefillTime] = useState<string | undefined>();
   const [availability, setAvailability] = useState<TeacherAvailability[]>([]);
 
-  // Check if current user can create lessons (admin/manager can create for any teacher, teacher for themselves)
-  const canCreateLesson = currentUser?.role === "admin" || currentUser?.role === "manager" || !isManagerView;
+  // Check if current user can create lessons (only admin/manager can create lessons)
+  const canCreateLesson = currentUser?.role === "admin" || currentUser?.role === "manager";
 
   // Handle cell click to create lesson with prefilled date/time
   const handleCellClick = (date: Date, hour: number) => {
