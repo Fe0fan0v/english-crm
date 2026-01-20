@@ -133,6 +133,10 @@ async def get_student_schedule(
     date_to: datetime,
 ):
     """Get student's lesson schedule for a date range."""
+    # Strip timezone info for comparison with naive datetime in DB
+    date_from_naive = date_from.replace(tzinfo=None) if date_from.tzinfo else date_from
+    date_to_naive = date_to.replace(tzinfo=None) if date_to.tzinfo else date_to
+
     result = await db.execute(
         select(LessonStudent)
         .where(LessonStudent.student_id == current_user.id)
@@ -147,7 +151,7 @@ async def get_student_schedule(
 
     lessons_in_range = [
         ls for ls in lesson_students
-        if date_from <= ls.lesson.scheduled_at <= date_to
+        if date_from_naive <= ls.lesson.scheduled_at <= date_to_naive
     ]
 
     return [

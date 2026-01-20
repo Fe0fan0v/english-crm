@@ -169,13 +169,17 @@ async def get_teacher_schedule(
     date_to: datetime,
 ):
     """Get teacher's lesson schedule for a date range."""
+    # Strip timezone info for comparison with naive datetime in DB
+    date_from_naive = date_from.replace(tzinfo=None) if date_from.tzinfo else date_from
+    date_to_naive = date_to.replace(tzinfo=None) if date_to.tzinfo else date_to
+
     result = await db.execute(
         select(Lesson)
         .where(
             and_(
                 Lesson.teacher_id == current_user.id,
-                Lesson.scheduled_at >= date_from,
-                Lesson.scheduled_at <= date_to,
+                Lesson.scheduled_at >= date_from_naive,
+                Lesson.scheduled_at <= date_to_naive,
             )
         )
         .options(
@@ -417,6 +421,10 @@ async def get_teacher_schedule_by_id(
     date_to: datetime,
 ):
     """Manager can view specific teacher's schedule."""
+    # Strip timezone info for comparison with naive datetime in DB
+    date_from_naive = date_from.replace(tzinfo=None) if date_from.tzinfo else date_from
+    date_to_naive = date_to.replace(tzinfo=None) if date_to.tzinfo else date_to
+
     # Verify teacher exists
     teacher = await db.get(User, teacher_id)
     if not teacher or teacher.role.value != "teacher":
@@ -427,8 +435,8 @@ async def get_teacher_schedule_by_id(
         .where(
             and_(
                 Lesson.teacher_id == teacher_id,
-                Lesson.scheduled_at >= date_from,
-                Lesson.scheduled_at <= date_to,
+                Lesson.scheduled_at >= date_from_naive,
+                Lesson.scheduled_at <= date_to_naive,
             )
         )
         .options(

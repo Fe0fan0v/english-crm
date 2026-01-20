@@ -140,6 +140,10 @@ async def list_lessons(
     _: ManagerUser = None,
 ):
     """Get lessons with filters."""
+    # Strip timezone info for comparison with naive datetime in DB
+    date_from_naive = date_from.replace(tzinfo=None) if date_from and date_from.tzinfo else date_from
+    date_to_naive = date_to.replace(tzinfo=None) if date_to and date_to.tzinfo else date_to
+
     query = select(Lesson).options(
         selectinload(Lesson.teacher),
         selectinload(Lesson.group),
@@ -149,10 +153,10 @@ async def list_lessons(
 
     # Apply filters
     conditions = []
-    if date_from:
-        conditions.append(Lesson.scheduled_at >= date_from)
-    if date_to:
-        conditions.append(Lesson.scheduled_at <= date_to)
+    if date_from_naive:
+        conditions.append(Lesson.scheduled_at >= date_from_naive)
+    if date_to_naive:
+        conditions.append(Lesson.scheduled_at <= date_to_naive)
     if teacher_id:
         conditions.append(Lesson.teacher_id == teacher_id)
     if group_id:
@@ -192,6 +196,10 @@ async def get_schedule(
     _: ManagerUser = None,
 ):
     """Get lessons for schedule view."""
+    # Strip timezone info for comparison with naive datetime in DB
+    date_from_naive = date_from.replace(tzinfo=None) if date_from.tzinfo else date_from
+    date_to_naive = date_to.replace(tzinfo=None) if date_to.tzinfo else date_to
+
     query = select(Lesson).options(
         selectinload(Lesson.teacher),
         selectinload(Lesson.group),
@@ -200,8 +208,8 @@ async def get_schedule(
     )
 
     conditions = [
-        Lesson.scheduled_at >= date_from,
-        Lesson.scheduled_at <= date_to,
+        Lesson.scheduled_at >= date_from_naive,
+        Lesson.scheduled_at <= date_to_naive,
     ]
     if teacher_id:
         conditions.append(Lesson.teacher_id == teacher_id)
