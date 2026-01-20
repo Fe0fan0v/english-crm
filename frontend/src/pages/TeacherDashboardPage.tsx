@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { teacherApi, usersApi } from "../services/api";
+import { teacherApi, usersApi, lessonsApi } from "../services/api";
 import { useAuthStore } from "../store/authStore";
 import Avatar from "../components/Avatar";
 import AttendanceModal from "../components/AttendanceModal";
@@ -11,6 +11,7 @@ import type {
   TeacherDashboardResponse,
   TeacherLesson,
   TeacherStudentInfo,
+  TeacherAvailability,
   User,
 } from "../types";
 
@@ -85,10 +86,14 @@ export default function TeacherDashboardPage() {
   const [showCreateLessonModal, setShowCreateLessonModal] = useState(false);
   const [prefillDate, setPrefillDate] = useState<string | undefined>();
   const [prefillTime, setPrefillTime] = useState<string | undefined>();
+  const [availability, setAvailability] = useState<TeacherAvailability[]>([]);
+
+  // Check if current user can create lessons (admin/manager can create for any teacher, teacher for themselves)
+  const canCreateLesson = currentUser?.role === "admin" || currentUser?.role === "manager" || !isManagerView;
 
   // Handle cell click to create lesson with prefilled date/time
   const handleCellClick = (date: Date, hour: number) => {
-    if (isManagerView) return; // Only teachers can create lessons from their dashboard
+    if (!canCreateLesson) return;
     const dateStr = date.toISOString().split("T")[0];
     const timeStr = `${hour.toString().padStart(2, "0")}:00`;
     setPrefillDate(dateStr);
@@ -163,6 +168,21 @@ export default function TeacherDashboardPage() {
     }
   }, [activeTab, isManagerView, teacherId]);
 
+  // Load teacher availability
+  useEffect(() => {
+    const fetchAvailability = async () => {
+      try {
+        const data = isManagerView && teacherId
+          ? await teacherApi.getAvailabilityByTeacherId(teacherId)
+          : await teacherApi.getAvailability();
+        setAvailability(data.items);
+      } catch (error) {
+        console.error("Failed to fetch availability:", error);
+      }
+    };
+    fetchAvailability();
+  }, [isManagerView, teacherId]);
+
   const handleLessonClick = (lesson: TeacherLesson) => {
     setSelectedLesson(lesson);
     setShowAttendanceModal(true);
@@ -194,15 +214,30 @@ export default function TeacherDashboardPage() {
   };
 
   const handleCreateLesson = async (formData: LessonFormData) => {
-    await teacherApi.createLesson({
-      title: formData.title,
-      lesson_type_id: formData.lesson_type_id,
-      scheduled_at: formData.scheduled_at,
-      duration_minutes: formData.duration_minutes,
-      meeting_url: formData.meeting_url,
-      group_id: formData.group_id,
-      student_ids: formData.student_ids,
-    });
+    if (isManagerView && teacherId) {
+      // Admin/manager creating lesson for teacher - use lessonsApi
+      await lessonsApi.createLesson({
+        title: formData.title,
+        lesson_type_id: formData.lesson_type_id,
+        teacher_id: teacherId,
+        scheduled_at: formData.scheduled_at,
+        duration_minutes: formData.duration_minutes,
+        meeting_url: formData.meeting_url,
+        group_id: formData.group_id,
+        student_ids: formData.student_ids,
+      });
+    } else {
+      // Teacher creating own lesson
+      await teacherApi.createLesson({
+        title: formData.title,
+        lesson_type_id: formData.lesson_type_id,
+        scheduled_at: formData.scheduled_at,
+        duration_minutes: formData.duration_minutes,
+        meeting_url: formData.meeting_url,
+        group_id: formData.group_id,
+        student_ids: formData.student_ids,
+      });
+    }
     await refreshSchedule();
     // Also refresh dashboard to update stats
     const response = isManagerView && teacherId
@@ -219,6 +254,27 @@ export default function TeacherDashboardPage() {
         lessonDate.getMonth() === date.getMonth() &&
         lessonDate.getHours() === hour
       );
+    });
+  };
+
+  // Check if hour is within teacher's availability for a given day
+  const isWithinAvailability = (date: Date, hour: number): boolean => {
+    const dayOfWeek = date.getDay();
+    const dayNames: Record<number, string> = {
+      0: "sunday",
+      1: "monday",
+      2: "tuesday",
+      3: "wednesday",
+      4: "thursday",
+      5: "friday",
+      6: "saturday",
+    };
+    const dayName = dayNames[dayOfWeek];
+    const timeStr = `${hour.toString().padStart(2, "0")}:00`;
+
+    return availability.some((slot) => {
+      if (slot.day_of_week !== dayName) return false;
+      return timeStr >= slot.start_time && timeStr < slot.end_time;
     });
   };
 
@@ -373,7 +429,7 @@ export default function TeacherDashboardPage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="section-title">Расписание уроков</h2>
               <div className="flex items-center gap-4">
-                {!isManagerView && (
+                {canCreateLesson && (
                   <button
                     onClick={() => setShowCreateLessonModal(true)}
                     className="btn btn-primary btn-sm flex items-center gap-1"
@@ -429,10 +485,13 @@ export default function TeacherDashboardPage() {
                       <td className="p-2 text-xs text-gray-500 align-top">{hour}:00</td>
                       {weekDates.map((date, dayIndex) => {
                         const lessons = getLessonsForSlot(date, hour);
+                        const available = isWithinAvailability(date, hour);
                         return (
                           <td
                             key={dayIndex}
-                            className={`p-1 align-top min-w-[120px] ${!isManagerView ? "cursor-pointer hover:bg-gray-50" : ""}`}
+                            className={`p-1 align-top min-w-[120px] ${
+                              available ? "bg-green-50" : ""
+                            } ${canCreateLesson ? "cursor-pointer hover:bg-gray-100" : ""}`}
                             onClick={() => handleCellClick(date, hour)}
                           >
                             {lessons.map((lesson) => (
@@ -464,6 +523,16 @@ export default function TeacherDashboardPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* Legend */}
+            {availability.length > 0 && (
+              <div className="flex items-center gap-4 text-xs text-gray-500 mt-4 pt-4 border-t border-gray-100">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-green-50 rounded border border-green-200"></div>
+                  <span>Свободен для занятий</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -557,7 +626,7 @@ export default function TeacherDashboardPage() {
         <LessonCreateModal
           onClose={handleCloseCreateModal}
           onSubmit={handleCreateLesson}
-          teacherId={currentUser?.id}
+          teacherId={isManagerView && teacherId ? teacherId : currentUser?.id}
           prefillDate={prefillDate}
           prefillTime={prefillTime}
         />
