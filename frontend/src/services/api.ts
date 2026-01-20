@@ -17,6 +17,9 @@ import type {
   TeacherReportResponse,
   DashboardResponse,
   ScheduleLesson,
+  LessonDetail,
+  LessonStatus,
+  AttendanceStatus,
   Group,
   GroupDetail,
   GroupListResponse,
@@ -405,6 +408,33 @@ export const lessonsApi = {
   }): Promise<ScheduleLesson> => {
     const response = await api.post<ScheduleLesson>("/lessons", data);
     return response.data;
+  },
+
+  getLesson: async (lessonId: number): Promise<LessonDetail> => {
+    const response = await api.get<LessonDetail>(`/lessons/${lessonId}`);
+    return response.data;
+  },
+
+  updateLesson: async (
+    lessonId: number,
+    data: {
+      title?: string;
+      status?: LessonStatus;
+      meeting_url?: string;
+    }
+  ): Promise<LessonDetail> => {
+    const response = await api.put<LessonDetail>(`/lessons/${lessonId}`, data);
+    return response.data;
+  },
+
+  updateAttendance: async (
+    lessonId: number,
+    studentId: number,
+    attendanceStatus: AttendanceStatus
+  ): Promise<void> => {
+    await api.post(`/lessons/${lessonId}/attendance`, null, {
+      params: { student_id: studentId, attendance_status: attendanceStatus },
+    });
   },
 };
 

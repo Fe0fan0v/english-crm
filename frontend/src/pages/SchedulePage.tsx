@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { lessonsApi } from "../services/api";
 import type { ScheduleLesson, User } from "../types";
 import LessonCreateModal, { type LessonFormData } from "../components/LessonCreateModal";
+import LessonDetailModal from "../components/LessonDetailModal";
 
 // Helper functions
 function getWeekStart(date: Date): Date {
@@ -52,9 +53,10 @@ interface DayModalProps {
   date: Date;
   lessons: ScheduleLesson[];
   onClose: () => void;
+  onLessonClick: (lessonId: number) => void;
 }
 
-function DayModal({ date, lessons, onClose }: DayModalProps) {
+function DayModal({ date, lessons, onClose, onLessonClick }: DayModalProps) {
   const months = [
     "января", "февраля", "марта", "апреля", "мая", "июня",
     "июля", "августа", "сентября", "октября", "ноября", "декабря"
@@ -95,7 +97,8 @@ function DayModal({ date, lessons, onClose }: DayModalProps) {
                 .map((lesson) => (
                   <div
                     key={lesson.id}
-                    className={`p-4 rounded-xl border ${statusColors[lesson.status]}`}
+                    className={`p-4 rounded-xl border cursor-pointer hover:shadow-md transition-shadow ${statusColors[lesson.status]}`}
+                    onClick={() => onLessonClick(lesson.id)}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -117,11 +120,16 @@ function DayModal({ date, lessons, onClose }: DayModalProps) {
                           </div>
                         )}
                       </div>
-                      <div className="text-xs px-2 py-1 rounded-md bg-white/50">
-                        {lesson.status === "scheduled" && "Запланирован"}
-                        {lesson.status === "completed" && "Завершён"}
-                        {lesson.status === "cancelled" && "Отменён"}
-                        {lesson.status === "no_show" && "Неявка"}
+                      <div className="flex flex-col items-end gap-2">
+                        <div className="text-xs px-2 py-1 rounded-md bg-white/50">
+                          {lesson.status === "scheduled" && "Запланирован"}
+                          {lesson.status === "completed" && "Завершён"}
+                          {lesson.status === "cancelled" && "Отменён"}
+                          {lesson.status === "no_show" && "Неявка"}
+                        </div>
+                        <svg className="w-4 h-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
                       </div>
                     </div>
                   </div>
@@ -142,6 +150,7 @@ export default function SchedulePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedLessonId, setSelectedLessonId] = useState<number | null>(null);
 
   const weekStart = useMemo(() => getWeekStart(currentDate), [currentDate]);
   const weekEnd = useMemo(() => getWeekEnd(currentDate), [currentDate]);
@@ -381,9 +390,12 @@ export default function SchedulePage() {
                           {slotLessons.map((lesson) => (
                             <div
                               key={lesson.id}
-                              className={`text-xs p-1.5 rounded-lg mb-1 border cursor-pointer truncate ${statusColors[lesson.status]}`}
+                              className={`text-xs p-1.5 rounded-lg mb-1 border cursor-pointer truncate hover:shadow-md transition-shadow ${statusColors[lesson.status]}`}
                               title={`${lesson.title} - ${lesson.teacher_name}`}
-                              onClick={() => handleDayClick(dayIndex)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedLessonId(lesson.id);
+                              }}
                             >
                               <div className="font-medium truncate">{lesson.title}</div>
                               <div className="truncate opacity-80">{lesson.teacher_name}</div>
@@ -429,6 +441,10 @@ export default function SchedulePage() {
             Math.round((selectedDate.getTime() - weekStart.getTime()) / (1000 * 60 * 60 * 24))
           )}
           onClose={() => setSelectedDate(null)}
+          onLessonClick={(lessonId) => {
+            setSelectedDate(null);
+            setSelectedLessonId(lessonId);
+          }}
         />
       )}
 
@@ -438,6 +454,15 @@ export default function SchedulePage() {
           onClose={() => setShowCreateModal(false)}
           onSubmit={handleCreateLesson}
           teachers={teachers}
+        />
+      )}
+
+      {/* Lesson detail modal */}
+      {selectedLessonId && (
+        <LessonDetailModal
+          lessonId={selectedLessonId}
+          onClose={() => setSelectedLessonId(null)}
+          onUpdate={fetchLessons}
         />
       )}
     </div>

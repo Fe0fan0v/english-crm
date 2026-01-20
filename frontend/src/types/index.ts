@@ -183,6 +183,33 @@ export interface ScheduleLesson {
   students_count: number;
 }
 
+// Lesson Detail (for admin/manager view)
+export interface LessonStudentDetail {
+  id: number;
+  name: string;
+  email: string;
+  phone: string | null;
+  attendance_status: AttendanceStatus;
+  charged: boolean;
+}
+
+export interface LessonDetail {
+  id: number;
+  title: string;
+  teacher_id: number;
+  teacher_name: string;
+  group_id: number | null;
+  group_name: string | null;
+  lesson_type_id: number;
+  lesson_type_name: string;
+  scheduled_at: string;
+  meeting_url: string | null;
+  status: LessonStatus;
+  students: LessonStudentDetail[];
+  created_at: string;
+  updated_at: string;
+}
+
 // Groups
 export interface GroupStudent {
   id: number;
