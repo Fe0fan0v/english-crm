@@ -31,6 +31,7 @@ export default function LessonDetailModal({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [isCancelling, setIsCancelling] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [updatingStudentId, setUpdatingStudentId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<"attendance" | "materials">("attendance");
 
@@ -66,6 +67,23 @@ export default function LessonDetailModal({
       setError("Не удалось отменить урок");
     } finally {
       setIsCancelling(false);
+    }
+  };
+
+  const handleDeleteLesson = async () => {
+    if (!lesson) return;
+    if (!confirm("Вы уверены, что хотите удалить урок? Это действие нельзя отменить.")) return;
+
+    try {
+      setIsDeleting(true);
+      await lessonsApi.deleteLesson(lessonId);
+      onUpdate();
+      onClose();
+    } catch (err) {
+      console.error("Failed to delete lesson:", err);
+      setError("Не удалось удалить урок");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -285,25 +303,25 @@ export default function LessonDetailModal({
         {/* Footer */}
         <div className="p-6 border-t border-gray-100 bg-gray-50">
           <div className="flex gap-3">
+            <button onClick={onClose} className="btn btn-secondary flex-1">
+              Закрыть
+            </button>
             {lesson.status === "scheduled" && (
-              <>
-                <button onClick={onClose} className="btn btn-secondary flex-1">
-                  Закрыть
-                </button>
-                <button
-                  onClick={handleCancelLesson}
-                  disabled={isCancelling}
-                  className="btn bg-red-500 text-white hover:bg-red-600 flex-1"
-                >
-                  {isCancelling ? "Отмена..." : "Отменить урок"}
-                </button>
-              </>
-            )}
-            {lesson.status !== "scheduled" && (
-              <button onClick={onClose} className="btn btn-secondary flex-1">
-                Закрыть
+              <button
+                onClick={handleCancelLesson}
+                disabled={isCancelling}
+                className="btn bg-orange-500 text-white hover:bg-orange-600 flex-1"
+              >
+                {isCancelling ? "Отмена..." : "Отменить урок"}
               </button>
             )}
+            <button
+              onClick={handleDeleteLesson}
+              disabled={isDeleting}
+              className="btn bg-red-500 text-white hover:bg-red-600 flex-1"
+            >
+              {isDeleting ? "Удаление..." : "Удалить"}
+            </button>
           </div>
         </div>
       </div>

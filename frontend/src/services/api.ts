@@ -437,6 +437,10 @@ export const lessonsApi = {
       params: { student_id: studentId, attendance_status: attendanceStatus },
     });
   },
+
+  deleteLesson: async (lessonId: number): Promise<void> => {
+    await api.delete(`/lessons/${lessonId}`);
+  },
 };
 
 // Teacher Dashboard API
