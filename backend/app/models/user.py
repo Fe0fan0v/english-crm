@@ -31,7 +31,9 @@ class User(Base):
     )
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[UserRole] = mapped_column(
-        Enum(UserRole), nullable=False, default=UserRole.STUDENT
+        Enum(UserRole, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+        default=UserRole.STUDENT,
     )
     level_id: Mapped[int | None] = mapped_column(ForeignKey("levels.id"), nullable=True)
     photo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
