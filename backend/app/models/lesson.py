@@ -42,7 +42,9 @@ class Lesson(Base):
     scheduled_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     meeting_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     status: Mapped[LessonStatus] = mapped_column(
-        Enum(LessonStatus), nullable=False, default=LessonStatus.SCHEDULED
+        Enum(LessonStatus, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+        default=LessonStatus.SCHEDULED,
     )
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -67,7 +69,9 @@ class LessonStudent(Base):
     lesson_id: Mapped[int] = mapped_column(ForeignKey("lessons.id"), nullable=False)
     student_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     attendance_status: Mapped[AttendanceStatus] = mapped_column(
-        Enum(AttendanceStatus), nullable=False, default=AttendanceStatus.PENDING
+        Enum(AttendanceStatus, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+        default=AttendanceStatus.PENDING,
     )
     charged: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
