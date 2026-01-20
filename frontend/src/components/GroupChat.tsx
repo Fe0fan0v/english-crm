@@ -61,7 +61,7 @@ export default function GroupChat({ groupId }: GroupChatProps) {
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          if (data.type === "message") {
+          if (data.type === "new_message") {
             setMessages((prev) => [...prev, data.message]);
           } else if (data.type === "error") {
             setError(data.message);
@@ -115,7 +115,7 @@ export default function GroupChat({ groupId }: GroupChatProps) {
     try {
       // Try WebSocket first
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({ content }));
+        wsRef.current.send(JSON.stringify({ type: "message", content }));
       } else {
         // Fall back to REST API
         const message = await groupMessagesApi.sendMessage(groupId, content);
