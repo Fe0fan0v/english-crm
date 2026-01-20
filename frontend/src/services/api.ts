@@ -393,6 +393,19 @@ export const lessonsApi = {
     const response = await api.get<UserListResponse>("/users?size=100");
     return response.data.items.filter((u) => u.role === "teacher");
   },
+
+  createLesson: async (data: {
+    title: string;
+    teacher_id: number;
+    lesson_type_id: number;
+    scheduled_at: string;
+    meeting_url?: string;
+    group_id?: number;
+    student_ids?: number[];
+  }): Promise<ScheduleLesson> => {
+    const response = await api.post<ScheduleLesson>("/lessons", data);
+    return response.data;
+  },
 };
 
 // Teacher Dashboard API
@@ -453,6 +466,7 @@ export const teacherApi = {
     lesson_type_id: number;
     scheduled_at: string;
     meeting_url?: string;
+    group_id?: number;
     student_ids?: number[];
   }): Promise<TeacherLesson> => {
     const response = await api.post<TeacherLesson>("/teacher/lessons", data);

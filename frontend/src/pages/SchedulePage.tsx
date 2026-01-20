@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { lessonsApi } from "../services/api";
 import type { ScheduleLesson, User } from "../types";
+import LessonCreateModal, { type LessonFormData } from "../components/LessonCreateModal";
 
 // Helper functions
 function getWeekStart(date: Date): Date {
@@ -140,6 +141,7 @@ export default function SchedulePage() {
   const [selectedTeacherId, setSelectedTeacherId] = useState<number | undefined>();
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const weekStart = useMemo(() => getWeekStart(currentDate), [currentDate]);
   const weekEnd = useMemo(() => getWeekEnd(currentDate), [currentDate]);
@@ -157,25 +159,44 @@ export default function SchedulePage() {
     loadTeachers();
   }, []);
 
+  // Fetch lessons function
+  const fetchLessons = async () => {
+    setIsLoading(true);
+    try {
+      const data = await lessonsApi.getSchedule(
+        formatDateISO(weekStart),
+        formatDateISOEnd(weekEnd),
+        selectedTeacherId
+      );
+      setLessons(data);
+    } catch (error) {
+      console.error("Failed to fetch schedule:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Load lessons
   useEffect(() => {
-    const fetchLessons = async () => {
-      setIsLoading(true);
-      try {
-        const data = await lessonsApi.getSchedule(
-          formatDateISO(weekStart),
-          formatDateISOEnd(weekEnd),
-          selectedTeacherId
-        );
-        setLessons(data);
-      } catch (error) {
-        console.error("Failed to fetch schedule:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchLessons();
   }, [weekStart, weekEnd, selectedTeacherId]);
+
+  // Handle create lesson
+  const handleCreateLesson = async (data: LessonFormData) => {
+    if (!data.teacher_id) {
+      throw new Error("Teacher ID is required");
+    }
+    await lessonsApi.createLesson({
+      title: data.title,
+      teacher_id: data.teacher_id,
+      lesson_type_id: data.lesson_type_id,
+      scheduled_at: data.scheduled_at,
+      meeting_url: data.meeting_url,
+      group_id: data.group_id,
+      student_ids: data.student_ids,
+    });
+    fetchLessons(); // Refresh the schedule
+  };
 
   // Navigate weeks
   const goToPrevWeek = () => {
@@ -252,6 +273,17 @@ export default function SchedulePage() {
         <h1 className="page-title">Расписание</h1>
 
         <div className="flex items-center gap-4">
+          {/* Create lesson button */}
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="btn btn-primary flex items-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Создать урок
+          </button>
+
           {/* Teacher filter */}
           <select
             value={selectedTeacherId || ""}
@@ -397,6 +429,15 @@ export default function SchedulePage() {
             Math.round((selectedDate.getTime() - weekStart.getTime()) / (1000 * 60 * 60 * 24))
           )}
           onClose={() => setSelectedDate(null)}
+        />
+      )}
+
+      {/* Create lesson modal */}
+      {showCreateModal && (
+        <LessonCreateModal
+          onClose={() => setShowCreateModal(false)}
+          onSubmit={handleCreateLesson}
+          teachers={teachers}
         />
       )}
     </div>

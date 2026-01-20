@@ -5,6 +5,7 @@ import { useAuthStore } from "../store/authStore";
 import Avatar from "../components/Avatar";
 import AttendanceModal from "../components/AttendanceModal";
 import GroupChat from "../components/GroupChat";
+import LessonCreateModal, { type LessonFormData } from "../components/LessonCreateModal";
 import type {
   TeacherDashboardResponse,
   TeacherLesson,
@@ -80,6 +81,7 @@ export default function TeacherDashboardPage() {
   const [selectedLesson, setSelectedLesson] = useState<TeacherLesson | null>(null);
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+  const [showCreateLessonModal, setShowCreateLessonModal] = useState(false);
 
   // Determine which user to display
   const displayUser = isManagerView ? teacher : currentUser;
@@ -146,15 +148,19 @@ export default function TeacherDashboardPage() {
     setShowAttendanceModal(true);
   };
 
-  const handleAttendanceSave = async () => {
-    setShowAttendanceModal(false);
-    // Refresh schedule
+  // Refresh schedule helper
+  const refreshSchedule = async () => {
     const dateFrom = weekDates[0].toISOString();
     const dateTo = weekDates[6].toISOString();
     const lessons = isManagerView && teacherId
       ? await teacherApi.getScheduleByTeacherId(teacherId, dateFrom, dateTo)
       : await teacherApi.getSchedule(dateFrom, dateTo);
     setSchedule(lessons);
+  };
+
+  const handleAttendanceSave = async () => {
+    setShowAttendanceModal(false);
+    await refreshSchedule();
     // Refresh dashboard
     const response = isManagerView && teacherId
       ? await teacherApi.getDashboardByTeacherId(teacherId)
@@ -165,6 +171,23 @@ export default function TeacherDashboardPage() {
       const teacherData = await usersApi.get(teacherId);
       setTeacher(teacherData);
     }
+  };
+
+  const handleCreateLesson = async (formData: LessonFormData) => {
+    await teacherApi.createLesson({
+      title: formData.title,
+      lesson_type_id: formData.lesson_type_id,
+      scheduled_at: formData.scheduled_at,
+      meeting_url: formData.meeting_url,
+      group_id: formData.group_id,
+      student_ids: formData.student_ids,
+    });
+    await refreshSchedule();
+    // Also refresh dashboard to update stats
+    const response = isManagerView && teacherId
+      ? await teacherApi.getDashboardByTeacherId(teacherId)
+      : await teacherApi.getDashboard();
+    setData(response);
   };
 
   const getLessonsForSlot = (date: Date, hour: number): TeacherLesson[] => {
@@ -327,20 +350,33 @@ export default function TeacherDashboardPage() {
           <div className="card">
             <div className="flex items-center justify-between mb-4">
               <h2 className="section-title">Расписание уроков</h2>
-              <div className="flex items-center gap-2">
-                <button onClick={goToPrevWeek} className="p-2 hover:bg-gray-100 rounded-lg">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-                <span className="font-medium">
-                  {formatDate(weekDates[0])} - {formatDate(weekDates[6])}
-                </span>
-                <button onClick={goToNextWeek} className="p-2 hover:bg-gray-100 rounded-lg">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
+              <div className="flex items-center gap-4">
+                {!isManagerView && (
+                  <button
+                    onClick={() => setShowCreateLessonModal(true)}
+                    className="btn btn-primary btn-sm flex items-center gap-1"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Создать урок
+                  </button>
+                )}
+                <div className="flex items-center gap-2">
+                  <button onClick={goToPrevWeek} className="p-2 hover:bg-gray-100 rounded-lg">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <span className="font-medium">
+                    {formatDate(weekDates[0])} - {formatDate(weekDates[6])}
+                  </span>
+                  <button onClick={goToNextWeek} className="p-2 hover:bg-gray-100 rounded-lg">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -483,6 +519,15 @@ export default function TeacherDashboardPage() {
           onClose={() => setShowAttendanceModal(false)}
           lesson={selectedLesson}
           onSave={handleAttendanceSave}
+        />
+      )}
+
+      {/* Create Lesson Modal */}
+      {showCreateLessonModal && (
+        <LessonCreateModal
+          onClose={() => setShowCreateLessonModal(false)}
+          onSubmit={handleCreateLesson}
+          teacherId={currentUser?.id}
         />
       )}
     </div>

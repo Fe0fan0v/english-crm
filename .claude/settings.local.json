@@ -23,7 +23,9 @@
       "Bash(npm run lint)",
       "Bash(npm run build:*)",
       "Bash(python:*)",
-      "Bash(alembic revision:*)"
+      "Bash(alembic revision:*)",
+      "Bash(scp:*)",
+      "Bash(dir:*)"
     ]
   }
 }
