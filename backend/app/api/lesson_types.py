@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import AdminUser, get_db
+from app.api.deps import AdminUser, ManagerUser, get_db
 from app.models.lesson_type import LessonType
 from app.schemas.lesson_type import (
     LessonTypeCreate,
@@ -18,7 +18,7 @@ router = APIRouter()
 async def list_lesson_types(
     search: str | None = None,
     db: AsyncSession = Depends(get_db),
-    _: AdminUser = None,
+    _: ManagerUser = None,
 ):
     """Get all lesson types."""
     query = select(LessonType)
@@ -43,7 +43,7 @@ async def list_lesson_types(
 async def get_lesson_type(
     lesson_type_id: int,
     db: AsyncSession = Depends(get_db),
-    _: AdminUser = None,
+    _: ManagerUser = None,
 ):
     """Get a specific lesson type."""
     result = await db.execute(
