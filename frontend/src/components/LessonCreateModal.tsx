@@ -31,7 +31,6 @@ export default function LessonCreateModal({
   prefillDate,
   prefillTime,
 }: LessonCreateModalProps) {
-  const [title, setTitle] = useState("");
   const [selectedTeacherId, setSelectedTeacherId] = useState<number | undefined>(teacherId);
   const [lessonTypeId, setLessonTypeId] = useState<number | "">("");
   const [scheduledDate, setScheduledDate] = useState(prefillDate || "");
@@ -117,10 +116,6 @@ export default function LessonCreateModal({
     e.preventDefault();
     setError("");
 
-    if (!title.trim()) {
-      setError("Введите название урока");
-      return;
-    }
     if (!lessonTypeId) {
       setError("Выберите тип урока");
       return;
@@ -141,8 +136,10 @@ export default function LessonCreateModal({
     setIsLoading(true);
     try {
       const scheduledAt = `${scheduledDate}T${scheduledTime}:00`;
+      const selectedLessonType = lessonTypes.find((t) => t.id === Number(lessonTypeId));
+      const title = selectedLessonType?.name || "Урок";
       await onSubmit({
-        title: title.trim(),
+        title,
         teacher_id: selectedTeacherId,
         lesson_type_id: Number(lessonTypeId),
         scheduled_at: scheduledAt,
@@ -193,20 +190,6 @@ export default function LessonCreateModal({
           )}
 
           <div className="space-y-4">
-            {/* Title */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Название урока *
-              </label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="input w-full"
-                placeholder="Например: Урок грамматики"
-              />
-            </div>
-
             {/* Teacher (for admin/manager) */}
             {teachers && !teacherId && (
               <div>
