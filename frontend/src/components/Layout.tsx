@@ -364,9 +364,17 @@ export default function Layout({ children }: LayoutProps) {
         {/* User section */}
         <div className="p-4 border-t border-gray-100">
           <div className="flex items-center gap-3 mb-4">
-            <div className={clsx("avatar", getAvatarColor(user?.name || "U"))}>
-              {user?.name?.charAt(0).toUpperCase()}
-            </div>
+            {user?.photo_url ? (
+              <img
+                src={user.photo_url}
+                alt={user.name}
+                className="w-10 h-10 rounded-full object-cover"
+              />
+            ) : (
+              <div className={clsx("avatar", getAvatarColor(user?.name || "U"))}>
+                {user?.name?.charAt(0).toUpperCase()}
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium text-gray-800 truncate">
                 {user?.name}
