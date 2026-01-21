@@ -927,16 +927,16 @@ async def mark_attendance(
                     )
                     db.add(notification)
 
-                # Pay teacher based on student's level and lesson type
+                # Pay teacher based on teacher's level and lesson type
                 if teacher:
                     teacher_payment = None
 
                     # Try to look up payment amount from matrix
-                    if student.level_id:
+                    if teacher.level_id:
                         payment_result = await db.execute(
                             select(LevelLessonTypePayment).where(
                                 and_(
-                                    LevelLessonTypePayment.level_id == student.level_id,
+                                    LevelLessonTypePayment.level_id == teacher.level_id,
                                     LevelLessonTypePayment.lesson_type_id == lesson_type_id,
                                 )
                             )
@@ -979,11 +979,11 @@ async def mark_attendance(
                 lesson_student.charged = False
 
                 # Reverse teacher payment
-                if student.level_id and teacher:
+                if teacher and teacher.level_id:
                     payment_result = await db.execute(
                         select(LevelLessonTypePayment).where(
                             and_(
-                                LevelLessonTypePayment.level_id == student.level_id,
+                                LevelLessonTypePayment.level_id == teacher.level_id,
                                 LevelLessonTypePayment.lesson_type_id == lesson_type_id,
                             )
                         )
