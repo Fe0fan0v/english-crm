@@ -45,7 +45,6 @@ export default function StudentDashboardPage() {
   const [materials, setMaterials] = useState<StudentMaterialInfo[]>([]);
   const [tests, setTests] = useState<StudentTestInfo[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
-  const [selectedLesson, setSelectedLesson] = useState<StudentLessonInfo | null>(null);
 
   const weekDates = useMemo(() => getWeekDates(currentWeek), [currentWeek]);
 
@@ -352,8 +351,7 @@ export default function StudentDashboardPage() {
                             {lessons.map((lesson) => (
                               <div
                                 key={lesson.id}
-                                onClick={() => setSelectedLesson(lesson)}
-                                className={`w-full p-2 mb-1 rounded-lg text-left text-xs cursor-pointer hover:opacity-80 transition-opacity ${
+                                className={`w-full p-2 mb-1 rounded-lg text-left text-xs ${
                                   lesson.status === "completed"
                                     ? "bg-green-100 text-green-700"
                                     : lesson.status === "cancelled"
