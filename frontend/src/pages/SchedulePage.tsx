@@ -157,7 +157,7 @@ export default function SchedulePage() {
   // Handle cell click to create lesson with prefilled date/time
   const handleCellClick = (dayIndex: number, hour: number) => {
     const date = getDateForDay(dayIndex);
-    const dateStr = date.toISOString().split("T")[0];
+    const dateStr = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}`;
     const timeStr = `${hour.toString().padStart(2, "0")}:00`;
     setPrefillDate(dateStr);
     setPrefillTime(timeStr);
