@@ -4,7 +4,8 @@ from pydantic import BaseModel, Field
 
 
 class GroupMessageCreate(BaseModel):
-    content: str = Field(..., min_length=1, max_length=5000)
+    content: str = Field(default="", max_length=5000)
+    file_url: str | None = None
 
 
 class GroupMessageResponse(BaseModel):
@@ -13,6 +14,7 @@ class GroupMessageResponse(BaseModel):
     sender_id: int
     sender_name: str
     content: str
+    file_url: str | None
     created_at: datetime
 
     class Config:

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { groupMessagesApi } from "../services/api";
+import { groupMessagesApi, uploadsApi } from "../services/api";
 import { useAuthStore } from "../store/authStore";
 import Avatar from "./Avatar";
 import type { GroupMessage } from "../types";
@@ -8,6 +8,16 @@ interface GroupChatProps {
   groupId: number;
 }
 
+// Helper to check if URL is an image
+const isImageUrl = (url: string): boolean => {
+  return /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
+};
+
+// Helper to get filename from URL
+const getFilenameFromUrl = (url: string): string => {
+  return url.split("/").pop() || "file";
+};
+
 export default function GroupChat({ groupId }: GroupChatProps) {
   const { user } = useAuthStore();
   const [messages, setMessages] = useState<GroupMessage[]>([]);
@@ -15,10 +25,13 @@ export default function GroupChat({ groupId }: GroupChatProps) {
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [pendingFile, setPendingFile] = useState<{ url: string; name: string } | null>(null);
   const [error, setError] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -105,20 +118,45 @@ export default function GroupChat({ groupId }: GroupChatProps) {
     };
   }, [groupId]);
 
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const result = await uploadsApi.uploadChatFile(file);
+      setPendingFile({ url: result.file_url, name: result.filename });
+    } catch (error) {
+      console.error("Failed to upload file:", error);
+      setError("Не удалось загрузить файл");
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const removePendingFile = () => {
+    setPendingFile(null);
+  };
+
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || isSending) return;
+    if ((!newMessage.trim() && !pendingFile) || isSending) return;
 
     const content = newMessage.trim();
+    const fileUrl = pendingFile?.url;
     setNewMessage("");
+    setPendingFile(null);
     setIsSending(true);
 
     try {
       // Try WebSocket first
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({ type: "message", content }));
+        wsRef.current.send(JSON.stringify({ type: "message", content, file_url: fileUrl }));
       } else {
         // Fall back to REST API
-        const message = await groupMessagesApi.sendMessage(groupId, content);
+        const message = await groupMessagesApi.sendMessage(groupId, content, fileUrl);
         setMessages((prev) => [...prev, message]);
       }
     } catch (err) {
@@ -249,9 +287,40 @@ export default function GroupChat({ groupId }: GroupChatProps) {
                             : "bg-gray-100 text-gray-800 rounded-bl-md"
                         }`}
                       >
-                        <p className="text-sm whitespace-pre-wrap break-words">
-                          {message.content}
-                        </p>
+                        {/* File attachment */}
+                        {message.file_url && (
+                          <div className="mb-2">
+                            {isImageUrl(message.file_url) ? (
+                              <a href={message.file_url} target="_blank" rel="noopener noreferrer">
+                                <img
+                                  src={message.file_url}
+                                  alt="Attachment"
+                                  className="max-w-full rounded-lg max-h-48 object-contain"
+                                />
+                              </a>
+                            ) : (
+                              <a
+                                href={message.file_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={`flex items-center gap-2 p-2 rounded-lg ${
+                                  isOwn ? "bg-cyan-600" : "bg-gray-200"
+                                }`}
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                </svg>
+                                <span className="text-sm truncate">{getFilenameFromUrl(message.file_url)}</span>
+                              </a>
+                            )}
+                          </div>
+                        )}
+                        {/* Text content */}
+                        {message.content && (
+                          <p className="text-sm whitespace-pre-wrap break-words">
+                            {message.content}
+                          </p>
+                        )}
                       </div>
                       <p
                         className={`text-[10px] text-gray-400 mt-1 ${
@@ -270,9 +339,60 @@ export default function GroupChat({ groupId }: GroupChatProps) {
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Pending file preview */}
+      {pendingFile && (
+        <div className="px-4 py-2 border-t bg-gray-50">
+          <div className="flex items-center gap-2">
+            {isImageUrl(pendingFile.url) ? (
+              <img src={pendingFile.url} alt="Preview" className="w-12 h-12 object-cover rounded" />
+            ) : (
+              <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center">
+                <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+              </div>
+            )}
+            <span className="flex-1 text-sm text-gray-600 truncate">{pendingFile.name}</span>
+            <button
+              onClick={removePendingFile}
+              className="p-1 hover:bg-gray-200 rounded"
+            >
+              <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Input */}
       <div className="p-4 border-t">
         <div className="flex gap-3">
+          {/* File upload button */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            onChange={handleFileSelect}
+            className="hidden"
+            accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500"
+            title="Прикрепить файл"
+          >
+            {isUploading ? (
+              <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+              </svg>
+            )}
+          </button>
           <input
             type="text"
             value={newMessage}
@@ -284,7 +404,7 @@ export default function GroupChat({ groupId }: GroupChatProps) {
           />
           <button
             onClick={handleSendMessage}
-            disabled={!newMessage.trim() || isSending}
+            disabled={(!newMessage.trim() && !pendingFile) || isSending}
             className="btn btn-primary px-6"
           >
             {isSending ? (

@@ -160,6 +160,7 @@ async def get_messages_with_user(
             recipient_id=msg.recipient_id,
             recipient_name=msg.recipient.name,
             content=msg.content,
+            file_url=msg.file_url,
             is_read=msg.is_read,
             created_at=msg.created_at,
         )
@@ -189,10 +190,18 @@ async def send_message(
             detail="Cannot send message to yourself",
         )
 
+    # Validate that message has content or file
+    if not data.content.strip() and not data.file_url:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Message must have content or file",
+        )
+
     message = DirectMessage(
         sender_id=current_user.id,
         recipient_id=data.recipient_id,
         content=data.content,
+        file_url=data.file_url,
     )
     db.add(message)
     await db.commit()
@@ -208,6 +217,7 @@ async def send_message(
         recipient_id=message.recipient_id,
         recipient_name=recipient.name,
         content=message.content,
+        file_url=message.file_url,
         is_read=message.is_read,
         created_at=message.created_at,
     )

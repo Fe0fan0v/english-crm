@@ -405,6 +405,7 @@ export interface GroupMessage {
   sender_id: number;
   sender_name: string;
   content: string;
+  file_url: string | null;
   created_at: string;
 }
 
@@ -467,6 +468,7 @@ export interface DirectMessage {
   recipient_id: number;
   recipient_name: string;
   content: string;
+  file_url: string | null;
   is_read: boolean;
   created_at: string;
 }

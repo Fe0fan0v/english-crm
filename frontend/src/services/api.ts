@@ -665,9 +665,10 @@ export const groupMessagesApi = {
     return response.data;
   },
 
-  sendMessage: async (groupId: number, content: string): Promise<GroupMessage> => {
+  sendMessage: async (groupId: number, content: string, fileUrl?: string): Promise<GroupMessage> => {
     const response = await api.post<GroupMessage>(`/groups/${groupId}/messages`, {
       content,
+      file_url: fileUrl || null,
     });
     return response.data;
   },
@@ -699,16 +700,35 @@ export const directMessagesApi = {
     return response.data;
   },
 
-  sendMessage: async (recipientId: number, content: string): Promise<DirectMessage> => {
+  sendMessage: async (recipientId: number, content: string, fileUrl?: string): Promise<DirectMessage> => {
     const response = await api.post<DirectMessage>("/messages", {
       recipient_id: recipientId,
       content,
+      file_url: fileUrl || null,
     });
     return response.data;
   },
 
   getUnreadCount: async (): Promise<{ unread_count: number }> => {
     const response = await api.get<{ unread_count: number }>("/messages/unread/count");
+    return response.data;
+  },
+};
+
+// File upload API for chat
+export const uploadsApi = {
+  uploadChatFile: async (file: File): Promise<{ file_url: string; filename: string; size: number }> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await api.post<{ file_url: string; filename: string; size: number }>(
+      "/uploads/chat",
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
     return response.data;
   },
 };

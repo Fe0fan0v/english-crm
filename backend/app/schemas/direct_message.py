@@ -4,7 +4,8 @@ from pydantic import BaseModel, Field
 
 class DirectMessageCreate(BaseModel):
     recipient_id: int
-    content: str = Field(..., min_length=1, max_length=5000)
+    content: str = Field(default="", max_length=5000)
+    file_url: str | None = None
 
 
 class DirectMessageResponse(BaseModel):
@@ -14,6 +15,7 @@ class DirectMessageResponse(BaseModel):
     recipient_id: int
     recipient_name: str
     content: str
+    file_url: str | None
     is_read: bool
     created_at: datetime
 

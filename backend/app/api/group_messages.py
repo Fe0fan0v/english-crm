@@ -128,6 +128,7 @@ async def get_group_messages(
                 sender_id=msg.sender_id,
                 sender_name=msg.sender.name,
                 content=msg.content,
+                file_url=msg.file_url,
                 created_at=msg.created_at,
             )
             for msg in messages
@@ -147,11 +148,20 @@ async def send_group_message(
     """Send a message to a group (REST endpoint, fallback for WebSocket)."""
     await verify_group_access(group_id, current_user, db)
 
+    # Validate that message has content or file
+    if not data.content.strip() and not data.file_url:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=400,
+            detail="Message must have content or file",
+        )
+
     # Create message
     message = GroupMessage(
         group_id=group_id,
         sender_id=current_user.id,
         content=data.content,
+        file_url=data.file_url,
     )
     db.add(message)
     await db.commit()
@@ -163,6 +173,7 @@ async def send_group_message(
         sender_id=message.sender_id,
         sender_name=current_user.name,
         content=message.content,
+        file_url=message.file_url,
         created_at=message.created_at,
     )
 
@@ -232,7 +243,10 @@ async def websocket_chat(
 
             if message_data.get("type") == "message":
                 content = message_data.get("content", "").strip()
-                if not content:
+                file_url = message_data.get("file_url")
+
+                # Require either content or file
+                if not content and not file_url:
                     continue
 
                 # Save message to database
@@ -240,7 +254,8 @@ async def websocket_chat(
                     message = GroupMessage(
                         group_id=group_id,
                         sender_id=user_id,
-                        content=content[:5000],  # Limit content length
+                        content=content[:5000] if content else "",  # Limit content length
+                        file_url=file_url,
                     )
                     db.add(message)
                     await db.commit()
@@ -258,6 +273,7 @@ async def websocket_chat(
                             "sender_id": message.sender_id,
                             "sender_name": sender.name,
                             "content": message.content,
+                            "file_url": message.file_url,
                             "created_at": message.created_at.isoformat(),
                         },
                     }

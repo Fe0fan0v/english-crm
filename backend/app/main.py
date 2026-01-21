@@ -41,10 +41,14 @@ app.add_middleware(
 # Include API routes
 app.include_router(api_router, prefix="/api")
 
-# Create uploads directory and mount static files
-uploads_path = Path(settings.storage_path) / "photos"
-uploads_path.mkdir(parents=True, exist_ok=True)
-app.mount("/api/uploads/photos", StaticFiles(directory=str(uploads_path)), name="photos")
+# Create uploads directories and mount static files
+photos_path = Path(settings.storage_path) / "photos"
+photos_path.mkdir(parents=True, exist_ok=True)
+app.mount("/api/uploads/photos", StaticFiles(directory=str(photos_path)), name="photos")
+
+chat_uploads_path = Path(settings.storage_path) / "chat"
+chat_uploads_path.mkdir(parents=True, exist_ok=True)
+app.mount("/api/uploads/chat", StaticFiles(directory=str(chat_uploads_path)), name="chat")
 
 
 @app.get("/health")

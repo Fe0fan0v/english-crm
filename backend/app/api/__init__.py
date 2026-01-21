@@ -13,6 +13,7 @@ from app.api import (
     student_dashboard,
     teacher_dashboard,
     tests,
+    uploads,
     users,
 )
 from fastapi import APIRouter
@@ -33,3 +34,4 @@ api_router.include_router(lessons.router, prefix="/lessons", tags=["lessons"])
 api_router.include_router(teacher_dashboard.router, prefix="/teacher", tags=["teacher-dashboard"])
 api_router.include_router(student_dashboard.router, prefix="/student", tags=["student-dashboard"])
 api_router.include_router(direct_messages.router, prefix="/messages", tags=["direct-messages"])
+api_router.include_router(uploads.router, prefix="/uploads", tags=["uploads"])

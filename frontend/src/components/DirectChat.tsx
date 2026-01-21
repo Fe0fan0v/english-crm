@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { directMessagesApi } from "../services/api";
+import { directMessagesApi, uploadsApi } from "../services/api";
 import { useAuthStore } from "../store/authStore";
 import Avatar from "./Avatar";
 import type { DirectMessage, ConversationSummary } from "../types";
@@ -10,13 +10,26 @@ interface DirectChatProps {
   onClose: () => void;
 }
 
+// Helper to check if URL is an image
+const isImageUrl = (url: string): boolean => {
+  return /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
+};
+
+// Helper to get filename from URL
+const getFilenameFromUrl = (url: string): string => {
+  return url.split("/").pop() || "file";
+};
+
 export default function DirectChat({ partnerId, partnerName, onClose }: DirectChatProps) {
   const { user } = useAuthStore();
   const [messages, setMessages] = useState<DirectMessage[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [pendingFile, setPendingFile] = useState<{ url: string; name: string } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchMessages = async () => {
     try {
@@ -41,14 +54,38 @@ export default function DirectChat({ partnerId, partnerName, onClose }: DirectCh
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const result = await uploadsApi.uploadChatFile(file);
+      setPendingFile({ url: result.file_url, name: result.filename });
+    } catch (error) {
+      console.error("Failed to upload file:", error);
+      alert("Не удалось загрузить файл");
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
   const handleSend = async () => {
-    if (!newMessage.trim() || isSending) return;
+    if ((!newMessage.trim() && !pendingFile) || isSending) return;
 
     setIsSending(true);
     try {
-      const message = await directMessagesApi.sendMessage(partnerId, newMessage.trim());
+      const message = await directMessagesApi.sendMessage(
+        partnerId,
+        newMessage.trim(),
+        pendingFile?.url
+      );
       setMessages((prev) => [...prev, message]);
       setNewMessage("");
+      setPendingFile(null);
     } catch (error) {
       console.error("Failed to send message:", error);
     } finally {
@@ -61,6 +98,10 @@ export default function DirectChat({ partnerId, partnerName, onClose }: DirectCh
       e.preventDefault();
       handleSend();
     }
+  };
+
+  const removePendingFile = () => {
+    setPendingFile(null);
   };
 
   return (
@@ -110,7 +151,38 @@ export default function DirectChat({ partnerId, partnerName, onClose }: DirectCh
                         : "bg-gray-100 text-gray-800"
                     }`}
                   >
-                    <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                    {/* File attachment */}
+                    {msg.file_url && (
+                      <div className="mb-2">
+                        {isImageUrl(msg.file_url) ? (
+                          <a href={msg.file_url} target="_blank" rel="noopener noreferrer">
+                            <img
+                              src={msg.file_url}
+                              alt="Attachment"
+                              className="max-w-full rounded-lg max-h-48 object-contain"
+                            />
+                          </a>
+                        ) : (
+                          <a
+                            href={msg.file_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`flex items-center gap-2 p-2 rounded-lg ${
+                              isOwn ? "bg-cyan-600" : "bg-gray-200"
+                            }`}
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                            </svg>
+                            <span className="text-sm truncate">{getFilenameFromUrl(msg.file_url)}</span>
+                          </a>
+                        )}
+                      </div>
+                    )}
+                    {/* Text content */}
+                    {msg.content && (
+                      <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                    )}
                     <p
                       className={`text-xs mt-1 ${
                         isOwn ? "text-cyan-100" : "text-gray-500"
@@ -129,9 +201,60 @@ export default function DirectChat({ partnerId, partnerName, onClose }: DirectCh
           <div ref={messagesEndRef} />
         </div>
 
+        {/* Pending file preview */}
+        {pendingFile && (
+          <div className="px-4 py-2 border-t border-gray-100 bg-gray-50">
+            <div className="flex items-center gap-2">
+              {isImageUrl(pendingFile.url) ? (
+                <img src={pendingFile.url} alt="Preview" className="w-12 h-12 object-cover rounded" />
+              ) : (
+                <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center">
+                  <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                </div>
+              )}
+              <span className="flex-1 text-sm text-gray-600 truncate">{pendingFile.name}</span>
+              <button
+                onClick={removePendingFile}
+                className="p-1 hover:bg-gray-200 rounded"
+              >
+                <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Input */}
         <div className="p-4 border-t border-gray-100">
           <div className="flex gap-2">
+            {/* File upload button */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              onChange={handleFileSelect}
+              className="hidden"
+              accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500"
+              title="Прикрепить файл"
+            >
+              {isUploading ? (
+                <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                </svg>
+              )}
+            </button>
             <textarea
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
@@ -142,7 +265,7 @@ export default function DirectChat({ partnerId, partnerName, onClose }: DirectCh
             />
             <button
               onClick={handleSend}
-              disabled={!newMessage.trim() || isSending}
+              disabled={(!newMessage.trim() && !pendingFile) || isSending}
               className="btn btn-primary px-4"
             >
               {isSending ? (
