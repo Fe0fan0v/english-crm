@@ -294,28 +294,15 @@ export default function StudentDashboardPage() {
                         <span className="w-2 h-2 bg-red-500 rounded-full"></span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 mt-3">
-                      <button
-                        onClick={() => setSelectedGroupId(group.id)}
-                        className="flex items-center gap-1 text-cyan-600 text-sm hover:text-cyan-700"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        Чат группы
-                      </button>
-                      {group.teacher_id && (
-                        <button
-                          onClick={() => setChatPartner({ id: group.teacher_id!, name: group.teacher_name! })}
-                          className="flex items-center gap-1 text-cyan-600 text-sm hover:text-cyan-700"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                          </svg>
-                          Написать преподавателю
-                        </button>
-                      )}
-                    </div>
+                    <button
+                      onClick={() => setSelectedGroupId(group.id)}
+                      className="flex items-center gap-1 mt-3 text-cyan-600 text-sm hover:text-cyan-700"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                      </svg>
+                      Открыть чат
+                    </button>
                   </div>
                 ))}
               </div>
@@ -493,13 +480,47 @@ export default function StudentDashboardPage() {
       )}
 
       {activeTab === "messages" && (
-        <div className="card">
-          <h2 className="section-title mb-4">Личные сообщения</h2>
-          <ConversationList
-            onSelectConversation={(userId, userName) =>
-              setChatPartner({ id: userId, name: userName })
-            }
-          />
+        <div className="space-y-6">
+          {/* My Teachers - for starting new conversations */}
+          {groups.some(g => g.teacher_id) && (
+            <div className="card">
+              <h2 className="section-title mb-4">Мои преподаватели</h2>
+              <div className="flex flex-wrap gap-2">
+                {/* Get unique teachers from groups */}
+                {Array.from(
+                  new Map(
+                    groups
+                      .filter(g => g.teacher_id && g.teacher_name)
+                      .map(g => [g.teacher_id, { id: g.teacher_id!, name: g.teacher_name! }])
+                  ).values()
+                ).map((teacher) => (
+                  <button
+                    key={teacher.id}
+                    onClick={() => setChatPartner(teacher)}
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors"
+                  >
+                    <div className="w-8 h-8 bg-cyan-100 rounded-full flex items-center justify-center text-cyan-600 font-medium text-sm">
+                      {teacher.name.charAt(0)}
+                    </div>
+                    <span className="text-sm font-medium text-gray-700">{teacher.name}</span>
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Existing conversations */}
+          <div className="card">
+            <h2 className="section-title mb-4">Переписки</h2>
+            <ConversationList
+              onSelectConversation={(userId, userName) =>
+                setChatPartner({ id: userId, name: userName })
+              }
+            />
+          </div>
         </div>
       )}
 
