@@ -184,6 +184,17 @@ export interface ScheduleLesson {
   students_count: number;
 }
 
+// Batch lesson creation
+export interface LessonBatchConflict {
+  date: string;
+  reason: string;
+}
+
+export interface LessonBatchResponse {
+  created: ScheduleLesson[];
+  conflicts: LessonBatchConflict[];
+}
+
 // Lesson Detail (for admin/manager view)
 export interface LessonStudentDetail {
   id: number;

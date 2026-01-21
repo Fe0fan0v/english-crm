@@ -12,6 +12,8 @@ from app.models.lesson_type import LessonType
 from app.models.user import User
 from app.schemas.lesson import (
     LessonCreate,
+    LessonCreateBatch,
+    LessonCreateBatchResponse,
     LessonUpdate,
     LessonResponse,
     LessonListResponse,
@@ -125,6 +127,235 @@ async def check_students_conflict(
                 })
 
     return conflicts
+
+
+# Weekday mapping for batch creation
+WEEKDAY_MAP = {
+    "monday": 0,
+    "tuesday": 1,
+    "wednesday": 2,
+    "thursday": 3,
+    "friday": 4,
+    "saturday": 5,
+    "sunday": 6,
+}
+
+
+def generate_lesson_dates(
+    start_date: datetime,
+    weekdays: list[str],
+    weeks: int,
+    time_str: str,
+) -> list[datetime]:
+    """Generate list of lesson datetimes for given weekdays over specified weeks."""
+    from datetime import date as date_type
+
+    dates = []
+    # Parse time
+    time_parts = time_str.split(":")
+    hour = int(time_parts[0])
+    minute = int(time_parts[1]) if len(time_parts) > 1 else 0
+
+    # Convert start_date to date if it's datetime
+    if isinstance(start_date, datetime):
+        base_date = start_date.date()
+    else:
+        base_date = start_date
+
+    for weekday_name in weekdays:
+        weekday_num = WEEKDAY_MAP.get(weekday_name.lower())
+        if weekday_num is None:
+            continue
+
+        # Find first occurrence of this weekday on or after start_date
+        days_until_weekday = (weekday_num - base_date.weekday()) % 7
+        first_occurrence = base_date + timedelta(days=days_until_weekday)
+
+        # Generate dates for all weeks
+        for week in range(weeks):
+            lesson_date = first_occurrence + timedelta(weeks=week)
+            lesson_datetime = datetime(
+                lesson_date.year,
+                lesson_date.month,
+                lesson_date.day,
+                hour,
+                minute,
+            )
+            dates.append(lesson_datetime)
+
+    # Sort by date
+    dates.sort()
+    return dates
+
+
+@router.post("/batch", response_model=LessonCreateBatchResponse)
+async def create_lessons_batch(
+    data: LessonCreateBatch,
+    db: AsyncSession = Depends(get_db),
+    _: ManagerUser = None,
+):
+    """
+    Create recurring lessons for specified weekdays over multiple weeks.
+
+    Returns list of created lessons and any conflicts that prevented creation.
+    """
+    # Verify teacher exists
+    teacher = await db.get(User, data.teacher_id)
+    if not teacher:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Преподаватель не найден",
+        )
+
+    # Verify lesson type exists
+    lesson_type = await db.get(LessonType, data.lesson_type_id)
+    if not lesson_type:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Тип занятия не найден",
+        )
+
+    # Verify group exists if provided
+    group = None
+    if data.group_id:
+        group = await db.get(Group, data.group_id)
+        if not group:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Группа не найдена",
+            )
+
+    # Collect student IDs (from group if provided, otherwise from request)
+    student_ids = list(data.student_ids)
+    if data.group_id:
+        group_students_result = await db.execute(
+            select(GroupStudent).where(GroupStudent.group_id == data.group_id)
+        )
+        group_students = group_students_result.scalars().all()
+        group_student_ids = [gs.student_id for gs in group_students]
+        student_ids = list(set(student_ids + group_student_ids))
+
+    # Validate that at least one student is assigned
+    if not student_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Необходимо выбрать хотя бы одного ученика",
+        )
+
+    # Validate weekdays
+    if not data.weekdays:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Необходимо выбрать хотя бы один день недели",
+        )
+
+    invalid_weekdays = [w for w in data.weekdays if w.lower() not in WEEKDAY_MAP]
+    if invalid_weekdays:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Недопустимые дни недели: {', '.join(invalid_weekdays)}",
+        )
+
+    # Generate all lesson dates
+    lesson_dates = generate_lesson_dates(
+        data.start_date,
+        data.weekdays,
+        data.weeks,
+        data.time,
+    )
+
+    if not lesson_dates:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Не удалось сформировать расписание",
+        )
+
+    created_lessons = []
+    conflicts = []
+
+    for scheduled_at in lesson_dates:
+        # Check teacher conflict
+        teacher_conflict = await check_teacher_conflict(db, data.teacher_id, scheduled_at)
+        if teacher_conflict:
+            conflicts.append({
+                "date": scheduled_at.isoformat(),
+                "reason": f"Преподаватель занят ({teacher_conflict.title})",
+            })
+            continue
+
+        # Check students conflicts
+        student_conflicts = await check_students_conflict(db, student_ids, scheduled_at)
+        if student_conflicts:
+            conflict_names = ", ".join(set(c["student_name"] for c in student_conflicts[:3]))
+            conflicts.append({
+                "date": scheduled_at.isoformat(),
+                "reason": f"Ученики заняты: {conflict_names}",
+            })
+            continue
+
+        # Create lesson
+        lesson = Lesson(
+            title=lesson_type.name,
+            teacher_id=data.teacher_id,
+            group_id=data.group_id,
+            lesson_type_id=data.lesson_type_id,
+            scheduled_at=scheduled_at,
+            duration_minutes=data.duration_minutes,
+            status=LessonStatus.SCHEDULED,
+        )
+        db.add(lesson)
+        await db.flush()
+
+        # Add students
+        for student_id in student_ids:
+            student = await db.get(User, student_id)
+            if student:
+                lesson_student = LessonStudent(
+                    lesson_id=lesson.id,
+                    student_id=student_id,
+                    attendance_status=AttendanceStatus.PENDING,
+                    charged=False,
+                )
+                db.add(lesson_student)
+
+        created_lessons.append(lesson)
+
+    await db.commit()
+
+    # Reload lessons with relationships to build response
+    created_schedule_lessons = []
+    for lesson in created_lessons:
+        result = await db.execute(
+            select(Lesson)
+            .options(
+                selectinload(Lesson.teacher),
+                selectinload(Lesson.group),
+                selectinload(Lesson.lesson_type),
+                selectinload(Lesson.students),
+            )
+            .where(Lesson.id == lesson.id)
+        )
+        loaded_lesson = result.scalar_one()
+        created_schedule_lessons.append(
+            ScheduleLesson(
+                id=loaded_lesson.id,
+                title=loaded_lesson.title,
+                teacher_id=loaded_lesson.teacher_id,
+                teacher_name=loaded_lesson.teacher.name,
+                group_id=loaded_lesson.group_id,
+                group_name=loaded_lesson.group.name if loaded_lesson.group else None,
+                lesson_type_name=loaded_lesson.lesson_type.name,
+                scheduled_at=loaded_lesson.scheduled_at,
+                duration_minutes=loaded_lesson.duration_minutes,
+                status=loaded_lesson.status,
+                students_count=len(loaded_lesson.students),
+            )
+        )
+
+    return LessonCreateBatchResponse(
+        created=created_schedule_lessons,
+        conflicts=conflicts,
+    )
 
 
 @router.get("", response_model=LessonListResponse)

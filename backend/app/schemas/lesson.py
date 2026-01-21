@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
@@ -17,6 +17,25 @@ class LessonBase(BaseModel):
 
 class LessonCreate(LessonBase):
     student_ids: list[int] = []  # If group_id is provided, students are auto-populated from group
+
+
+class LessonCreateBatch(BaseModel):
+    """Schema for creating recurring lessons (batch creation)."""
+    teacher_id: int
+    lesson_type_id: int
+    weekdays: list[str]  # ["monday", "wednesday", "friday"]
+    time: str  # "10:00" or "10:00:00"
+    start_date: date  # Start date for generating lessons
+    weeks: int = Field(default=4, ge=1, le=12)  # Number of weeks to generate
+    duration_minutes: int = Field(default=60, ge=15, le=480)
+    group_id: int | None = None
+    student_ids: list[int] = []
+
+
+class LessonCreateBatchResponse(BaseModel):
+    """Response for batch lesson creation."""
+    created: list["ScheduleLesson"]
+    conflicts: list[dict]  # List of conflicts that prevented lesson creation
 
 
 class LessonUpdate(BaseModel):
@@ -89,3 +108,7 @@ class ScheduleLesson(BaseModel):
     duration_minutes: int
     status: LessonStatus
     students_count: int
+
+
+# Update forward references
+LessonCreateBatchResponse.model_rebuild()

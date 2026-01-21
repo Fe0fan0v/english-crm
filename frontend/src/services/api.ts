@@ -46,6 +46,7 @@ import type {
   TeacherAvailabilityCreate,
   DirectMessage,
   ConversationListResponse,
+  LessonBatchResponse,
 } from "../types";
 
 const api = axios.create({
@@ -466,6 +467,21 @@ export const lessonsApi = {
 
   deleteLesson: async (lessonId: number): Promise<void> => {
     await api.delete(`/lessons/${lessonId}`);
+  },
+
+  createLessonsBatch: async (data: {
+    teacher_id: number;
+    lesson_type_id: number;
+    weekdays: string[];
+    time: string;
+    start_date: string;
+    weeks?: number;
+    duration_minutes?: number;
+    group_id?: number;
+    student_ids?: number[];
+  }): Promise<LessonBatchResponse> => {
+    const response = await api.post<LessonBatchResponse>("/lessons/batch", data);
+    return response.data;
   },
 };
 
