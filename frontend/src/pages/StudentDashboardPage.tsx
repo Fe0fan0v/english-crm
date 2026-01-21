@@ -217,8 +217,8 @@ export default function StudentDashboardPage() {
   return (
     <div>
       {/* Profile Header */}
-      <div className="card mb-4 md:mb-6">
-        <div className="flex flex-col md:flex-row items-center md:items-start gap-4 md:gap-6">
+      <div className="card mb-4 lg:mb-6">
+        <div className="flex flex-col lg:flex-row items-center lg:items-start gap-4 lg:gap-6">
           <PhotoUpload
             userId={user?.id || 0}
             userName={user?.name || ""}
@@ -227,10 +227,10 @@ export default function StudentDashboardPage() {
             size="xl"
             canEdit={true}
           />
-          <div className="flex-1 text-center md:text-left w-full">
-            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 md:gap-0">
+          <div className="flex-1 text-center lg:text-left w-full">
+            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 lg:gap-0">
               <div>
-                <h1 className="text-xl md:text-2xl font-bold text-gray-800">{user?.name}</h1>
+                <h1 className="text-xl lg:text-2xl font-bold text-gray-800">{user?.name}</h1>
                 <div className="flex flex-col sm:flex-row items-center sm:gap-4 mt-2 text-gray-500 text-sm">
                   {user?.phone && (
                     <span className="flex items-center gap-1">
@@ -248,10 +248,10 @@ export default function StudentDashboardPage() {
                   </span>
                 </div>
               </div>
-              <div className="text-center md:text-right mt-2 md:mt-0">
+              <div className="text-center lg:text-right mt-2 lg:mt-0">
                 <p className="text-sm text-gray-500">Баланс</p>
                 <p
-                  className={`text-xl md:text-2xl font-bold ${
+                  className={`text-xl lg:text-2xl font-bold ${
                     parseFloat(stats?.balance || "0") >= 0 ? "text-green-600" : "text-red-600"
                   }`}
                 >
@@ -264,7 +264,7 @@ export default function StudentDashboardPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-4 md:mb-6 overflow-x-auto scrollbar-hide pb-2 md:pb-0 -mx-4 px-4 md:mx-0 md:px-0">
+      <div className="flex gap-2 mb-4 lg:mb-6 overflow-x-auto scrollbar-hide pb-2 lg:pb-0 -mx-4 px-4 lg:mx-0 lg:px-0">
         {[
           { key: "info" as TabType, label: "Моя страница" },
           { key: "tests" as TabType, label: "Тесты" },
@@ -283,40 +283,40 @@ export default function StudentDashboardPage() {
 
       {/* Tab Content */}
       {activeTab === "info" && (
-        <div className="space-y-4 md:space-y-6">
+        <div className="space-y-4 lg:space-y-6">
           {/* Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
-            <div className="card flex items-center gap-4 p-4 md:p-6">
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-cyan-100 text-cyan-600 flex items-center justify-center flex-shrink-0">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
+            <div className="card flex items-center gap-4 p-4 lg:p-6">
+              <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl bg-cyan-100 text-cyan-600 flex items-center justify-center flex-shrink-0">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
               </div>
               <div>
-                <p className="text-xs md:text-sm text-gray-500">Предстоящие уроки</p>
-                <p className="text-xl md:text-2xl font-bold text-gray-800">{stats?.upcoming_lessons_count || 0}</p>
+                <p className="text-xs lg:text-sm text-gray-500">Предстоящие уроки</p>
+                <p className="text-xl lg:text-2xl font-bold text-gray-800">{stats?.upcoming_lessons_count || 0}</p>
               </div>
             </div>
-            <div className="card flex items-center gap-4 p-4 md:p-6">
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center flex-shrink-0">
+            <div className="card flex items-center gap-4 p-4 lg:p-6">
+              <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center flex-shrink-0">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
               </div>
               <div>
-                <p className="text-xs md:text-sm text-gray-500">Мои группы</p>
-                <p className="text-xl md:text-2xl font-bold text-gray-800">{stats?.groups_count || 0}</p>
+                <p className="text-xs lg:text-sm text-gray-500">Мои группы</p>
+                <p className="text-xl lg:text-2xl font-bold text-gray-800">{stats?.groups_count || 0}</p>
               </div>
             </div>
-            <div className="card flex items-center gap-4 p-4 md:p-6 sm:col-span-2 md:col-span-1">
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-green-100 text-green-600 flex items-center justify-center flex-shrink-0">
+            <div className="card flex items-center gap-4 p-4 lg:p-6 sm:col-span-2 lg:col-span-1">
+              <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl bg-green-100 text-green-600 flex items-center justify-center flex-shrink-0">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
               <div>
-                <p className="text-xs md:text-sm text-gray-500">Баланс</p>
-                <p className={`text-xl md:text-2xl font-bold ${parseFloat(stats?.balance || "0") >= 0 ? "text-green-600" : "text-red-600"}`}>
+                <p className="text-xs lg:text-sm text-gray-500">Баланс</p>
+                <p className={`text-xl lg:text-2xl font-bold ${parseFloat(stats?.balance || "0") >= 0 ? "text-green-600" : "text-red-600"}`}>
                   {parseFloat(stats?.balance || "0").toLocaleString("ru-RU")} тг
                 </p>
               </div>
@@ -324,14 +324,14 @@ export default function StudentDashboardPage() {
           </div>
 
           {/* My Groups */}
-          <div className="card p-4 md:p-6">
-            <h2 className="section-title mb-3 md:mb-4">Мои группы</h2>
+          <div className="card p-4 lg:p-6">
+            <h2 className="section-title mb-3 lg:mb-4">Мои группы</h2>
             {groups.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
                 {groups.map((group) => (
                   <div
                     key={group.id}
-                    className="p-3 md:p-4 bg-gray-50 rounded-xl"
+                    className="p-3 lg:p-4 bg-gray-50 rounded-xl"
                   >
                     <div className="flex items-start justify-between">
                       <div className="min-w-0 flex-1">
@@ -357,13 +357,13 @@ export default function StudentDashboardPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-gray-500 text-center py-6 md:py-8">Вы пока не состоите в группах</p>
+              <p className="text-gray-500 text-center py-6 lg:py-8">Вы пока не состоите в группах</p>
             )}
           </div>
 
           {/* Schedule Calendar */}
-          <div className="card p-4 md:p-6">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 gap-3">
+          <div className="card p-4 lg:p-6">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-4 gap-3">
               <h2 className="section-title mb-0">Мое расписание</h2>
               <div className="flex items-center justify-center gap-2">
                 <button onClick={goToPrevWeek} className="p-2 hover:bg-gray-100 rounded-lg touch-target">
@@ -371,7 +371,7 @@ export default function StudentDashboardPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
                 </button>
-                <span className="font-medium text-sm md:text-base">
+                <span className="font-medium text-sm lg:text-base">
                   {formatDate(weekDates[0])} - {formatDate(weekDates[6])}
                 </span>
                 <button onClick={goToNextWeek} className="p-2 hover:bg-gray-100 rounded-lg touch-target">
@@ -383,7 +383,7 @@ export default function StudentDashboardPage() {
             </div>
 
             {/* Mobile Day Picker */}
-            <div className="md:hidden mb-4">
+            <div className="lg:hidden mb-4">
               <div className="flex gap-1 overflow-x-auto scrollbar-hide pb-2 -mx-4 px-4">
                 {weekDates.map((date, i) => {
                   const isToday = date.toDateString() === new Date().toDateString();
@@ -415,7 +415,7 @@ export default function StudentDashboardPage() {
             </div>
 
             {/* Mobile Lessons List */}
-            <div className="md:hidden space-y-3">
+            <div className="lg:hidden space-y-3">
               {(() => {
                 const selectedDate = weekDates[selectedDayIndex];
                 const dayLessons = getLessonsForDay(selectedDate);
@@ -498,7 +498,7 @@ export default function StudentDashboardPage() {
             </div>
 
             {/* Desktop Schedule Table */}
-            <div className="hidden md:block overflow-x-auto">
+            <div className="hidden lg:block overflow-x-auto">
               <table className="w-full border-collapse">
                 <thead>
                   <tr>

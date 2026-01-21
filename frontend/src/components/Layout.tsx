@@ -355,7 +355,7 @@ export default function Layout({ children }: LayoutProps) {
   return (
     <div className="min-h-screen bg-gray-50 flex overflow-x-hidden">
       {/* Mobile Header */}
-      <header className="fixed top-0 left-0 right-0 h-14 bg-white border-b border-gray-100 z-40 md:hidden flex items-center justify-between px-4">
+      <header className="fixed top-0 left-0 right-0 h-14 bg-white border-b border-gray-100 z-40 lg:hidden flex items-center justify-between px-4">
         <button
           onClick={() => setIsMobileMenuOpen(true)}
           className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-lg touch-target"
@@ -373,7 +373,7 @@ export default function Layout({ children }: LayoutProps) {
       {/* Mobile Menu Overlay */}
       {isMobileMenuOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
           onClick={closeMobileMenu}
         />
       )}
@@ -382,8 +382,8 @@ export default function Layout({ children }: LayoutProps) {
       <aside
         className={clsx(
           "fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-100 flex flex-col z-50 transition-transform duration-300",
-          "md:translate-x-0",
-          isMobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+          "lg:translate-x-0",
+          isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
         {/* Logo */}
@@ -396,7 +396,7 @@ export default function Layout({ children }: LayoutProps) {
           {/* Close button for mobile */}
           <button
             onClick={closeMobileMenu}
-            className="p-2 -mr-2 text-gray-600 hover:bg-gray-100 rounded-lg md:hidden"
+            className="p-2 -mr-2 text-gray-600 hover:bg-gray-100 rounded-lg lg:hidden"
           >
             {icons2.close}
           </button>
@@ -455,7 +455,7 @@ export default function Layout({ children }: LayoutProps) {
                 {user?.email}
               </div>
             </div>
-            <div className="hidden md:block">
+            <div className="hidden lg:block">
               <NotificationBell />
             </div>
           </div>
@@ -470,8 +470,8 @@ export default function Layout({ children }: LayoutProps) {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 ml-0 md:ml-64 overflow-x-hidden">
-        <div className="p-4 md:p-8 pt-[72px] md:pt-8 max-w-full">{children}</div>
+      <main className="flex-1 ml-0 lg:ml-64 overflow-x-hidden">
+        <div className="p-4 lg:p-8 pt-[72px] lg:pt-8 max-w-full">{children}</div>
       </main>
     </div>
   );

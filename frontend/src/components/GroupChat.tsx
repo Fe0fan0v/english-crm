@@ -225,7 +225,7 @@ export default function GroupChat({ groupId }: GroupChatProps) {
   return (
     <div className="flex flex-col h-full bg-white rounded-2xl shadow-sm overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 border-b">
+      <div className="flex items-center justify-between px-4 lg:px-6 py-3 lg:py-4 border-b">
         <h3 className="font-semibold text-gray-800">Чат группы</h3>
         <div className="flex items-center gap-2">
           <span
@@ -240,7 +240,7 @@ export default function GroupChat({ groupId }: GroupChatProps) {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-3 lg:p-4 space-y-4">
         {error && (
           <div className="text-center text-red-500 text-sm py-2">{error}</div>
         )}
@@ -271,7 +271,7 @@ export default function GroupChat({ groupId }: GroupChatProps) {
                       <Avatar name={message.sender_name} size="sm" />
                     )}
                     <div
-                      className={`max-w-[85%] md:max-w-[70%] ${
+                      className={`max-w-[85%] lg:max-w-[70%] ${
                         isOwn ? "text-right" : "text-left"
                       }`}
                     >
@@ -281,7 +281,7 @@ export default function GroupChat({ groupId }: GroupChatProps) {
                         </p>
                       )}
                       <div
-                        className={`inline-block px-3 md:px-4 py-2 rounded-2xl ${
+                        className={`inline-block px-3 lg:px-4 py-2 rounded-2xl ${
                           isOwn
                             ? "bg-cyan-500 text-white rounded-br-md"
                             : "bg-gray-100 text-gray-800 rounded-bl-md"
@@ -366,8 +366,8 @@ export default function GroupChat({ groupId }: GroupChatProps) {
       )}
 
       {/* Input */}
-      <div className="p-3 md:p-4 border-t pb-safe">
-        <div className="flex gap-2 md:gap-3">
+      <div className="p-3 lg:p-4 border-t pb-safe">
+        <div className="flex gap-2 lg:gap-3">
           {/* File upload button */}
           <input
             ref={fileInputRef}
@@ -405,7 +405,7 @@ export default function GroupChat({ groupId }: GroupChatProps) {
           <button
             onClick={handleSendMessage}
             disabled={(!newMessage.trim() && !pendingFile) || isSending}
-            className="btn btn-primary px-3 md:px-6 touch-target"
+            className="btn btn-primary px-3 lg:px-6 touch-target"
           >
             {isSending ? (
               <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
