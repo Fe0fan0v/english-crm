@@ -11,7 +11,7 @@ import type {
   StudentTestInfo,
 } from "../types";
 
-type TabType = "info" | "tests" | "materials" | "messages" | "dictionary" | "irregular_verbs";
+type TabType = "info" | "tests" | "materials" | "messages";
 
 function formatDate(date: Date): string {
   return date.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
@@ -250,8 +250,6 @@ export default function StudentDashboardPage() {
           { key: "info" as TabType, label: "Моя страница" },
           { key: "tests" as TabType, label: "Тесты" },
           { key: "materials" as TabType, label: "Материалы" },
-          { key: "dictionary" as TabType, label: "Словарь" },
-          { key: "irregular_verbs" as TabType, label: "Неправильные глаголы" },
           { key: "messages" as TabType, label: "Сообщения" },
         ].map((tab) => (
           <button
@@ -529,30 +527,6 @@ export default function StudentDashboardPage() {
           ) : (
             <p className="text-gray-500 text-center py-8">У вас пока нет доступных материалов</p>
           )}
-        </div>
-      )}
-
-      {activeTab === "dictionary" && (
-        <div className="card">
-          <h2 className="section-title mb-4">Словарь</h2>
-          <div className="text-center py-12">
-            <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-            </svg>
-            <p className="text-gray-500">Блок в разработке</p>
-          </div>
-        </div>
-      )}
-
-      {activeTab === "irregular_verbs" && (
-        <div className="card">
-          <h2 className="section-title mb-4">Неправильные глаголы</h2>
-          <div className="text-center py-12">
-            <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-            </svg>
-            <p className="text-gray-500">Блок в разработке</p>
-          </div>
         </div>
       )}
 

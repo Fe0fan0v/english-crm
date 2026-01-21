@@ -17,6 +17,8 @@ import GroupsPage from "./pages/GroupsPage";
 import GroupDetailPage from "./pages/GroupDetailPage";
 import TeacherDashboardPage from "./pages/TeacherDashboardPage";
 import StudentDashboardPage from "./pages/StudentDashboardPage";
+import DictionaryPage from "./pages/DictionaryPage";
+import IrregularVerbsPage from "./pages/IrregularVerbsPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { token, user, fetchUser, logout } = useAuthStore();
@@ -160,6 +162,22 @@ export default function App() {
         element={
           <ProtectedRoute>
             <StudentDashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/student/dictionary"
+        element={
+          <ProtectedRoute>
+            <DictionaryPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/student/irregular-verbs"
+        element={
+          <ProtectedRoute>
+            <IrregularVerbsPage />
           </ProtectedRoute>
         }
       />
