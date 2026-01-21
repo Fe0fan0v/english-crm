@@ -156,12 +156,15 @@ export default function LessonCreateModal({
     }
   };
 
-  // Set default date to tomorrow if not prefilled
+  // Sync scheduledDate with prefillDate prop
   useEffect(() => {
-    if (!prefillDate) {
+    if (prefillDate) {
+      setScheduledDate(prefillDate);
+    } else {
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
-      setScheduledDate(tomorrow.toISOString().split("T")[0]);
+      const dateStr = `${tomorrow.getFullYear()}-${(tomorrow.getMonth() + 1).toString().padStart(2, "0")}-${tomorrow.getDate().toString().padStart(2, "0")}`;
+      setScheduledDate(dateStr);
     }
   }, [prefillDate]);
 
