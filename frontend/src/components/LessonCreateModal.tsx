@@ -64,7 +64,7 @@ function generatePreviewDates(
 
     // Find first occurrence of this weekday on or after start_date
     const baseDayOfWeek = baseDate.getDay();
-    let daysUntilWeekday = (weekdayNum - baseDayOfWeek + 7) % 7;
+    const daysUntilWeekday = (weekdayNum - baseDayOfWeek + 7) % 7;
 
     for (let week = 0; week < weeks; week++) {
       const lessonDate = new Date(baseDate);
