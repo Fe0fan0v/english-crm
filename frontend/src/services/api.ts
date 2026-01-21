@@ -393,6 +393,25 @@ export const reportsApi = {
     });
     return response.data;
   },
+
+  exportTeacherReport: async (dateFrom: string, dateTo: string): Promise<void> => {
+    const response = await api.post("/reports/teachers/export", {
+      date_from: dateFrom,
+      date_to: dateTo,
+    }, {
+      responseType: "blob",
+    });
+
+    // Create download link
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `report_${dateFrom}_${dateTo}.xlsx`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
 };
 
 // Dashboard
