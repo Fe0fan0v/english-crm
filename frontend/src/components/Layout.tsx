@@ -353,7 +353,7 @@ export default function Layout({ children }: LayoutProps) {
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 flex overflow-x-hidden">
       {/* Mobile Header */}
       <header className="fixed top-0 left-0 right-0 h-14 bg-white border-b border-gray-100 z-40 md:hidden flex items-center justify-between px-4">
         <button
@@ -470,8 +470,8 @@ export default function Layout({ children }: LayoutProps) {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 ml-0 md:ml-64">
-        <div className="p-4 md:p-8 pt-[72px] md:pt-8">{children}</div>
+      <main className="flex-1 ml-0 md:ml-64 overflow-x-hidden">
+        <div className="p-4 md:p-8 pt-[72px] md:pt-8 max-w-full">{children}</div>
       </main>
     </div>
   );
