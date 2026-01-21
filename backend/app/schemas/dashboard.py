@@ -100,6 +100,7 @@ class StudentStats(BaseModel):
 class StudentGroupSummary(BaseModel):
     id: int
     name: str
+    teacher_id: int | None
     teacher_name: str | None
     has_unread_messages: bool = False
 
@@ -108,6 +109,7 @@ class StudentLessonInfo(BaseModel):
     id: int
     title: str
     scheduled_at: datetime
+    teacher_id: int
     teacher_name: str
     lesson_type_name: str
     meeting_url: str | None

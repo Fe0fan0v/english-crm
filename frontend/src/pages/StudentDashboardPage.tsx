@@ -279,10 +279,9 @@ export default function StudentDashboardPage() {
             {groups.length > 0 ? (
               <div className="grid grid-cols-3 gap-4">
                 {groups.map((group) => (
-                  <button
+                  <div
                     key={group.id}
-                    onClick={() => setSelectedGroupId(group.id)}
-                    className="p-4 bg-gray-50 rounded-xl text-left hover:bg-gray-100 transition-colors"
+                    className="p-4 bg-gray-50 rounded-xl"
                   >
                     <div className="flex items-start justify-between">
                       <div>
@@ -295,13 +294,29 @@ export default function StudentDashboardPage() {
                         <span className="w-2 h-2 bg-red-500 rounded-full"></span>
                       )}
                     </div>
-                    <div className="flex items-center gap-1 mt-2 text-cyan-600 text-sm">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                      </svg>
-                      Открыть чат
+                    <div className="flex items-center gap-2 mt-3">
+                      <button
+                        onClick={() => setSelectedGroupId(group.id)}
+                        className="flex items-center gap-1 text-cyan-600 text-sm hover:text-cyan-700"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Чат группы
+                      </button>
+                      {group.teacher_id && (
+                        <button
+                          onClick={() => setChatPartner({ id: group.teacher_id!, name: group.teacher_name! })}
+                          className="flex items-center gap-1 text-cyan-600 text-sm hover:text-cyan-700"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                          </svg>
+                          Написать преподавателю
+                        </button>
+                      )}
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
             ) : (

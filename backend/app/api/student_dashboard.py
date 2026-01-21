@@ -77,6 +77,7 @@ async def get_student_dashboard(
         StudentGroupSummary(
             id=gs.group.id,
             name=gs.group.name,
+            teacher_id=gs.group.teacher.id if gs.group.teacher else None,
             teacher_name=gs.group.teacher.name if gs.group.teacher else None,
             has_unread_messages=False,  # TODO: implement unread tracking
         )
@@ -109,6 +110,7 @@ async def get_student_dashboard(
             id=ls.lesson.id,
             title=ls.lesson.title,
             scheduled_at=ls.lesson.scheduled_at,
+            teacher_id=ls.lesson.teacher.id,
             teacher_name=ls.lesson.teacher.name,
             lesson_type_name=ls.lesson.lesson_type.name,
             meeting_url=ls.lesson.meeting_url,
@@ -159,6 +161,7 @@ async def get_student_schedule(
             id=ls.lesson.id,
             title=ls.lesson.title,
             scheduled_at=ls.lesson.scheduled_at,
+            teacher_id=ls.lesson.teacher.id,
             teacher_name=ls.lesson.teacher.name,
             lesson_type_name=ls.lesson.lesson_type.name,
             meeting_url=ls.lesson.meeting_url,
@@ -188,6 +191,7 @@ async def get_student_groups(
         StudentGroupSummary(
             id=gs.group.id,
             name=gs.group.name,
+            teacher_id=gs.group.teacher.id if gs.group.teacher else None,
             teacher_name=gs.group.teacher.name if gs.group.teacher else None,
             has_unread_messages=False,
         )

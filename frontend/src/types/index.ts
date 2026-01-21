@@ -361,6 +361,7 @@ export interface StudentStats {
 export interface StudentGroupSummary {
   id: number;
   name: string;
+  teacher_id: number | null;
   teacher_name: string | null;
   has_unread_messages: boolean;
 }
@@ -369,6 +370,7 @@ export interface StudentLessonInfo {
   id: number;
   title: string;
   scheduled_at: string;
+  teacher_id: number;
   teacher_name: string;
   lesson_type_name: string;
   meeting_url: string | null;
