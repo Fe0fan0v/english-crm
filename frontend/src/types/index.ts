@@ -444,3 +444,28 @@ export interface TeacherAvailabilityCreate {
   start_time: string;
   end_time: string;
 }
+
+// Direct Messages
+export interface DirectMessage {
+  id: number;
+  sender_id: number;
+  sender_name: string;
+  recipient_id: number;
+  recipient_name: string;
+  content: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface ConversationSummary {
+  user_id: number;
+  user_name: string;
+  user_photo_url: string | null;
+  last_message: string;
+  last_message_at: string;
+  unread_count: number;
+}
+
+export interface ConversationListResponse {
+  items: ConversationSummary[];
+}

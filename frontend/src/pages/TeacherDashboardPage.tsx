@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { teacherApi, usersApi, lessonsApi } from "../services/api";
 import { useAuthStore } from "../store/authStore";
-import Avatar from "../components/Avatar";
 import AttendanceModal from "../components/AttendanceModal";
+import Avatar from "../components/Avatar";
+import DirectChat, { ConversationList } from "../components/DirectChat";
 import GroupChat from "../components/GroupChat";
+import PhotoUpload from "../components/PhotoUpload";
 import LessonCreateModal, { type LessonFormData } from "../components/LessonCreateModal";
 import TeacherAvailabilityEditor from "../components/TeacherAvailabilityEditor";
 import type {
@@ -15,7 +17,7 @@ import type {
   User,
 } from "../types";
 
-type TabType = "info" | "groups" | "students" | "availability" | "materials";
+type TabType = "info" | "groups" | "students" | "availability" | "materials" | "messages";
 
 // Icons
 const StatIcon = {
@@ -84,6 +86,8 @@ export default function TeacherDashboardPage() {
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [showCreateLessonModal, setShowCreateLessonModal] = useState(false);
+  const [chatPartner, setChatPartner] = useState<{ id: number; name: string } | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [prefillDate, setPrefillDate] = useState<string | undefined>();
   const [prefillTime, setPrefillTime] = useState<string | undefined>();
   const [availability, setAvailability] = useState<TeacherAvailability[]>([]);
@@ -120,10 +124,12 @@ export default function TeacherDashboardPage() {
           // Manager viewing teacher - fetch teacher data
           const teacherData = await usersApi.get(teacherId);
           setTeacher(teacherData);
+          setPhotoUrl(teacherData.photo_url);
           const response = await teacherApi.getDashboardByTeacherId(teacherId);
           setData(response);
         } else {
           // Teacher viewing own dashboard
+          setPhotoUrl(currentUser?.photo_url || null);
           const response = await teacherApi.getDashboard();
           setData(response);
         }
@@ -134,7 +140,7 @@ export default function TeacherDashboardPage() {
       }
     };
     fetchData();
-  }, [isManagerView, teacherId]);
+  }, [isManagerView, teacherId, currentUser?.photo_url]);
 
   useEffect(() => {
     const fetchSchedule = async () => {
@@ -342,7 +348,14 @@ export default function TeacherDashboardPage() {
       {/* Profile Header */}
       <div className="card mb-6">
         <div className="flex items-start gap-6">
-          <Avatar name={displayUser?.name || ""} photo={displayUser?.photo_url} size="xl" />
+          <PhotoUpload
+            userId={displayUser?.id || 0}
+            userName={displayUser?.name || ""}
+            currentPhotoUrl={photoUrl}
+            onPhotoUpdated={setPhotoUrl}
+            size="xl"
+            canEdit={!isManagerView || canCreateLesson}
+          />
           <div className="flex-1">
             <div className="flex items-start justify-between">
               <div>
@@ -388,6 +401,7 @@ export default function TeacherDashboardPage() {
           { key: "students" as TabType, label: "Ученики" },
           { key: "availability" as TabType, label: "Свободное время" },
           { key: "materials" as TabType, label: "Личные материалы" },
+          { key: "messages" as TabType, label: "Сообщения" },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -583,6 +597,15 @@ export default function TeacherDashboardPage() {
                       Группы: {student.group_names.join(", ")}
                     </p>
                   </div>
+                  <button
+                    onClick={() => setChatPartner({ id: student.id, name: student.name })}
+                    className="btn btn-secondary btn-sm flex items-center gap-1"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    Написать
+                  </button>
                 </div>
               ))}
             </div>
@@ -609,6 +632,26 @@ export default function TeacherDashboardPage() {
             Функция в разработке
           </p>
         </div>
+      )}
+
+      {activeTab === "messages" && (
+        <div className="card">
+          <h2 className="section-title mb-4">Личные сообщения</h2>
+          <ConversationList
+            onSelectConversation={(userId, userName) =>
+              setChatPartner({ id: userId, name: userName })
+            }
+          />
+        </div>
+      )}
+
+      {/* Direct Chat Modal */}
+      {chatPartner && (
+        <DirectChat
+          partnerId={chatPartner.id}
+          partnerName={chatPartner.name}
+          onClose={() => setChatPartner(null)}
+        />
       )}
 
       {/* Attendance Modal */}

@@ -1,3 +1,4 @@
+from app.models.direct_message import DirectMessage
 from app.models.group import Group, GroupStudent
 from app.models.group_message import GroupMessage
 from app.models.lesson import AttendanceStatus, Lesson, LessonStudent
@@ -14,6 +15,7 @@ from app.models.user import User
 __all__ = [
     "User",
     "Level",
+    "DirectMessage",
     "LevelLessonTypePayment",
     "LessonType",
     "Lesson",

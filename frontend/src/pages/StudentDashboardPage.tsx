@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { studentApi } from "../services/api";
 import { useAuthStore } from "../store/authStore";
-import Avatar from "../components/Avatar";
+import DirectChat, { ConversationList } from "../components/DirectChat";
 import GroupChat from "../components/GroupChat";
+import PhotoUpload from "../components/PhotoUpload";
 import type {
   StudentDashboardResponse,
   StudentLessonInfo,
@@ -10,7 +11,7 @@ import type {
   StudentTestInfo,
 } from "../types";
 
-type TabType = "info" | "tests" | "materials";
+type TabType = "info" | "tests" | "materials" | "messages";
 
 function formatDate(date: Date): string {
   return date.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
@@ -45,6 +46,8 @@ export default function StudentDashboardPage() {
   const [materials, setMaterials] = useState<StudentMaterialInfo[]>([]);
   const [tests, setTests] = useState<StudentTestInfo[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+  const [chatPartner, setChatPartner] = useState<{ id: number; name: string } | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(user?.photo_url || null);
 
   const weekDates = useMemo(() => getWeekDates(currentWeek), [currentWeek]);
 
@@ -166,7 +169,14 @@ export default function StudentDashboardPage() {
       {/* Profile Header */}
       <div className="card mb-6">
         <div className="flex items-start gap-6">
-          <Avatar name={user?.name || ""} photo={user?.photo_url} size="xl" />
+          <PhotoUpload
+            userId={user?.id || 0}
+            userName={user?.name || ""}
+            currentPhotoUrl={photoUrl}
+            onPhotoUpdated={setPhotoUrl}
+            size="xl"
+            canEdit={true}
+          />
           <div className="flex-1">
             <div className="flex items-start justify-between">
               <div>
@@ -209,6 +219,7 @@ export default function StudentDashboardPage() {
           { key: "info" as TabType, label: "Моя страница" },
           { key: "tests" as TabType, label: "Тесты" },
           { key: "materials" as TabType, label: "Материалы" },
+          { key: "messages" as TabType, label: "Сообщения" },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -464,6 +475,26 @@ export default function StudentDashboardPage() {
             <p className="text-gray-500 text-center py-8">У вас пока нет доступных материалов</p>
           )}
         </div>
+      )}
+
+      {activeTab === "messages" && (
+        <div className="card">
+          <h2 className="section-title mb-4">Личные сообщения</h2>
+          <ConversationList
+            onSelectConversation={(userId, userName) =>
+              setChatPartner({ id: userId, name: userName })
+            }
+          />
+        </div>
+      )}
+
+      {/* Direct Chat Modal */}
+      {chatPartner && (
+        <DirectChat
+          partnerId={chatPartner.id}
+          partnerName={chatPartner.name}
+          onClose={() => setChatPartner(null)}
+        />
       )}
     </div>
   );

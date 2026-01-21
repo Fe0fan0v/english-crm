@@ -1,9 +1,13 @@
+import os
+import uuid
 from decimal import Decimal
+from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, UploadFile, status
 from sqlalchemy import func, or_, select
 
-from app.api.deps import DBSession, ManagerUser
+from app.api.deps import CurrentUser, DBSession, ManagerUser
+from app.config import settings
 from app.models.group import Group, GroupStudent
 from app.models.transaction import Transaction, TransactionType
 from app.models.user import User, UserRole
@@ -393,3 +397,132 @@ async def reset_teachers_balances(
         "reset_count": reset_count,
         "total_amount": str(total_amount),
     }
+
+
+# Allowed image extensions
+ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+
+
+@router.post("/{user_id}/photo", response_model=UserResponse)
+async def upload_user_photo(
+    user_id: int,
+    file: UploadFile,
+    db: DBSession,
+    current_user: CurrentUser,
+) -> User:
+    """Upload a profile photo for a user."""
+    # Check permissions: user can upload own photo, or manager can upload for anyone
+    is_manager = current_user.role in (UserRole.ADMIN, UserRole.MANAGER)
+    if current_user.id != user_id and not is_manager:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only upload your own photo",
+        )
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    # Validate file
+    if not file.filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No file provided",
+        )
+
+    # Check extension
+    file_ext = Path(file.filename).suffix.lower()
+    if file_ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File type not allowed. Allowed types: {', '.join(ALLOWED_EXTENSIONS)}",
+        )
+
+    # Read file content
+    content = await file.read()
+
+    # Check file size
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File too large. Maximum size: {MAX_FILE_SIZE // (1024 * 1024)}MB",
+        )
+
+    # Create uploads directory if not exists
+    uploads_dir = Path(settings.storage_path) / "photos"
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+
+    # Generate unique filename
+    unique_filename = f"{uuid.uuid4()}{file_ext}"
+    file_path = uploads_dir / unique_filename
+
+    # Delete old photo if exists
+    if user.photo_url:
+        old_filename = user.photo_url.split("/")[-1]
+        old_file_path = uploads_dir / old_filename
+        if old_file_path.exists():
+            os.remove(old_file_path)
+
+    # Save new file
+    with open(file_path, "wb") as f:
+        f.write(content)
+
+    # Update user photo_url
+    user.photo_url = f"/api/uploads/photos/{unique_filename}"
+
+    await db.flush()
+    await db.refresh(user)
+
+    return user
+
+
+@router.delete("/{user_id}/photo", response_model=UserResponse)
+async def delete_user_photo(
+    user_id: int,
+    db: DBSession,
+    current_user: CurrentUser,
+) -> User:
+    """Delete a user's profile photo."""
+    # Check permissions: user can delete own photo, or manager can delete for anyone
+    is_manager = current_user.role in (UserRole.ADMIN, UserRole.MANAGER)
+    if current_user.id != user_id and not is_manager:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only delete your own photo",
+        )
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    if not user.photo_url:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User has no photo",
+        )
+
+    # Delete the file
+    uploads_dir = Path(settings.storage_path) / "photos"
+    filename = user.photo_url.split("/")[-1]
+    file_path = uploads_dir / filename
+    if file_path.exists():
+        os.remove(file_path)
+
+    # Clear photo_url
+    user.photo_url = None
+
+    await db.flush()
+    await db.refresh(user)
+
+    return user

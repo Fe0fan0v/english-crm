@@ -108,7 +108,7 @@ export default function LessonCreateModal({
     return students.map((student) => ({
       value: student.id,
       label: student.name,
-      description: student.email,
+      description: student.phone ? `${student.email} • ${student.phone}` : student.email,
     }));
   }, [students]);
 

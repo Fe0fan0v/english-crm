@@ -44,6 +44,8 @@ import type {
   TeacherAvailability,
   TeacherAvailabilityListResponse,
   TeacherAvailabilityCreate,
+  DirectMessage,
+  ConversationListResponse,
 } from "../types";
 
 const api = axios.create({
@@ -151,6 +153,22 @@ export const usersApi = {
 
   resetTeachersBalances: async (): Promise<{ message: string; reset_count: number; total_amount: string }> => {
     const response = await api.post<{ message: string; reset_count: number; total_amount: string }>("/users/teachers/reset-balances");
+    return response.data;
+  },
+
+  uploadPhoto: async (userId: number, file: File): Promise<User> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await api.post<User>(`/users/${userId}/photo`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response.data;
+  },
+
+  deletePhoto: async (userId: number): Promise<User> => {
+    const response = await api.delete<User>(`/users/${userId}/photo`);
     return response.data;
   },
 };
@@ -625,6 +643,38 @@ export const groupMessagesApi = {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const host = window.location.host;
     return `${protocol}//${host}/api/groups/ws/${groupId}/chat?token=${token}`;
+  },
+};
+
+// Direct Messages API
+export const directMessagesApi = {
+  getConversations: async (): Promise<ConversationListResponse> => {
+    const response = await api.get<ConversationListResponse>("/messages/conversations");
+    return response.data;
+  },
+
+  getMessages: async (
+    userId: number,
+    limit = 50,
+    beforeId?: number
+  ): Promise<DirectMessage[]> => {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (beforeId) params.append("before_id", String(beforeId));
+    const response = await api.get<DirectMessage[]>(`/messages/${userId}?${params}`);
+    return response.data;
+  },
+
+  sendMessage: async (recipientId: number, content: string): Promise<DirectMessage> => {
+    const response = await api.post<DirectMessage>("/messages", {
+      recipient_id: recipientId,
+      content,
+    });
+    return response.data;
+  },
+
+  getUnreadCount: async (): Promise<{ unread_count: number }> => {
+    const response = await api.get<{ unread_count: number }>("/messages/unread/count");
+    return response.data;
   },
 };
 

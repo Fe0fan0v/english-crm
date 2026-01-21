@@ -1,6 +1,7 @@
 from app.api import (
     auth,
     dashboard,
+    direct_messages,
     group_messages,
     groups,
     lesson_types,
@@ -31,3 +32,4 @@ api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboar
 api_router.include_router(lessons.router, prefix="/lessons", tags=["lessons"])
 api_router.include_router(teacher_dashboard.router, prefix="/teacher", tags=["teacher-dashboard"])
 api_router.include_router(student_dashboard.router, prefix="/student", tags=["student-dashboard"])
+api_router.include_router(direct_messages.router, prefix="/messages", tags=["direct-messages"])
