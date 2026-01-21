@@ -1,15 +1,15 @@
 """Add direct_messages table
 
-Revision ID: 011
-Revises: 010
+Revision ID: 011_add_direct_messages
+Revises: 010_add_teacher_availability
 Create Date: 2026-01-21
 """
 from alembic import op
 import sqlalchemy as sa
 
 
-revision = "011"
-down_revision = "010"
+revision = "011_add_direct_messages"
+down_revision = "010_add_teacher_availability"
 branch_labels = None
 depends_on = None
 
