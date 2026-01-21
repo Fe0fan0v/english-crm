@@ -109,12 +109,23 @@ frontend/
 ### Личные сообщения (Direct Messages)
 - Преподаватель может написать ученику из вкладки "Ученики"
 - Ученик может написать преподавателю из вкладки "Сообщения" (раздел "Мои преподаватели")
+- Поддержка прикрепления файлов (изображения, документы)
 - API endpoints:
   - `GET /api/messages/conversations` — список диалогов
   - `GET /api/messages/{user_id}` — сообщения с пользователем
-  - `POST /api/messages` — отправить сообщение
+  - `POST /api/messages` — отправить сообщение (с file_url)
   - `GET /api/messages/unread/count` — количество непрочитанных
 - Компонент: `DirectChat.tsx`
+
+### Загрузка файлов в чат (Chat File Uploads)
+- Поддержка файлов в личных сообщениях и групповом чате
+- Поле `file_url` в моделях DirectMessage и GroupMessage
+- Максимальный размер файла: 10 МБ
+- Разрешённые форматы: jpg, jpeg, png, gif, webp, pdf, doc, docx, xls, xlsx, txt, zip, rar
+- API endpoint: `POST /api/uploads/chat` — загрузка файла
+- Файлы хранятся в `storage/chat/` и раздаются через `/api/uploads/chat/`
+- UI: кнопка прикрепления, превью перед отправкой, отображение в сообщениях
+- Изображения показываются inline, остальные файлы — как ссылки для скачивания
 
 ### Отчёты с экспортом в Excel
 - Страница `ReportsPage` — отчёт по преподавателям за период
@@ -125,7 +136,7 @@ frontend/
 - Кнопка "Выгрузить в Excel" появляется после формирования отчёта
 
 ## Миграции (Alembic)
-Текущая версия: **010**
+Текущая версия: **012**
 - 001: Начальная схема
 - 002: AttendanceStatus enum
 - 003: Group messages
@@ -136,6 +147,8 @@ frontend/
 - 008: Fix userrole enum (UPPERCASE → lowercase)
 - 009: Add duration_minutes to lessons
 - 010: Add teacher_availability table
+- 011: Add direct_messages table
+- 012: Add file_url to messages (group_messages, direct_messages)
 
 Миграции применяются автоматически при деплое (CI/CD).
 
@@ -166,6 +179,7 @@ frontend/
 - [x] Повторяющиеся уроки (batch creation на несколько недель)
 - [x] Личные сообщения между преподавателями и учениками
 - [x] Экспорт отчётов в Excel (.xlsx)
+- [x] Загрузка файлов в чат (Direct Messages и Group Chat)
 
 ### В процессе / TODO
 - [ ] WebSocket для реал-тайм чата
@@ -233,6 +247,7 @@ docker compose logs -f backend
 - `/api/notifications` — уведомления
 - `/api/groups` — группы и групповой чат
 - `/api/messages` — личные сообщения (direct messages)
+- `/api/uploads` — загрузка файлов (chat)
 - `/api/reports` — отчёты по преподавателям + экспорт в Excel
 - `/api/lesson-types` — типы занятий (ManagerUser для GET)
 - `/api/levels` — уровни
@@ -276,3 +291,5 @@ docker compose logs -f backend
 16. **Повторяющиеся уроки** — batch creation на несколько недель с выбором дней недели
 17. **Личные сообщения** — преподаватель↔ученик, раздел "Мои преподаватели" в кабинете ученика
 18. **Экспорт отчётов в Excel** — кнопка "Выгрузить в Excel" на странице отчётов
+19. **Словарь и Неправильные глаголы** — перенесены из вкладок в пункты меню sidebar
+20. **Загрузка файлов в чат** — прикрепление файлов в личных сообщениях и групповом чате (до 10 МБ)
