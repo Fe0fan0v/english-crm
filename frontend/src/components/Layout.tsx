@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 import type { UserRole } from "../types";
@@ -202,6 +203,36 @@ const icons2 = {
       />
     </svg>
   ),
+  hamburger: (
+    <svg
+      className="w-6 h-6"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M4 6h16M4 12h16M4 18h16"
+      />
+    </svg>
+  ),
+  close: (
+    <svg
+      className="w-6 h-6"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M6 18L18 6M6 6l12 12"
+      />
+    </svg>
+  ),
 };
 
 const navItems: NavItem[] = [
@@ -296,6 +327,7 @@ export default function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuthStore();
   const location = useLocation();
   const navigate = useNavigate();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -318,26 +350,66 @@ export default function Layout({ children }: LayoutProps) {
     return colors[index];
   };
 
+  const closeMobileMenu = () => setIsMobileMenuOpen(false);
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
+      {/* Mobile Header */}
+      <header className="fixed top-0 left-0 right-0 h-14 bg-white border-b border-gray-100 z-40 md:hidden flex items-center justify-between px-4">
+        <button
+          onClick={() => setIsMobileMenuOpen(true)}
+          className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-lg touch-target"
+        >
+          {icons2.hamburger}
+        </button>
+        <img
+          src="/logo1.png"
+          alt="Just Speak It"
+          className="h-6"
+        />
+        <NotificationBell isMobile />
+      </header>
+
+      {/* Mobile Menu Overlay */}
+      {isMobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={closeMobileMenu}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-100 flex flex-col">
+      <aside
+        className={clsx(
+          "fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-100 flex flex-col z-50 transition-transform duration-300",
+          "md:translate-x-0",
+          isMobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        )}
+      >
         {/* Logo */}
-        <div className="p-6 flex items-center justify-center">
+        <div className="p-6 flex items-center justify-between">
           <img
             src="/logo1.png"
             alt="Just Speak It"
             className="h-8"
           />
+          {/* Close button for mobile */}
+          <button
+            onClick={closeMobileMenu}
+            className="p-2 -mr-2 text-gray-600 hover:bg-gray-100 rounded-lg md:hidden"
+          >
+            {icons2.close}
+          </button>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-4">
+        <nav className="flex-1 px-4 overflow-y-auto">
           <ul className="space-y-1">
             {filteredNavItems.map((item) => (
               <li key={item.path}>
                 <Link
                   to={item.path}
+                  onClick={closeMobileMenu}
                   className={clsx(
                     "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200",
                     location.pathname === item.path
@@ -383,7 +455,9 @@ export default function Layout({ children }: LayoutProps) {
                 {user?.email}
               </div>
             </div>
-            <NotificationBell />
+            <div className="hidden md:block">
+              <NotificationBell />
+            </div>
           </div>
           <button
             onClick={handleLogout}
@@ -396,8 +470,8 @@ export default function Layout({ children }: LayoutProps) {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 ml-64">
-        <div className="p-8">{children}</div>
+      <main className="flex-1 ml-0 md:ml-64">
+        <div className="p-4 md:p-8 pt-[72px] md:pt-8">{children}</div>
       </main>
     </div>
   );

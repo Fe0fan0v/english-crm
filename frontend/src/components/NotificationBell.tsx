@@ -4,7 +4,11 @@ import type { Notification } from "../types";
 
 const POLL_INTERVAL = 30000; // 30 seconds
 
-export default function NotificationBell() {
+interface NotificationBellProps {
+  isMobile?: boolean;
+}
+
+export default function NotificationBell({ isMobile = false }: NotificationBellProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
@@ -150,9 +154,13 @@ export default function NotificationBell() {
         )}
       </button>
 
-      {/* Dropdown - opens upward and to the right since bell is in bottom-left sidebar */}
+      {/* Dropdown - mobile: opens downward from header, desktop: opens upward from sidebar */}
       {isOpen && (
-        <div className="absolute bottom-full left-0 mb-2 w-80 bg-white rounded-xl shadow-lg border border-gray-100 z-50 overflow-hidden">
+        <div className={`absolute ${
+          isMobile
+            ? "top-full right-0 mt-2"
+            : "bottom-full left-0 mb-2"
+        } w-80 max-w-[calc(100vw-32px)] bg-white rounded-xl shadow-lg border border-gray-100 z-50 overflow-hidden`}>
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
             <h3 className="font-semibold text-gray-800">Уведомления</h3>

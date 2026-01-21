@@ -115,17 +115,25 @@ export default function DirectChat({ partnerId, partnerName, onClose }: DirectCh
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 h-[80vh] flex flex-col">
+    <div className="fixed inset-0 bg-black/50 md:flex md:items-center md:justify-center z-50">
+      <div className="bg-white w-full h-full md:rounded-2xl md:shadow-xl md:w-full md:max-w-lg md:mx-4 md:h-[80vh] flex flex-col">
         {/* Header */}
-        <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+        <div className="p-3 md:p-4 border-b border-gray-100 flex items-center justify-between safe-area-top">
           <div className="flex items-center gap-3">
+            <button
+              onClick={onClose}
+              className="p-2 -ml-2 hover:bg-gray-100 rounded-lg transition-colors md:hidden touch-target"
+            >
+              <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
             <Avatar name={partnerName} size="sm" />
             <h2 className="font-semibold text-gray-800">{partnerName}</h2>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors hidden md:block"
           >
             <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -134,7 +142,7 @@ export default function DirectChat({ partnerId, partnerName, onClose }: DirectCh
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-3">
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-gray-500">Загрузка...</div>
@@ -155,7 +163,7 @@ export default function DirectChat({ partnerId, partnerName, onClose }: DirectCh
                   className={`flex ${isOwn ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    className={`max-w-[70%] rounded-2xl px-4 py-2 ${
+                    className={`max-w-[85%] md:max-w-[70%] rounded-2xl px-3 md:px-4 py-2 ${
                       isOwn
                         ? "bg-cyan-500 text-white"
                         : "bg-gray-100 text-gray-800"
@@ -238,7 +246,7 @@ export default function DirectChat({ partnerId, partnerName, onClose }: DirectCh
         )}
 
         {/* Input */}
-        <div className="p-4 border-t border-gray-100">
+        <div className="p-3 md:p-4 border-t border-gray-100 pb-safe">
           <div className="flex gap-2">
             {/* File upload button */}
             <input
@@ -251,7 +259,7 @@ export default function DirectChat({ partnerId, partnerName, onClose }: DirectCh
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500"
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500 touch-target flex items-center justify-center"
               title="Прикрепить файл"
             >
               {isUploading ? (
@@ -270,13 +278,13 @@ export default function DirectChat({ partnerId, partnerName, onClose }: DirectCh
               onChange={(e) => setNewMessage(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Введите сообщение..."
-              className="flex-1 input resize-none"
+              className="flex-1 input resize-none text-base"
               rows={1}
             />
             <button
               onClick={handleSend}
               disabled={(!newMessage.trim() && !pendingFile) || isSending}
-              className="btn btn-primary px-4"
+              className="btn btn-primary px-3 md:px-4 touch-target"
             >
               {isSending ? (
                 <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">

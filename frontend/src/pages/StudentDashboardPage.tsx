@@ -48,6 +48,12 @@ export default function StudentDashboardPage() {
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [chatPartner, setChatPartner] = useState<{ id: number; name: string } | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(user?.photo_url || null);
+  const [selectedDayIndex, setSelectedDayIndex] = useState(() => {
+    // Find today's index in the week (0=Mon, 6=Sun)
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    return dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Convert Sunday (0) to 6, Mon (1) to 0, etc.
+  });
 
   const weekDates = useMemo(() => getWeekDates(currentWeek), [currentWeek]);
 
@@ -116,6 +122,19 @@ export default function StudentDashboardPage() {
         lessonDate.getHours() === hour
       );
     });
+  };
+
+  const getLessonsForDay = (date: Date): StudentLessonInfo[] => {
+    return schedule
+      .filter((lesson) => {
+        const lessonDate = new Date(lesson.scheduled_at);
+        return (
+          lessonDate.getDate() === date.getDate() &&
+          lessonDate.getMonth() === date.getMonth() &&
+          lessonDate.getFullYear() === date.getFullYear()
+        );
+      })
+      .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
   };
 
   const goToPrevWeek = () => {
@@ -198,8 +217,8 @@ export default function StudentDashboardPage() {
   return (
     <div>
       {/* Profile Header */}
-      <div className="card mb-6">
-        <div className="flex items-start gap-6">
+      <div className="card mb-4 md:mb-6">
+        <div className="flex flex-col md:flex-row items-center md:items-start gap-4 md:gap-6">
           <PhotoUpload
             userId={user?.id || 0}
             userName={user?.name || ""}
@@ -208,11 +227,11 @@ export default function StudentDashboardPage() {
             size="xl"
             canEdit={true}
           />
-          <div className="flex-1">
-            <div className="flex items-start justify-between">
+          <div className="flex-1 text-center md:text-left w-full">
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 md:gap-0">
               <div>
-                <h1 className="text-2xl font-bold text-gray-800">{user?.name}</h1>
-                <div className="flex items-center gap-4 mt-2 text-gray-500">
+                <h1 className="text-xl md:text-2xl font-bold text-gray-800">{user?.name}</h1>
+                <div className="flex flex-col sm:flex-row items-center sm:gap-4 mt-2 text-gray-500 text-sm">
                   {user?.phone && (
                     <span className="flex items-center gap-1">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -225,14 +244,14 @@ export default function StudentDashboardPage() {
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
-                    {user?.email}
+                    <span className="truncate max-w-[200px]">{user?.email}</span>
                   </span>
                 </div>
               </div>
-              <div className="text-right">
+              <div className="text-center md:text-right mt-2 md:mt-0">
                 <p className="text-sm text-gray-500">Баланс</p>
                 <p
-                  className={`text-2xl font-bold ${
+                  className={`text-xl md:text-2xl font-bold ${
                     parseFloat(stats?.balance || "0") >= 0 ? "text-green-600" : "text-red-600"
                   }`}
                 >
@@ -245,7 +264,7 @@ export default function StudentDashboardPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-6">
+      <div className="flex gap-2 mb-4 md:mb-6 overflow-x-auto scrollbar-hide pb-2 md:pb-0 -mx-4 px-4 md:mx-0 md:px-0">
         {[
           { key: "info" as TabType, label: "Моя страница" },
           { key: "tests" as TabType, label: "Тесты" },
@@ -255,7 +274,7 @@ export default function StudentDashboardPage() {
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`tab ${activeTab === tab.key ? "tab-active" : ""}`}
+            className={`tab whitespace-nowrap touch-target flex items-center justify-center ${activeTab === tab.key ? "tab-active" : ""}`}
           >
             {tab.label}
           </button>
@@ -264,40 +283,40 @@ export default function StudentDashboardPage() {
 
       {/* Tab Content */}
       {activeTab === "info" && (
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6">
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="card flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-cyan-100 text-cyan-600 flex items-center justify-center">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+            <div className="card flex items-center gap-4 p-4 md:p-6">
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-cyan-100 text-cyan-600 flex items-center justify-center flex-shrink-0">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Предстоящие уроки</p>
-                <p className="text-2xl font-bold text-gray-800">{stats?.upcoming_lessons_count || 0}</p>
+                <p className="text-xs md:text-sm text-gray-500">Предстоящие уроки</p>
+                <p className="text-xl md:text-2xl font-bold text-gray-800">{stats?.upcoming_lessons_count || 0}</p>
               </div>
             </div>
-            <div className="card flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center">
+            <div className="card flex items-center gap-4 p-4 md:p-6">
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center flex-shrink-0">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Мои группы</p>
-                <p className="text-2xl font-bold text-gray-800">{stats?.groups_count || 0}</p>
+                <p className="text-xs md:text-sm text-gray-500">Мои группы</p>
+                <p className="text-xl md:text-2xl font-bold text-gray-800">{stats?.groups_count || 0}</p>
               </div>
             </div>
-            <div className="card flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-green-100 text-green-600 flex items-center justify-center">
+            <div className="card flex items-center gap-4 p-4 md:p-6 sm:col-span-2 md:col-span-1">
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-green-100 text-green-600 flex items-center justify-center flex-shrink-0">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Баланс</p>
-                <p className={`text-2xl font-bold ${parseFloat(stats?.balance || "0") >= 0 ? "text-green-600" : "text-red-600"}`}>
+                <p className="text-xs md:text-sm text-gray-500">Баланс</p>
+                <p className={`text-xl md:text-2xl font-bold ${parseFloat(stats?.balance || "0") >= 0 ? "text-green-600" : "text-red-600"}`}>
                   {parseFloat(stats?.balance || "0").toLocaleString("ru-RU")} тг
                 </p>
               </div>
@@ -305,29 +324,29 @@ export default function StudentDashboardPage() {
           </div>
 
           {/* My Groups */}
-          <div className="card">
-            <h2 className="section-title mb-4">Мои группы</h2>
+          <div className="card p-4 md:p-6">
+            <h2 className="section-title mb-3 md:mb-4">Мои группы</h2>
             {groups.length > 0 ? (
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                 {groups.map((group) => (
                   <div
                     key={group.id}
-                    className="p-4 bg-gray-50 rounded-xl"
+                    className="p-3 md:p-4 bg-gray-50 rounded-xl"
                   >
                     <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="font-medium text-gray-800">{group.name}</h3>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-medium text-gray-800 truncate">{group.name}</h3>
                         {group.teacher_name && (
-                          <p className="text-sm text-gray-500">Преподаватель: {group.teacher_name}</p>
+                          <p className="text-sm text-gray-500 truncate">Преподаватель: {group.teacher_name}</p>
                         )}
                       </div>
                       {group.has_unread_messages && (
-                        <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                        <span className="w-2 h-2 bg-red-500 rounded-full flex-shrink-0 ml-2"></span>
                       )}
                     </div>
                     <button
                       onClick={() => setSelectedGroupId(group.id)}
-                      className="flex items-center gap-1 mt-3 text-cyan-600 text-sm hover:text-cyan-700"
+                      className="flex items-center gap-1 mt-3 text-cyan-600 text-sm hover:text-cyan-700 touch-target"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -338,24 +357,24 @@ export default function StudentDashboardPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-gray-500 text-center py-8">Вы пока не состоите в группах</p>
+              <p className="text-gray-500 text-center py-6 md:py-8">Вы пока не состоите в группах</p>
             )}
           </div>
 
           {/* Schedule Calendar */}
-          <div className="card">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="section-title">Мое расписание</h2>
-              <div className="flex items-center gap-2">
-                <button onClick={goToPrevWeek} className="p-2 hover:bg-gray-100 rounded-lg">
+          <div className="card p-4 md:p-6">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 gap-3">
+              <h2 className="section-title mb-0">Мое расписание</h2>
+              <div className="flex items-center justify-center gap-2">
+                <button onClick={goToPrevWeek} className="p-2 hover:bg-gray-100 rounded-lg touch-target">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
                 </button>
-                <span className="font-medium">
+                <span className="font-medium text-sm md:text-base">
                   {formatDate(weekDates[0])} - {formatDate(weekDates[6])}
                 </span>
-                <button onClick={goToNextWeek} className="p-2 hover:bg-gray-100 rounded-lg">
+                <button onClick={goToNextWeek} className="p-2 hover:bg-gray-100 rounded-lg touch-target">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
@@ -363,7 +382,123 @@ export default function StudentDashboardPage() {
               </div>
             </div>
 
-            <div className="overflow-x-auto">
+            {/* Mobile Day Picker */}
+            <div className="md:hidden mb-4">
+              <div className="flex gap-1 overflow-x-auto scrollbar-hide pb-2 -mx-4 px-4">
+                {weekDates.map((date, i) => {
+                  const isToday = date.toDateString() === new Date().toDateString();
+                  const isSelected = selectedDayIndex === i;
+                  const dayLessons = getLessonsForDay(date);
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => setSelectedDayIndex(i)}
+                      className={`flex flex-col items-center px-3 py-2 rounded-xl min-w-[52px] transition-colors ${
+                        isSelected
+                          ? "bg-cyan-500 text-white"
+                          : isToday
+                          ? "bg-cyan-50 text-cyan-600"
+                          : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                      }`}
+                    >
+                      <span className="text-xs font-medium">{dayNames[i]}</span>
+                      <span className={`text-lg font-bold ${isSelected ? "text-white" : ""}`}>
+                        {date.getDate()}
+                      </span>
+                      {dayLessons.length > 0 && !isSelected && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 mt-0.5"></span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Mobile Lessons List */}
+            <div className="md:hidden space-y-3">
+              {(() => {
+                const selectedDate = weekDates[selectedDayIndex];
+                const dayLessons = getLessonsForDay(selectedDate);
+
+                if (dayLessons.length === 0) {
+                  return (
+                    <div className="text-center py-8 text-gray-500">
+                      <svg className="w-12 h-12 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <p>Нет уроков в этот день</p>
+                    </div>
+                  );
+                }
+
+                return dayLessons.map((lesson) => {
+                  const lessonBalance = parseFloat(stats?.balance || "0");
+                  const lessonPrice = parseFloat(lesson.lesson_price || "0");
+                  const hasInsufficientBalance = lessonBalance < lessonPrice && lesson.status !== "completed" && lesson.status !== "cancelled";
+                  const lessonTime = new Date(lesson.scheduled_at);
+
+                  return (
+                    <div
+                      key={lesson.id}
+                      className={`p-4 rounded-xl ${
+                        lesson.status === "completed"
+                          ? "bg-green-50 border border-green-200"
+                          : lesson.status === "cancelled"
+                          ? "bg-red-50 border border-red-200"
+                          : hasInsufficientBalance
+                          ? "bg-orange-50 border border-orange-200"
+                          : "bg-yellow-50 border border-yellow-200"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-lg font-bold ${
+                              lesson.status === "completed" ? "text-green-700" :
+                              lesson.status === "cancelled" ? "text-red-700" :
+                              hasInsufficientBalance ? "text-orange-700" : "text-yellow-700"
+                            }`}>
+                              {lessonTime.getHours().toString().padStart(2, '0')}:{lessonTime.getMinutes().toString().padStart(2, '0')}
+                            </span>
+                            {lesson.lesson_type_name && (
+                              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                                {lesson.lesson_type_name}
+                              </span>
+                            )}
+                          </div>
+                          <h4 className="font-medium text-gray-800 mt-1 truncate">{lesson.title}</h4>
+                          <p className="text-sm text-gray-500">{lesson.teacher_name}</p>
+                          {hasInsufficientBalance && (
+                            <div className="flex items-center gap-1 mt-2 text-orange-600 text-sm">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                              </svg>
+                              Пополните баланс
+                            </div>
+                          )}
+                        </div>
+                        {lesson.meeting_url && lesson.status !== "cancelled" && !hasInsufficientBalance && (
+                          <a
+                            href={lesson.meeting_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 px-3 py-2 bg-cyan-500 text-white rounded-lg text-sm font-medium hover:bg-cyan-600 transition-colors touch-target"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                            Войти
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+
+            {/* Desktop Schedule Table */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full border-collapse">
                 <thead>
                   <tr>
