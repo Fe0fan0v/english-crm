@@ -93,11 +93,11 @@ async def generate_teacher_report(
     teachers_list: list[TeacherReport] = []
     grand_total = Decimal("0")
 
-    for teacher_id, data in teacher_data.items():
+    for teacher_id, teacher_info in teacher_data.items():
         rows: list[StudentReportRow] = []
         teacher_total = Decimal("0")
 
-        for (student_id, student_name), lesson_types in data["students"].items():
+        for (student_id, student_name), lesson_types in teacher_info["students"].items():
             for lesson_type_name, stats in lesson_types.items():
                 row = StudentReportRow(
                     student_name=student_name,
@@ -111,7 +111,7 @@ async def generate_teacher_report(
         if rows:
             teachers_list.append(TeacherReport(
                 teacher_id=teacher_id,
-                teacher_name=data["teacher_name"],
+                teacher_name=teacher_info["teacher_name"],
                 rows=rows,
                 total=teacher_total,
             ))
