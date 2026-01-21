@@ -720,12 +720,14 @@ export const uploadsApi = {
   uploadChatFile: async (file: File): Promise<{ file_url: string; filename: string; size: number }> => {
     const formData = new FormData();
     formData.append("file", file);
-    const response = await api.post<{ file_url: string; filename: string; size: number }>(
-      "/uploads/chat",
+    const token = localStorage.getItem("token");
+    // Use axios directly to avoid default Content-Type header
+    const response = await axios.post<{ file_url: string; filename: string; size: number }>(
+      "/api/uploads/chat",
       formData,
       {
         headers: {
-          "Content-Type": "multipart/form-data",
+          Authorization: token ? `Bearer ${token}` : "",
         },
       }
     );
