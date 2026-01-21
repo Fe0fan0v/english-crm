@@ -11,7 +11,7 @@ import type {
   StudentTestInfo,
 } from "../types";
 
-type TabType = "info" | "tests" | "materials" | "messages";
+type TabType = "info" | "tests" | "materials" | "messages" | "dictionary" | "irregular_verbs";
 
 function formatDate(date: Date): string {
   return date.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
@@ -140,6 +140,37 @@ export default function StudentDashboardPage() {
 
   const stats = data?.stats;
   const groups = data?.groups || [];
+  const balance = parseFloat(stats?.balance || "0");
+
+  // Block access if balance is 0 or negative
+  if (balance <= 0) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="card max-w-md w-full text-center py-12 px-8">
+          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-red-100 flex items-center justify-center">
+            <svg className="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Доступ ограничен</h2>
+          <p className="text-gray-600 mb-6">
+            Ваш баланс составляет <span className="font-semibold text-red-600">{balance.toLocaleString("ru-RU")} тг</span>.
+            <br />
+            Для восстановления доступа к платформе, пожалуйста, пополните баланс.
+          </p>
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800">
+            <div className="flex items-center gap-2 mb-1">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="font-medium">Как пополнить баланс?</span>
+            </div>
+            <p>Свяжитесь с менеджером школы для пополнения баланса.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // If a group is selected for chat, show the chat view
   if (selectedGroupId) {
@@ -219,6 +250,8 @@ export default function StudentDashboardPage() {
           { key: "info" as TabType, label: "Моя страница" },
           { key: "tests" as TabType, label: "Тесты" },
           { key: "materials" as TabType, label: "Материалы" },
+          { key: "dictionary" as TabType, label: "Словарь" },
+          { key: "irregular_verbs" as TabType, label: "Неправильные глаголы" },
           { key: "messages" as TabType, label: "Сообщения" },
         ].map((tab) => (
           <button
@@ -361,37 +394,57 @@ export default function StudentDashboardPage() {
                         const lessons = getLessonsForSlot(date, hour);
                         return (
                           <td key={dayIndex} className="p-1 align-top min-w-[120px]">
-                            {lessons.map((lesson) => (
-                              <div
-                                key={lesson.id}
-                                className={`w-full p-2 mb-1 rounded-lg text-left text-xs ${
-                                  lesson.status === "completed"
-                                    ? "bg-green-100 text-green-700"
-                                    : lesson.status === "cancelled"
-                                    ? "bg-red-100 text-red-700"
-                                    : "bg-yellow-100 text-yellow-700"
-                                }`}
-                              >
-                                <div className="font-medium truncate">{lesson.title}</div>
-                                <div className="text-[10px] opacity-75">
-                                  {lesson.teacher_name}
+                            {lessons.map((lesson) => {
+                              const balance = parseFloat(stats?.balance || "0");
+                              const price = parseFloat(lesson.lesson_price || "0");
+                              const hasInsufficientBalance = balance < price && lesson.status !== "completed" && lesson.status !== "cancelled";
+
+                              return (
+                                <div
+                                  key={lesson.id}
+                                  className={`w-full p-2 mb-1 rounded-lg text-left text-xs ${
+                                    lesson.status === "completed"
+                                      ? "bg-green-100 text-green-700"
+                                      : lesson.status === "cancelled"
+                                      ? "bg-red-100 text-red-700"
+                                      : hasInsufficientBalance
+                                      ? "bg-orange-100 text-orange-700 border border-orange-300"
+                                      : "bg-yellow-100 text-yellow-700"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-1">
+                                    {hasInsufficientBalance && (
+                                      <svg className="w-3 h-3 text-orange-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                      </svg>
+                                    )}
+                                    <span className="font-medium truncate">{lesson.title}</span>
+                                  </div>
+                                  <div className="text-[10px] opacity-75">
+                                    {lesson.teacher_name}
+                                  </div>
+                                  {hasInsufficientBalance && (
+                                    <div className="text-[10px] text-orange-600 mt-1">
+                                      Пополните баланс
+                                    </div>
+                                  )}
+                                  {lesson.meeting_url && lesson.status !== "cancelled" && !hasInsufficientBalance && (
+                                    <a
+                                      href={lesson.meeting_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 mt-1 text-[10px] text-cyan-600 hover:underline"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                      </svg>
+                                      Ссылка
+                                    </a>
+                                  )}
                                 </div>
-                                {lesson.meeting_url && lesson.status !== "cancelled" && (
-                                  <a
-                                    href={lesson.meeting_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1 mt-1 text-[10px] text-cyan-600 hover:underline"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                    </svg>
-                                    Ссылка
-                                  </a>
-                                )}
-                              </div>
-                            ))}
+                              );
+                            })}
                           </td>
                         );
                       })}
@@ -476,6 +529,30 @@ export default function StudentDashboardPage() {
           ) : (
             <p className="text-gray-500 text-center py-8">У вас пока нет доступных материалов</p>
           )}
+        </div>
+      )}
+
+      {activeTab === "dictionary" && (
+        <div className="card">
+          <h2 className="section-title mb-4">Словарь</h2>
+          <div className="text-center py-12">
+            <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+            <p className="text-gray-500">Блок в разработке</p>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "irregular_verbs" && (
+        <div className="card">
+          <h2 className="section-title mb-4">Неправильные глаголы</h2>
+          <div className="text-center py-12">
+            <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+            </svg>
+            <p className="text-gray-500">Блок в разработке</p>
+          </div>
         </div>
       )}
 

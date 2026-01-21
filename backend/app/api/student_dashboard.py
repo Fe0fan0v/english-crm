@@ -113,6 +113,7 @@ async def get_student_dashboard(
             teacher_id=ls.lesson.teacher.id,
             teacher_name=ls.lesson.teacher.name,
             lesson_type_name=ls.lesson.lesson_type.name,
+            lesson_price=ls.lesson.lesson_type.price,
             meeting_url=ls.lesson.meeting_url,
             status=ls.lesson.status,
             group_name=None,  # TODO: link lessons to groups
@@ -164,6 +165,7 @@ async def get_student_schedule(
             teacher_id=ls.lesson.teacher.id,
             teacher_name=ls.lesson.teacher.name,
             lesson_type_name=ls.lesson.lesson_type.name,
+            lesson_price=ls.lesson.lesson_type.price,
             meeting_url=ls.lesson.meeting_url,
             status=ls.lesson.status,
             group_name=None,

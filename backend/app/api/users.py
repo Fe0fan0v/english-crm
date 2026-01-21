@@ -208,12 +208,20 @@ async def change_user_balance(
             detail="Balance can only be changed for students",
         )
 
+    # Check if balance would go negative
+    new_balance = user.balance + data.amount
+    if new_balance < 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Недостаточно средств. Текущий баланс: {user.balance} тг",
+        )
+
     # Determine transaction type
     transaction_type = TransactionType.CREDIT if data.amount >= 0 else TransactionType.DEBIT
     abs_amount = abs(data.amount)
 
     # Update balance
-    user.balance = user.balance + data.amount
+    user.balance = new_balance
 
     # Create transaction record
     transaction = Transaction(

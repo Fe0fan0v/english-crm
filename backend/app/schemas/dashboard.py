@@ -112,6 +112,7 @@ class StudentLessonInfo(BaseModel):
     teacher_id: int
     teacher_name: str
     lesson_type_name: str
+    lesson_price: Decimal  # Price of the lesson for balance check
     meeting_url: str | None
     status: LessonStatus
     group_name: str | None

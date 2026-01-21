@@ -373,6 +373,7 @@ export interface StudentLessonInfo {
   teacher_id: number;
   teacher_name: string;
   lesson_type_name: string;
+  lesson_price: string;  // Price of the lesson for balance check
   meeting_url: string | null;
   status: LessonStatus;
   group_name: string | null;
