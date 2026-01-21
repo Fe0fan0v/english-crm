@@ -2,12 +2,11 @@ from collections import defaultdict
 from datetime import date, datetime, time
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from sqlalchemy import select, and_
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import AdminUser, get_db
+from app.api.deps import DBSession, ManagerUser
 from app.models.lesson import AttendanceStatus, Lesson, LessonStatus, LessonStudent
 from app.models.lesson_type import LessonType
 from app.models.user import User
@@ -25,8 +24,8 @@ router = APIRouter()
 @router.post("/teachers", response_model=TeacherReportResponse)
 async def generate_teacher_report(
     data: ReportRequest,
-    db: AsyncSession = Depends(get_db),
-    _: AdminUser = None,
+    db: DBSession,
+    current_user: ManagerUser,
 ):
     """Generate report of lessons grouped by teachers for a date range."""
 
