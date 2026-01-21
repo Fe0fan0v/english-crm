@@ -16,7 +16,7 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    password: str = Field(..., min_length=6)
+    password: str = Field(..., min_length=4)
 
 
 class UserUpdate(BaseModel):
@@ -26,7 +26,7 @@ class UserUpdate(BaseModel):
     role: UserRole | None = None
     level_id: int | None = None
     photo_url: str | None = None
-    password: str | None = Field(None, min_length=6)
+    password: str | None = Field(None, min_length=4)
     is_active: bool | None = None
 
 

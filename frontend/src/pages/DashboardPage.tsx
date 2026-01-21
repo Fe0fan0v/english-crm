@@ -10,7 +10,7 @@ import {
   AreaChart,
   Area,
 } from "recharts";
-import { dashboardApi } from "../services/api";
+import { dashboardApi, usersApi } from "../services/api";
 import type { DashboardResponse } from "../types";
 
 // Icons
@@ -81,6 +81,29 @@ function StatCard({ icon, label, value, color }: StatCardProps) {
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetConfirm, setResetConfirm] = useState(false);
+  const [resetResult, setResetResult] = useState<string | null>(null);
+
+  const handleResetTeachersBalances = async () => {
+    if (!resetConfirm) {
+      setResetConfirm(true);
+      return;
+    }
+
+    setIsResetting(true);
+    try {
+      const result = await usersApi.resetTeachersBalances();
+      setResetResult(result.message);
+      setResetConfirm(false);
+      setTimeout(() => setResetResult(null), 5000);
+    } catch (error) {
+      console.error("Failed to reset balances:", error);
+      setResetResult("Ошибка при обнулении балансов");
+    } finally {
+      setIsResetting(false);
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -222,6 +245,41 @@ export default function DashboardPage() {
               </LineChart>
             </ResponsiveContainer>
           </div>
+        </div>
+      </div>
+
+      {/* Admin actions */}
+      <div className="card mb-8">
+        <h2 className="section-title mb-4">Администрирование</h2>
+        <div className="flex items-center gap-4">
+          {resetConfirm ? (
+            <div className="flex items-center gap-2">
+              <span className="text-red-600 font-medium">Обнулить баланс ВСЕХ преподавателей?</span>
+              <button
+                onClick={handleResetTeachersBalances}
+                disabled={isResetting}
+                className="btn bg-red-500 text-white hover:bg-red-600"
+              >
+                {isResetting ? "Обнуление..." : "Да, обнулить"}
+              </button>
+              <button
+                onClick={() => setResetConfirm(false)}
+                className="btn btn-secondary"
+              >
+                Отмена
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={handleResetTeachersBalances}
+              className="btn btn-secondary"
+            >
+              Обнулить баланс преподавателей
+            </button>
+          )}
+          {resetResult && (
+            <span className="text-green-600 font-medium">{resetResult}</span>
+          )}
         </div>
       </div>
 

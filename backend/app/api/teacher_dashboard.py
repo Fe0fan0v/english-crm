@@ -928,31 +928,38 @@ async def mark_attendance(
                     db.add(notification)
 
                 # Pay teacher based on student's level and lesson type
-                if student.level_id and teacher:
-                    # Look up payment amount from matrix
-                    payment_result = await db.execute(
-                        select(LevelLessonTypePayment).where(
-                            and_(
-                                LevelLessonTypePayment.level_id == student.level_id,
-                                LevelLessonTypePayment.lesson_type_id == lesson_type_id,
+                if teacher:
+                    teacher_payment = None
+
+                    # Try to look up payment amount from matrix
+                    if student.level_id:
+                        payment_result = await db.execute(
+                            select(LevelLessonTypePayment).where(
+                                and_(
+                                    LevelLessonTypePayment.level_id == student.level_id,
+                                    LevelLessonTypePayment.lesson_type_id == lesson_type_id,
+                                )
                             )
                         )
+                        payment_config = payment_result.scalar_one_or_none()
+                        if payment_config:
+                            teacher_payment = payment_config.teacher_payment
+
+                    # Fallback: 50% of lesson price if no matrix config
+                    if teacher_payment is None:
+                        teacher_payment = price * Decimal("0.5")
+
+                    teacher.balance += teacher_payment
+
+                    # Create teacher transaction (credit)
+                    teacher_transaction = Transaction(
+                        user_id=teacher.id,
+                        amount=teacher_payment,
+                        type=TransactionType.CREDIT,
+                        lesson_id=lesson_id,
+                        description=f"Оплата за урок: {lesson.title} ({student.name})",
                     )
-                    payment_config = payment_result.scalar_one_or_none()
-
-                    if payment_config:
-                        teacher_payment = payment_config.teacher_payment
-                        teacher.balance += teacher_payment
-
-                        # Create teacher transaction (credit)
-                        teacher_transaction = Transaction(
-                            user_id=teacher.id,
-                            amount=teacher_payment,
-                            type=TransactionType.CREDIT,
-                            lesson_id=lesson_id,
-                            description=f"Оплата за урок: {lesson.title} ({student.name})",
-                        )
-                        db.add(teacher_transaction)
+                    db.add(teacher_transaction)
 
         elif not should_charge and was_charged:
             # Refund student (status changed from charged to excused)

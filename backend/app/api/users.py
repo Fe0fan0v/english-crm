@@ -349,3 +349,47 @@ async def get_user_groups(
         ]
 
     return []
+
+
+@router.post("/teachers/reset-balances")
+async def reset_teachers_balances(
+    db: DBSession,
+    current_user: ManagerUser,
+) -> dict:
+    """Reset balance to zero for all teachers."""
+    # Get all teachers with non-zero balance
+    result = await db.execute(
+        select(User).where(
+            User.role == UserRole.TEACHER,
+            User.balance != Decimal("0"),
+        )
+    )
+    teachers = result.scalars().all()
+
+    reset_count = 0
+    total_amount = Decimal("0")
+
+    for teacher in teachers:
+        old_balance = teacher.balance
+        total_amount += old_balance
+
+        # Create transaction for the reset
+        transaction = Transaction(
+            user_id=teacher.id,
+            amount=abs(old_balance),
+            type=TransactionType.DEBIT if old_balance > 0 else TransactionType.CREDIT,
+            description="Обнуление баланса (конец периода)",
+        )
+        db.add(transaction)
+
+        # Reset balance
+        teacher.balance = Decimal("0")
+        reset_count += 1
+
+    await db.flush()
+
+    return {
+        "message": f"Баланс обнулён у {reset_count} преподавателей",
+        "reset_count": reset_count,
+        "total_amount": str(total_amount),
+    }

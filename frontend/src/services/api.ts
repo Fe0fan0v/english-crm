@@ -148,6 +148,11 @@ export const usersApi = {
     const response = await api.get<UserGroup[]>(`/users/${id}/groups`);
     return response.data;
   },
+
+  resetTeachersBalances: async (): Promise<{ message: string; reset_count: number; total_amount: string }> => {
+    const response = await api.post<{ message: string; reset_count: number; total_amount: string }>("/users/teachers/reset-balances");
+    return response.data;
+  },
 };
 
 // Groups

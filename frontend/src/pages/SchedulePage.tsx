@@ -39,7 +39,7 @@ function formatDateISOEnd(date: Date): string {
 }
 
 const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
-const TIME_SLOTS = Array.from({ length: 11 }, (_, i) => `${9 + i}:00`); // 9:00 - 19:00
+const TIME_SLOTS = Array.from({ length: 24 }, (_, i) => `${i}:00`); // 0:00 - 23:00
 
 // Status colors
 const statusColors: Record<string, string> = {
@@ -399,8 +399,8 @@ export default function SchedulePage() {
                       {time}
                     </td>
                     {WEEKDAYS.map((_, dayIndex) => {
-                      const slotLessons = getLessonsForSlot(dayIndex, 9 + timeIndex);
-                      const hour = 9 + timeIndex;
+                      const slotLessons = getLessonsForSlot(dayIndex, timeIndex);
+                      const hour = timeIndex;
                       return (
                         <td
                           key={dayIndex}

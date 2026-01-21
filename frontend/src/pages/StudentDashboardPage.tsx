@@ -33,7 +33,7 @@ function getWeekDates(baseDate: Date): Date[] {
 }
 
 const dayNames = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
-const timeSlots = Array.from({ length: 14 }, (_, i) => i + 8); // 8:00 - 21:00
+const timeSlots = Array.from({ length: 24 }, (_, i) => i); // 0:00 - 23:00
 
 export default function StudentDashboardPage() {
   const { user } = useAuthStore();

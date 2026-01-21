@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import AdminUser, get_db
-from app.models.lesson import Lesson, LessonStatus, LessonStudent
+from app.models.lesson import AttendanceStatus, Lesson, LessonStatus, LessonStudent
 from app.models.lesson_type import LessonType
 from app.models.user import User
 from app.models.level import Level
@@ -82,7 +82,7 @@ async def generate_teacher_report(
 
         # Add data for each student in the lesson
         for lesson_student in lesson.students:
-            if lesson_student.attended:
+            if lesson_student.attendance_status == AttendanceStatus.PRESENT:
                 student = lesson_student.student
                 student_key = (student.id, student.name)
                 lesson_type_key = lesson_type.name

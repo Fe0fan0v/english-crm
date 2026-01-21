@@ -27,9 +27,8 @@ const DAY_LABELS: Record<DayOfWeek, string> = {
   sunday: "Воскресенье",
 };
 
-const TIME_SLOTS = Array.from({ length: 14 }, (_, i) => {
-  const hour = 8 + i;
-  return `${hour.toString().padStart(2, "0")}:00`;
+const TIME_SLOTS = Array.from({ length: 24 }, (_, i) => {
+  return `${i.toString().padStart(2, "0")}:00`;
 });
 
 export default function TeacherAvailabilityEditor({
