@@ -9,8 +9,8 @@ from sqlalchemy.orm import selectinload
 from app.api.deps import DBSession, ManagerUser
 from app.models.lesson import AttendanceStatus, Lesson, LessonStatus, LessonStudent
 from app.models.lesson_type import LessonType
+from app.models.level_lesson_type_payment import LevelLessonTypePayment
 from app.models.user import User
-from app.models.level import Level
 from app.schemas.report import (
     ReportRequest,
     StudentReportRow,
@@ -69,15 +69,7 @@ async def generate_teacher_report(
         lesson_type = lesson.lesson_type
 
         teacher_data[teacher_id]["teacher_name"] = teacher.name
-
-        # Calculate teacher payment based on level percentage
-        # Default to 50% if no level set
-        teacher_percentage = Decimal("50")
-        if teacher.level:
-            teacher_percentage = teacher.level.teacher_percentage
-
         lesson_price = lesson_type.price
-        teacher_payment = lesson_price * teacher_percentage / 100
 
         # Add data for each student in the lesson
         for lesson_student in lesson.students:
@@ -85,6 +77,26 @@ async def generate_teacher_report(
                 student = lesson_student.student
                 student_key = (student.id, student.name)
                 lesson_type_key = lesson_type.name
+
+                # Calculate teacher payment based on student's level and lesson type
+                teacher_payment = Decimal("0")
+                if student.level_id:
+                    # Look up payment from matrix
+                    payment_result = await db.execute(
+                        select(LevelLessonTypePayment).where(
+                            and_(
+                                LevelLessonTypePayment.level_id == student.level_id,
+                                LevelLessonTypePayment.lesson_type_id == lesson_type.id,
+                            )
+                        )
+                    )
+                    payment_config = payment_result.scalar_one_or_none()
+                    if payment_config:
+                        teacher_payment = payment_config.teacher_payment
+
+                # Fallback: 50% of lesson price if no matrix config
+                if teacher_payment == Decimal("0"):
+                    teacher_payment = lesson_price * Decimal("0.5")
 
                 teacher_data[teacher_id]["students"][student_key][lesson_type_key]["count"] += 1
                 teacher_data[teacher_id]["students"][student_key][lesson_type_key]["payment"] += teacher_payment
