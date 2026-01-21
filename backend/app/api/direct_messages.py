@@ -15,6 +15,22 @@ from app.schemas.direct_message import (
 router = APIRouter()
 
 
+@router.get("/unread/count")
+async def get_unread_count(
+    db: DBSession,
+    current_user: CurrentUser,
+) -> dict:
+    """Get total count of unread messages."""
+    result = await db.execute(
+        select(func.count(DirectMessage.id)).where(
+            DirectMessage.recipient_id == current_user.id,
+            DirectMessage.is_read == False,
+        )
+    )
+    count = result.scalar() or 0
+    return {"unread_count": count}
+
+
 @router.get("/conversations", response_model=ConversationListResponse)
 async def get_conversations(
     db: DBSession,
@@ -221,19 +237,3 @@ async def send_message(
         is_read=message.is_read,
         created_at=message.created_at,
     )
-
-
-@router.get("/unread/count")
-async def get_unread_count(
-    db: DBSession,
-    current_user: CurrentUser,
-) -> dict:
-    """Get total count of unread messages."""
-    result = await db.execute(
-        select(func.count(DirectMessage.id)).where(
-            DirectMessage.recipient_id == current_user.id,
-            DirectMessage.is_read == False,
-        )
-    )
-    count = result.scalar() or 0
-    return {"unread_count": count}

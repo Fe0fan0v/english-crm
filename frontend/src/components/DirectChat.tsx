@@ -76,18 +76,28 @@ export default function DirectChat({ partnerId, partnerName, onClose }: DirectCh
   const handleSend = async () => {
     if ((!newMessage.trim() && !pendingFile) || isSending) return;
 
+    const contentToSend = newMessage.trim();
+    const fileUrlToSend = pendingFile?.url;
+
     setIsSending(true);
+    setNewMessage("");
+    setPendingFile(null);
+
     try {
       const message = await directMessagesApi.sendMessage(
         partnerId,
-        newMessage.trim(),
-        pendingFile?.url
+        contentToSend,
+        fileUrlToSend
       );
       setMessages((prev) => [...prev, message]);
-      setNewMessage("");
-      setPendingFile(null);
     } catch (error) {
       console.error("Failed to send message:", error);
+      alert("Не удалось отправить сообщение");
+      // Restore message on error
+      setNewMessage(contentToSend);
+      if (fileUrlToSend) {
+        setPendingFile({ url: fileUrlToSend, name: "file" });
+      }
     } finally {
       setIsSending(false);
     }
