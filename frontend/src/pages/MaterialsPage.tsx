@@ -63,65 +63,96 @@ export default function MaterialsPage() {
     setEditingMaterial(null);
   };
 
+  const folders = [
+    { name: "База PDF", icon: "📄", color: "bg-red-100 text-red-600" },
+    { name: "Каталог курсов", icon: "📚", color: "bg-blue-100 text-blue-600" },
+    { name: "Доска", icon: "📋", color: "bg-green-100 text-green-600" },
+    { name: "Методист", icon: "👨‍🏫", color: "bg-purple-100 text-purple-600" },
+  ];
+
   return (
     <div>
       <h1 className="page-title">Методические материалы</h1>
 
-      {/* Search */}
-      <div className="mb-6">
-        <div className="relative max-w-md">
-          <svg
-            className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+      {/* Folders */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {folders.map((folder, index) => (
+          <button
+            key={index}
+            onClick={() => alert(`Папка "${folder.name}" в разработке`)}
+            className="card hover:shadow-lg transition-all duration-200 cursor-pointer group"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            <div className="flex flex-col items-center py-6">
+              <div className={`w-16 h-16 rounded-2xl ${folder.color} flex items-center justify-center text-3xl mb-3 group-hover:scale-110 transition-transform`}>
+                {folder.icon}
+              </div>
+              <h3 className="font-semibold text-gray-800 text-center">
+                {folder.name}
+              </h3>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      <div className="border-t border-gray-200 pt-8">
+        <h2 className="text-lg font-semibold text-gray-800 mb-4">Все материалы</h2>
+
+        {/* Search */}
+        <div className="mb-6">
+          <div className="relative max-w-md">
+            <svg
+              className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+            <input
+              type="text"
+              placeholder="Поиск"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="input pl-12"
             />
-          </svg>
-          <input
-            type="text"
-            placeholder="Поиск"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="input pl-12"
-          />
+          </div>
         </div>
       </div>
 
-      {/* Create button */}
-      <div className="card mb-6 flex justify-center">
-        <button
-          onClick={openCreateModal}
-          className="flex items-center gap-2 text-cyan-500 font-medium hover:text-cyan-600 transition-colors py-2"
-        >
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+        {/* Create button */}
+        <div className="card mb-6 flex justify-center">
+          <button
+            onClick={openCreateModal}
+            className="flex items-center gap-2 text-cyan-500 font-medium hover:text-cyan-600 transition-colors py-2"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 4v16m8-8H4"
-            />
-          </svg>
-          Добавить материал PDF
-        </button>
-      </div>
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v16m8-8H4"
+              />
+            </svg>
+            Добавить материал PDF
+          </button>
+        </div>
 
-      {/* Table */}
-      {isLoading ? (
-        <div className="card text-center py-12 text-gray-500">Загрузка...</div>
-      ) : (
-        <div className="card overflow-hidden">
-          <table className="w-full">
+        {/* Table */}
+        {isLoading ? (
+          <div className="card text-center py-12 text-gray-500">Загрузка...</div>
+        ) : (
+          <div className="card overflow-hidden">
+            <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200">
                 <th className="text-left py-4 px-6 font-medium text-gray-600">
@@ -238,13 +269,14 @@ export default function MaterialsPage() {
             </tbody>
           </table>
         </div>
-      )}
+        )}
 
-      {data && data.total > 0 && (
-        <p className="text-gray-500 text-sm mt-4">
-          Всего материалов: {data.total}
-        </p>
-      )}
+        {data && data.total > 0 && (
+          <p className="text-gray-500 text-sm mt-4">
+            Всего материалов: {data.total}
+          </p>
+        )}
+      </div>
 
       {/* Modal */}
       <MaterialModal

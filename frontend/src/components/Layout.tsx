@@ -298,6 +298,12 @@ const navItems: NavItem[] = [
     icon: icons2.home,
     roles: ["teacher"],
   },
+  {
+    path: "/teacher/knowledge-base",
+    label: "База знаний",
+    icon: icons.book,
+    roles: ["teacher"],
+  },
   // Student items
   {
     path: "/student",
@@ -315,6 +321,18 @@ const navItems: NavItem[] = [
     path: "/student/irregular-verbs",
     label: "Неправильные глаголы",
     icon: icons2.irregularVerbs,
+    roles: ["student"],
+  },
+  {
+    path: "/student/knowledge-base",
+    label: "База знаний",
+    icon: icons.book,
+    roles: ["student"],
+  },
+  {
+    path: "/student/news",
+    label: "Новости",
+    icon: icons.chart,
     roles: ["student"],
   },
 ];

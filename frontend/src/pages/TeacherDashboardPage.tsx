@@ -17,7 +17,7 @@ import type {
   User,
 } from "../types";
 
-type TabType = "info" | "groups" | "students" | "availability" | "materials" | "messages";
+type TabType = "info" | "students" | "availability" | "materials" | "messages";
 
 // Icons
 const StatIcon = {
@@ -397,10 +397,9 @@ export default function TeacherDashboardPage() {
       <div className="flex gap-2 mb-6">
         {[
           { key: "info" as TabType, label: "Учитель" },
-          { key: "groups" as TabType, label: "Группы" },
           { key: "students" as TabType, label: "Ученики" },
           { key: "availability" as TabType, label: "Свободное время" },
-          { key: "materials" as TabType, label: "Личные материалы" },
+          { key: "materials" as TabType, label: "Уроки" },
           { key: "messages" as TabType, label: "Сообщения" },
         ].map((tab) => (
           <button
@@ -551,67 +550,97 @@ export default function TeacherDashboardPage() {
         </div>
       )}
 
-      {activeTab === "groups" && (
-        <div className="card">
-          <h2 className="section-title mb-4">Мои группы</h2>
-          {groups.length > 0 ? (
-            <div className="grid grid-cols-3 gap-4">
-              {groups.map((group) => (
-                <button
-                  key={group.id}
-                  onClick={() => setSelectedGroupId(group.id)}
-                  className="p-4 bg-gray-50 rounded-xl text-left hover:bg-gray-100 transition-colors"
-                >
-                  <h3 className="font-medium text-gray-800">{group.name}</h3>
-                  <p className="text-sm text-gray-500">{group.students_count} учеников</p>
-                  <div className="flex items-center gap-1 mt-2 text-cyan-600 text-sm">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                    </svg>
-                    Открыть чат
-                  </div>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-500 text-center py-8">У вас пока нет групп</p>
-          )}
-        </div>
-      )}
-
       {activeTab === "students" && (
-        <div className="card">
-          <h2 className="section-title mb-4">Мои ученики</h2>
-          {students.length > 0 ? (
-            <div className="space-y-3">
-              {students.map((student) => (
-                <div
-                  key={student.id}
-                  className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl"
-                >
-                  <Avatar name={student.name} size="md" />
-                  <div className="flex-1">
-                    <h3 className="font-medium text-gray-800">{student.name}</h3>
-                    <p className="text-sm text-gray-500">{student.email}</p>
-                    <p className="text-xs text-gray-400">
-                      Группы: {student.group_names.join(", ")}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setChatPartner({ id: student.id, name: student.name })}
-                    className="btn btn-secondary btn-sm flex items-center gap-1"
+        <div className="space-y-6">
+          {/* Groups Section */}
+          <div className="card">
+            <h2 className="section-title mb-4">Группы</h2>
+            {groups.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {groups.map((group) => (
+                  <div
+                    key={group.id}
+                    className="p-4 bg-gray-50 rounded-xl"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                    </svg>
-                    Написать
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-500 text-center py-8">У вас пока нет учеников</p>
-          )}
+                    <h3 className="font-medium text-gray-800 mb-2">{group.name}</h3>
+                    <p className="text-sm text-gray-500 mb-3">{group.students_count} учеников</p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setSelectedGroupId(group.id)}
+                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-cyan-100 text-cyan-700 rounded-lg text-sm hover:bg-cyan-200 transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        Чат
+                      </button>
+                      <button
+                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-purple-100 text-purple-700 rounded-lg text-sm hover:bg-purple-200 transition-colors"
+                        onClick={() => alert('Функция в разработке')}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                        </svg>
+                        Уроки
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500 text-center py-8">У вас пока нет групп</p>
+            )}
+          </div>
+
+          {/* All Students Section */}
+          <div className="card">
+            <h2 className="section-title mb-4">Все ученики</h2>
+            {students.length > 0 ? (
+              <div className="space-y-3">
+                {students.map((student) => (
+                  <div
+                    key={student.id}
+                    className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl"
+                  >
+                    <Avatar name={student.name} size="md" />
+                    <div className="flex-1">
+                      <h3 className="font-medium text-gray-800">{student.name}</h3>
+                      <p className="text-sm text-gray-500">{student.email}</p>
+                      {student.group_names.length > 0 ? (
+                        <p className="text-xs text-gray-400">
+                          Группы: {student.group_names.join(", ")}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-gray-400">Индивидуальное обучение</p>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setChatPartner({ id: student.id, name: student.name })}
+                        className="btn btn-secondary btn-sm flex items-center gap-1"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        Чат
+                      </button>
+                      <button
+                        className="btn btn-secondary btn-sm flex items-center gap-1"
+                        onClick={() => alert('Функция в разработке')}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                        </svg>
+                        Уроки
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500 text-center py-8">У вас пока нет учеников</p>
+            )}
+          </div>
         </div>
       )}
 
@@ -627,7 +656,7 @@ export default function TeacherDashboardPage() {
 
       {activeTab === "materials" && (
         <div className="card">
-          <h2 className="section-title mb-4">Личные материалы</h2>
+          <h2 className="section-title mb-4">Уроки</h2>
           <p className="text-gray-500 text-center py-8">
             Функция в разработке
           </p>

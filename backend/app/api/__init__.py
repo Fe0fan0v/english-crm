@@ -10,6 +10,7 @@ from app.api import (
     materials,
     notifications,
     reports,
+    settings,
     student_dashboard,
     teacher_dashboard,
     tests,
@@ -35,3 +36,4 @@ api_router.include_router(teacher_dashboard.router, prefix="/teacher", tags=["te
 api_router.include_router(student_dashboard.router, prefix="/student", tags=["student-dashboard"])
 api_router.include_router(direct_messages.router, prefix="/messages", tags=["direct-messages"])
 api_router.include_router(uploads.router, prefix="/uploads", tags=["uploads"])
+api_router.include_router(settings.router, prefix="/settings", tags=["settings"])

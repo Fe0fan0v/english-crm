@@ -761,4 +761,16 @@ export const notificationsApi = {
   },
 };
 
+// Settings API
+export interface PublicSettings {
+  whatsapp_manager_phone: string | null;
+}
+
+export const settingsApi = {
+  getPublic: async (): Promise<PublicSettings> => {
+    const response = await api.get<PublicSettings>("/settings/public");
+    return response.data;
+  },
+};
+
 export default api;
