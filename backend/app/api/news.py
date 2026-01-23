@@ -11,7 +11,7 @@ from app.schemas.news import (
     NewsUpdate,
 )
 
-router = APIRouter(prefix="/news", tags=["news"])
+router = APIRouter(tags=["news"])
 
 
 @router.get("/", response_model=NewsListResponse)
