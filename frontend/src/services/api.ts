@@ -71,10 +71,20 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Handle errors (removed automatic 401 redirect to prevent loops)
+// Handle errors - auto logout on 401
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    if (error.response?.status === 401) {
+      // Clear invalid token
+      localStorage.removeItem("token");
+      localStorage.removeItem("auth-storage");
+
+      // Redirect to login if not already there
+      if (!window.location.pathname.includes("/login")) {
+        window.location.href = "/login";
+      }
+    }
     return Promise.reject(error);
   },
 );
