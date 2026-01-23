@@ -11,10 +11,10 @@ from app.schemas.news import (
     NewsUpdate,
 )
 
-router = APIRouter(tags=["news"])
+router = APIRouter(prefix="/news", tags=["news"])
 
 
-@router.get("/", response_model=NewsListResponse)
+@router.get("", response_model=NewsListResponse)
 async def list_news(
     db: AsyncSession = Depends(get_db),
     _current_user: CurrentUser = ...,
@@ -60,7 +60,7 @@ async def get_news(
     return news
 
 
-@router.post("/", response_model=NewsResponse)
+@router.post("", response_model=NewsResponse)
 async def create_news(
     news_data: NewsCreate,
     db: AsyncSession = Depends(get_db),

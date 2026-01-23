@@ -38,4 +38,4 @@ api_router.include_router(student_dashboard.router, prefix="/student", tags=["st
 api_router.include_router(direct_messages.router, prefix="/messages", tags=["direct-messages"])
 api_router.include_router(uploads.router, prefix="/uploads", tags=["uploads"])
 api_router.include_router(settings.router, prefix="/settings", tags=["settings"])
-api_router.include_router(news.router, prefix="/news", tags=["news"])
+api_router.include_router(news.router)
