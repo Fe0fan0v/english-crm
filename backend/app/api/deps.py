@@ -23,8 +23,11 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
+    print(f"[AUTH] Received token: {token[:20]}...")
     payload = decode_access_token(token)
+    print(f"[AUTH] Decoded payload: {payload}")
     if payload is None:
+        print("[AUTH] Failed to decode token")
         raise credentials_exception
 
     user_id_str = payload.get("sub")
