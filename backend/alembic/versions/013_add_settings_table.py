@@ -1,7 +1,7 @@
 """add_settings_table
 
-Revision ID: 013
-Revises: 012
+Revision ID: 013_add_settings_table
+Revises: 012_add_file_url_to_messages
 Create Date: 2026-01-23
 
 """
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '013'
-down_revision: Union[str, None] = '012'
+revision: str = '013_add_settings_table'
+down_revision: Union[str, None] = '012_add_file_url_to_messages'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
