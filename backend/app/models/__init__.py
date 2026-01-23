@@ -6,6 +6,7 @@ from app.models.lesson_type import LessonType
 from app.models.level import Level
 from app.models.level_lesson_type_payment import LevelLessonTypePayment
 from app.models.material import Material, MaterialAccess
+from app.models.news import News
 from app.models.notification import Notification, NotificationType
 from app.models.settings import Settings
 from app.models.teacher_availability import DayOfWeek, TeacherAvailability
@@ -24,6 +25,7 @@ __all__ = [
     "AttendanceStatus",
     "Material",
     "MaterialAccess",
+    "News",
     "Notification",
     "NotificationType",
     "Settings",

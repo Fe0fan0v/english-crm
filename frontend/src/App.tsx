@@ -21,6 +21,7 @@ import DictionaryPage from "./pages/DictionaryPage";
 import IrregularVerbsPage from "./pages/IrregularVerbsPage";
 import KnowledgeBasePage from "./pages/KnowledgeBasePage";
 import NewsPage from "./pages/NewsPage";
+import NewsManagementPage from "./pages/NewsManagementPage";
 import SettingsPage from "./pages/SettingsPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -317,6 +318,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <SettingsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/news-management"
+        element={
+          <ProtectedRoute>
+            <NewsManagementPage />
           </ProtectedRoute>
         }
       />
