@@ -192,6 +192,8 @@ function NewsModal({ isOpen, onClose, news, onSuccess }: NewsModalProps) {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [bannerInputType, setBannerInputType] = useState<"url" | "file">("url");
+  const [uploadingFile, setUploadingFile] = useState(false);
 
   const isEditing = !!news;
 
@@ -203,6 +205,7 @@ function NewsModal({ isOpen, onClose, news, onSuccess }: NewsModalProps) {
         banner_url: news.banner_url || "",
         is_published: news.is_published,
       });
+      setBannerInputType("url");
     } else {
       setFormData({
         title: "",
@@ -210,9 +213,49 @@ function NewsModal({ isOpen, onClose, news, onSuccess }: NewsModalProps) {
         banner_url: "",
         is_published: true,
       });
+      setBannerInputType("url");
     }
     setErrors({});
   }, [news, isOpen]);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Check file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert("Файл слишком большой. Максимальный размер: 10 МБ");
+      return;
+    }
+
+    // Check file type
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      alert("Неподдерживаемый формат файла. Разрешены: JPG, PNG, GIF, WebP");
+      return;
+    }
+
+    setUploadingFile(true);
+    try {
+      const token = localStorage.getItem("token");
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await axios.post<{ file_url: string }>("/api/uploads/chat", formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      setFormData((prev) => ({ ...prev, banner_url: response.data.file_url }));
+    } catch (error) {
+      console.error("Failed to upload file:", error);
+      alert("Не удалось загрузить файл");
+    } finally {
+      setUploadingFile(false);
+    }
+  };
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -308,16 +351,79 @@ function NewsModal({ isOpen, onClose, news, onSuccess }: NewsModalProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Ссылка на баннер (необязательно)
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Баннер (необязательно)
             </label>
-            <input
-              type="url"
-              value={formData.banner_url}
-              onChange={(e) => setFormData({ ...formData, banner_url: e.target.value })}
-              className="input w-full"
-              placeholder="https://example.com/image.jpg"
-            />
+
+            {/* Toggle between URL and File */}
+            <div className="flex gap-2 mb-3">
+              <button
+                type="button"
+                onClick={() => setBannerInputType("url")}
+                className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                  bannerInputType === "url"
+                    ? "bg-cyan-100 text-cyan-700"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                Ссылка
+              </button>
+              <button
+                type="button"
+                onClick={() => setBannerInputType("file")}
+                className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                  bannerInputType === "file"
+                    ? "bg-cyan-100 text-cyan-700"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                Загрузить файл
+              </button>
+            </div>
+
+            {bannerInputType === "url" ? (
+              <input
+                type="url"
+                value={formData.banner_url}
+                onChange={(e) => setFormData({ ...formData, banner_url: e.target.value })}
+                className="input w-full"
+                placeholder="https://example.com/image.jpg"
+              />
+            ) : (
+              <div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  disabled={uploadingFile}
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-cyan-50 file:text-cyan-700 hover:file:bg-cyan-100 cursor-pointer"
+                />
+                {uploadingFile && (
+                  <p className="text-sm text-gray-500 mt-2">Загрузка...</p>
+                )}
+              </div>
+            )}
+
+            {/* Preview */}
+            {formData.banner_url && (
+              <div className="mt-3">
+                <img
+                  src={formData.banner_url}
+                  alt="Banner preview"
+                  className="w-full h-32 object-cover rounded-lg"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = "none";
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, banner_url: "" })}
+                  className="text-sm text-red-500 hover:text-red-600 mt-2"
+                >
+                  Удалить баннер
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
