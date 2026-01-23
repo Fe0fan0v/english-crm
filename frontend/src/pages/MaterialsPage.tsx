@@ -122,7 +122,6 @@ export default function MaterialsPage() {
             />
           </div>
         </div>
-      </div>
 
         {/* Create button */}
         <div className="card mb-6 flex justify-center">
@@ -269,12 +268,6 @@ export default function MaterialsPage() {
             </tbody>
           </table>
         </div>
-        )}
-
-        {data && data.total > 0 && (
-          <p className="text-gray-500 text-sm mt-4">
-            Всего материалов: {data.total}
-          </p>
         )}
       </div>
 
