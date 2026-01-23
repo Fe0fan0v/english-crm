@@ -21,6 +21,7 @@ import DictionaryPage from "./pages/DictionaryPage";
 import IrregularVerbsPage from "./pages/IrregularVerbsPage";
 import KnowledgeBasePage from "./pages/KnowledgeBasePage";
 import NewsPage from "./pages/NewsPage";
+import SettingsPage from "./pages/SettingsPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { token, user, fetchUser, logout } = useAuthStore();
@@ -308,6 +309,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <GroupDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoute>
+            <SettingsPage />
           </ProtectedRoute>
         }
       />
