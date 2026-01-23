@@ -17,7 +17,7 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 @router.get("/public", response_model=PublicSettingsResponse)
 async def get_public_settings(
     db: AsyncSession = Depends(get_db),
-    _current_user: CurrentUser = Depends(CurrentUser()),
+    _current_user: CurrentUser = ...,
 ):
     """Get public settings accessible to all authenticated users"""
     # Fetch whatsapp_manager_phone
@@ -34,7 +34,7 @@ async def get_public_settings(
 @router.get("/", response_model=list[SettingsResponse])
 async def get_all_settings(
     db: AsyncSession = Depends(get_db),
-    _current_user: AdminUser = Depends(AdminUser()),
+    _current_user: AdminUser = ...,
 ):
     """Get all settings (admin only)"""
     result = await db.execute(select(Settings))
@@ -46,7 +46,7 @@ async def get_all_settings(
 async def get_setting(
     key: str,
     db: AsyncSession = Depends(get_db),
-    _current_user: AdminUser = Depends(AdminUser()),
+    _current_user: AdminUser = ...,
 ):
     """Get a specific setting by key (admin only)"""
     result = await db.execute(select(Settings).where(Settings.key == key))
@@ -60,7 +60,7 @@ async def get_setting(
 async def create_setting(
     setting_data: SettingsCreate,
     db: AsyncSession = Depends(get_db),
-    _current_user: AdminUser = Depends(AdminUser()),
+    _current_user: AdminUser = ...,
 ):
     """Create a new setting (admin only)"""
     # Check if key already exists
@@ -83,7 +83,7 @@ async def update_setting(
     key: str,
     setting_data: SettingsUpdate,
     db: AsyncSession = Depends(get_db),
-    _current_user: AdminUser = Depends(AdminUser()),
+    _current_user: AdminUser = ...,
 ):
     """Update a setting (admin only)"""
     result = await db.execute(select(Settings).where(Settings.key == key))
@@ -103,7 +103,7 @@ async def update_setting(
 async def delete_setting(
     key: str,
     db: AsyncSession = Depends(get_db),
-    _current_user: AdminUser = Depends(AdminUser()),
+    _current_user: AdminUser = ...,
 ):
     """Delete a setting (admin only)"""
     result = await db.execute(select(Settings).where(Settings.key == key))
