@@ -54,9 +54,9 @@ export const useAuthStore = create<AuthState>()(
         try {
           const user = await authApi.me();
           set({ user });
-        } catch (error: any) {
+        } catch (error) {
           // Clear invalid token on 401
-          if (error.response?.status === 401) {
+          if ((error as { response?: { status?: number } }).response?.status === 401) {
             localStorage.removeItem("token");
             localStorage.removeItem("auth-storage");
             set({ token: null, user: null });
