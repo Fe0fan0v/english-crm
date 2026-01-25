@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import AdminUser, get_db
+from app.api.deps import AdminUser, CurrentUser, get_db
 from app.models.material import Material
 from app.schemas.material import (
     MaterialCreate,
@@ -18,9 +18,9 @@ router = APIRouter()
 async def list_materials(
     search: str | None = None,
     db: AsyncSession = Depends(get_db),
-    _: AdminUser = None,
+    _current_user: CurrentUser = ...,
 ):
-    """Get all materials."""
+    """Get all materials (all authenticated users can view)."""
     query = select(Material)
 
     if search:
@@ -41,9 +41,9 @@ async def list_materials(
 async def get_material(
     material_id: int,
     db: AsyncSession = Depends(get_db),
-    _: AdminUser = None,
+    _current_user: CurrentUser = ...,
 ):
-    """Get a specific material."""
+    """Get a specific material (all authenticated users can view)."""
     result = await db.execute(select(Material).where(Material.id == material_id))
     material = result.scalar_one_or_none()
 

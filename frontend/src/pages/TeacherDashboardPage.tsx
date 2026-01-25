@@ -9,6 +9,7 @@ import GroupChat from "../components/GroupChat";
 import PhotoUpload from "../components/PhotoUpload";
 import LessonCreateModal, { type LessonFormData } from "../components/LessonCreateModal";
 import TeacherAvailabilityEditor from "../components/TeacherAvailabilityEditor";
+import AttachMaterialModal from "../components/AttachMaterialModal";
 import type {
   TeacherDashboardResponse,
   TeacherLesson,
@@ -91,6 +92,8 @@ export default function TeacherDashboardPage() {
   const [prefillDate, setPrefillDate] = useState<string | undefined>();
   const [prefillTime, setPrefillTime] = useState<string | undefined>();
   const [availability, setAvailability] = useState<TeacherAvailability[]>([]);
+  const [lessonsWithMaterials, setLessonsWithMaterials] = useState<any[]>([]);
+  const [selectedLessonForMaterial, setSelectedLessonForMaterial] = useState<number | null>(null);
 
   // Check if current user can create lessons (only admin/manager can create lessons)
   const canCreateLesson = currentUser?.role === "admin" || currentUser?.role === "manager";
@@ -188,6 +191,25 @@ export default function TeacherDashboardPage() {
     };
     fetchAvailability();
   }, [isManagerView, teacherId]);
+
+  // Load lessons with materials when materials tab is active
+  useEffect(() => {
+    if (activeTab === "materials") {
+      const fetchLessonsWithMaterials = async () => {
+        try {
+          const token = localStorage.getItem("token");
+          const response = await fetch("/api/teacher/lessons-with-materials", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const data = await response.json();
+          setLessonsWithMaterials(data);
+        } catch (error) {
+          console.error("Failed to fetch lessons with materials:", error);
+        }
+      };
+      fetchLessonsWithMaterials();
+    }
+  }, [activeTab]);
 
   const handleLessonClick = (lesson: TeacherLesson) => {
     setSelectedLesson(lesson);
@@ -656,10 +678,117 @@ export default function TeacherDashboardPage() {
 
       {activeTab === "materials" && (
         <div className="card">
-          <h2 className="section-title mb-4">Уроки</h2>
-          <p className="text-gray-500 text-center py-8">
-            Функция в разработке
+          <h2 className="section-title mb-4">Уроки с материалами</h2>
+          <p className="text-sm text-gray-500 mb-6">
+            Прикрепляйте материалы из "Базы PDF" к урокам. Материалы будут доступны ученикам с момента начала урока и в течение 30 дней.
           </p>
+          {lessonsWithMaterials.length > 0 ? (
+            <div className="space-y-4">
+              {lessonsWithMaterials.map((lesson: any) => {
+                const lessonDate = new Date(lesson.scheduled_at);
+                const formattedDate = lessonDate.toLocaleDateString("ru-RU", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                });
+                const formattedTime = lessonDate.toLocaleTimeString("ru-RU", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                });
+
+                return (
+                  <div key={lesson.id} className="border border-gray-200 rounded-xl overflow-hidden">
+                    {/* Lesson Header */}
+                    <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-4 border-b border-gray-200">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-purple-500 text-white flex items-center justify-center flex-shrink-0">
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-gray-800 text-lg">{lesson.title}</h3>
+                          <div className="flex flex-wrap gap-2 mt-1 text-sm text-gray-600">
+                            <span className="flex items-center gap-1">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                              {formattedDate}
+                            </span>
+                            <span className="text-gray-400">•</span>
+                            <span>{formattedTime}</span>
+                            <span className="text-gray-400">•</span>
+                            <span>{lesson.students.join(", ")}</span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setSelectedLessonForMaterial(lesson.id)}
+                          className="btn btn-primary btn-sm flex items-center gap-1"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                          Добавить материал
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Materials List */}
+                    <div className="p-4 bg-white">
+                      {lesson.materials.length > 0 ? (
+                        <div className="space-y-2">
+                          {lesson.materials.map((material: any) => (
+                            <div
+                              key={material.id}
+                              className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
+                            >
+                              <div className="w-10 h-10 rounded-lg bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                </svg>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-gray-800 truncate">
+                                  {material.title}
+                                </p>
+                                <p className="text-xs text-gray-500">PDF документ</p>
+                              </div>
+                              <a
+                                href={material.file_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn btn-secondary btn-sm flex items-center gap-1"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                                Открыть
+                              </a>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-6 text-gray-400">
+                          <svg className="w-12 h-12 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                          </svg>
+                          <p className="text-sm">Нет материалов</p>
+                          <p className="text-xs mt-1">Нажмите "Добавить материал" чтобы прикрепить PDF из базы</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+              </svg>
+              <p className="text-gray-500">У вас пока нет уроков</p>
+            </div>
+          )}
         </div>
       )}
 
@@ -701,6 +830,24 @@ export default function TeacherDashboardPage() {
           teacherId={isManagerView && teacherId ? teacherId : currentUser?.id}
           prefillDate={prefillDate}
           prefillTime={prefillTime}
+        />
+      )}
+
+      {/* Attach Material Modal */}
+      {selectedLessonForMaterial && (
+        <AttachMaterialModal
+          lessonId={selectedLessonForMaterial}
+          onClose={() => setSelectedLessonForMaterial(null)}
+          onSuccess={async () => {
+            setSelectedLessonForMaterial(null);
+            // Refresh lessons with materials
+            const token = localStorage.getItem("token");
+            const response = await fetch("/api/teacher/lessons-with-materials", {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await response.json();
+            setLessonsWithMaterials(data);
+          }}
         />
       )}
     </div>

@@ -39,6 +39,18 @@ async def get_all_settings(
     """Get all settings (admin only)"""
     result = await db.execute(select(Settings))
     settings = result.scalars().all()
+
+    # Initialize default settings if none exist
+    if not settings:
+        default_setting = Settings(
+            key="whatsapp_manager_phone",
+            value="+77001234567"
+        )
+        db.add(default_setting)
+        await db.commit()
+        await db.refresh(default_setting)
+        settings = [default_setting]
+
     return settings
 
 

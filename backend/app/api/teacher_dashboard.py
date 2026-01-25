@@ -13,8 +13,10 @@ from app.models import (
     GroupStudent,
     Lesson,
     LessonStudent,
+    LessonMaterial,
     LessonType,
     LevelLessonTypePayment,
+    Material,
     Notification,
     NotificationType,
     TeacherAvailability,
@@ -1170,3 +1172,64 @@ async def get_teacher_availability(
     items = result.scalars().all()
 
     return TeacherAvailabilityListResponse(items=items)
+
+
+# ============ TEACHER LESSONS WITH MATERIALS ============
+
+
+@router.get("/lessons-with-materials")
+async def get_teacher_lessons_with_materials(
+    db: DBSession,
+    current_user: TeacherOnlyUser,
+):
+    """
+    Get teacher's lessons with materials.
+    Shows all lessons (past and future) with attached materials.
+    """
+    # Get teacher's lessons
+    result = await db.execute(
+        select(Lesson)
+        .where(Lesson.teacher_id == current_user.id)
+        .options(
+            selectinload(Lesson.students).selectinload(LessonStudent.student),
+            selectinload(Lesson.lesson_type),
+        )
+        .order_by(Lesson.scheduled_at.desc())
+    )
+    lessons = result.scalars().all()
+
+    # Get materials for each lesson
+    lessons_with_materials = []
+    for lesson in lessons:
+        # Get materials for this lesson
+        materials_result = await db.execute(
+            select(LessonMaterial)
+            .where(LessonMaterial.lesson_id == lesson.id)
+            .options(selectinload(LessonMaterial.material))
+        )
+        lesson_materials = materials_result.scalars().all()
+
+        materials_list = [
+            {
+                "id": lm.material.id,
+                "title": lm.material.title,
+                "file_url": lm.material.file_url,
+            }
+            for lm in lesson_materials
+        ]
+
+        # Get student names
+        student_names = [ls.student.name for ls in lesson.students if ls.student]
+
+        lessons_with_materials.append({
+            "id": lesson.id,
+            "title": lesson.title,
+            "scheduled_at": lesson.scheduled_at.isoformat(),
+            "lesson_type_name": lesson.lesson_type.name,
+            "meeting_url": lesson.meeting_url,
+            "status": lesson.status.value,
+            "students": student_names,
+            "materials": materials_list,
+        })
+
+    return lessons_with_materials
