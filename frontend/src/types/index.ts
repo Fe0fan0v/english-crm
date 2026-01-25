@@ -99,6 +99,24 @@ export interface Material {
   updated_at: string;
 }
 
+export interface LessonMaterial {
+  id: number;
+  title: string;
+  file_url: string;
+}
+
+export interface LessonWithMaterials {
+  id: number;
+  title: string;
+  scheduled_at: string;
+  teacher_name?: string;
+  lesson_type_name: string;
+  meeting_url?: string;
+  status?: string;
+  students?: string[];
+  materials: LessonMaterial[];
+}
+
 export interface MaterialListResponse {
   items: Material[];
   total: number;

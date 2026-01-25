@@ -9,6 +9,7 @@ import type {
   StudentLessonInfo,
   StudentMaterialInfo,
   StudentTestInfo,
+  LessonWithMaterials,
 } from "../types";
 
 type TabType = "info" | "lessons" | "tests" | "materials" | "messages";
@@ -45,7 +46,7 @@ export default function StudentDashboardPage() {
   const [schedule, setSchedule] = useState<StudentLessonInfo[]>([]);
   const [materials, setMaterials] = useState<StudentMaterialInfo[]>([]);
   const [tests, setTests] = useState<StudentTestInfo[]>([]);
-  const [lessonsWithMaterials, setLessonsWithMaterials] = useState<any[]>([]);
+  const [lessonsWithMaterials, setLessonsWithMaterials] = useState<LessonWithMaterials[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [chatPartner, setChatPartner] = useState<{ id: number; name: string } | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(user?.photo_url || null);
@@ -675,7 +676,7 @@ export default function StudentDashboardPage() {
           </p>
           {lessonsWithMaterials.length > 0 ? (
             <div className="space-y-4">
-              {lessonsWithMaterials.map((lesson: any) => {
+              {lessonsWithMaterials.map((lesson) => {
                 const lessonDate = new Date(lesson.scheduled_at);
                 const formattedDate = lessonDate.toLocaleDateString("ru-RU", {
                   day: "numeric",
@@ -733,7 +734,7 @@ export default function StudentDashboardPage() {
                     {/* Materials List */}
                     <div className="p-4 bg-white">
                       <div className="space-y-2">
-                        {lesson.materials.map((material: any) => (
+                        {lesson.materials.map((material) => (
                           <a
                             key={material.id}
                             href={material.file_url}

@@ -16,6 +16,8 @@ import type {
   TeacherStudentInfo,
   TeacherAvailability,
   User,
+  LessonWithMaterials,
+  LessonMaterial,
 } from "../types";
 
 type TabType = "info" | "students" | "availability" | "materials" | "messages";
@@ -92,7 +94,7 @@ export default function TeacherDashboardPage() {
   const [prefillDate, setPrefillDate] = useState<string | undefined>();
   const [prefillTime, setPrefillTime] = useState<string | undefined>();
   const [availability, setAvailability] = useState<TeacherAvailability[]>([]);
-  const [lessonsWithMaterials, setLessonsWithMaterials] = useState<any[]>([]);
+  const [lessonsWithMaterials, setLessonsWithMaterials] = useState<LessonWithMaterials[]>([]);
   const [selectedLessonForMaterial, setSelectedLessonForMaterial] = useState<number | null>(null);
 
   // Check if current user can create lessons (only admin/manager can create lessons)
@@ -684,7 +686,7 @@ export default function TeacherDashboardPage() {
           </p>
           {lessonsWithMaterials.length > 0 ? (
             <div className="space-y-4">
-              {lessonsWithMaterials.map((lesson: any) => {
+              {lessonsWithMaterials.map((lesson) => {
                 const lessonDate = new Date(lesson.scheduled_at);
                 const formattedDate = lessonDate.toLocaleDateString("ru-RU", {
                   day: "numeric",
@@ -718,7 +720,7 @@ export default function TeacherDashboardPage() {
                             <span className="text-gray-400">•</span>
                             <span>{formattedTime}</span>
                             <span className="text-gray-400">•</span>
-                            <span>{lesson.students.join(", ")}</span>
+                            <span>{lesson.students?.join(", ") || "Нет учеников"}</span>
                           </div>
                         </div>
                         <button
@@ -737,7 +739,7 @@ export default function TeacherDashboardPage() {
                     <div className="p-4 bg-white">
                       {lesson.materials.length > 0 ? (
                         <div className="space-y-2">
-                          {lesson.materials.map((material: any) => (
+                          {lesson.materials.map((material) => (
                             <div
                               key={material.id}
                               className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
