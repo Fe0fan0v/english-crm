@@ -103,17 +103,7 @@ export default function TeacherDashboardPage() {
 
   // Handle cell click to create lesson with prefilled date/time
   const handleCellClick = (date: Date, hour: number) => {
-    console.log("Cell clicked!", {
-      canCreateLesson,
-      isManagerView,
-      currentUserRole: currentUser?.role,
-      date,
-      hour
-    });
-    if (!canCreateLesson) {
-      console.log("Cannot create lesson - check permissions");
-      return;
-    }
+    if (!canCreateLesson) return;
     const dateStr = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}`;
     const timeStr = `${hour.toString().padStart(2, "0")}:00`;
     setPrefillDate(dateStr);
