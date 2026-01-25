@@ -2,6 +2,7 @@ from app.models.direct_message import DirectMessage
 from app.models.group import Group, GroupStudent
 from app.models.group_message import GroupMessage
 from app.models.lesson import AttendanceStatus, Lesson, LessonStudent
+from app.models.lesson_material import LessonMaterial
 from app.models.lesson_type import LessonType
 from app.models.level import Level
 from app.models.level_lesson_type_payment import LevelLessonTypePayment
@@ -22,6 +23,7 @@ __all__ = [
     "LessonType",
     "Lesson",
     "LessonStudent",
+    "LessonMaterial",
     "AttendanceStatus",
     "Material",
     "MaterialAccess",

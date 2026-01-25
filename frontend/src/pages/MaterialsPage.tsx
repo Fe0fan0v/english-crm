@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { materialsApi } from "../services/api";
 import type { Material, MaterialListResponse } from "../types";
 
@@ -14,6 +14,7 @@ export default function MaterialsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+  const [activeFolder, setActiveFolder] = useState<string | null>(null);
 
   const fetchMaterials = async () => {
     setIsLoading(true);
@@ -63,6 +64,27 @@ export default function MaterialsPage() {
     setEditingMaterial(null);
   };
 
+  const handleFolderClick = (folderName: string) => {
+    if (folderName === "База PDF") {
+      setActiveFolder("pdf_base");
+    } else {
+      alert(`Папка "${folderName}" в разработке`);
+    }
+  };
+
+  // Filter materials based on active folder
+  const displayedMaterials = useMemo(() => {
+    if (!data?.items) return [];
+
+    if (activeFolder === "pdf_base") {
+      return data.items.filter((m) =>
+        m.file_url.toLowerCase().endsWith(".pdf")
+      );
+    }
+
+    return data.items;
+  }, [data, activeFolder]);
+
   const folders = [
     { name: "База PDF", icon: "📄", color: "bg-red-100 text-red-600" },
     { name: "Каталог курсов", icon: "📚", color: "bg-blue-100 text-blue-600" },
@@ -79,7 +101,7 @@ export default function MaterialsPage() {
         {folders.map((folder, index) => (
           <button
             key={index}
-            onClick={() => alert(`Папка "${folder.name}" в разработке`)}
+            onClick={() => handleFolderClick(folder.name)}
             className="card hover:shadow-lg transition-all duration-200 cursor-pointer group"
           >
             <div className="flex flex-col items-center py-6">
@@ -95,7 +117,19 @@ export default function MaterialsPage() {
       </div>
 
       <div className="border-t border-gray-200 pt-8">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">Все материалы</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-800">
+            {activeFolder === "pdf_base" ? "База PDF" : "Все материалы"}
+          </h2>
+          {activeFolder && (
+            <button
+              onClick={() => setActiveFolder(null)}
+              className="btn btn-secondary btn-sm"
+            >
+              ← Показать все материалы
+            </button>
+          )}
+        </div>
 
         {/* Search */}
         <div className="mb-6">
@@ -166,7 +200,7 @@ export default function MaterialsPage() {
               </tr>
             </thead>
             <tbody>
-              {data?.items.map((material) => (
+              {displayedMaterials.map((material) => (
                 <tr
                   key={material.id}
                   className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors"

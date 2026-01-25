@@ -18,6 +18,7 @@ import type {
   DashboardResponse,
   ScheduleLesson,
   LessonDetail,
+  LessonMaterial,
   LessonStatus,
   AttendanceStatus,
   Group,
@@ -511,6 +512,19 @@ export const lessonsApi = {
   }): Promise<LessonBatchResponse> => {
     const response = await api.post<LessonBatchResponse>("/lessons/batch", data);
     return response.data;
+  },
+
+  getLessonMaterials: async (lessonId: number): Promise<LessonMaterial[]> => {
+    const response = await api.get(`/lessons/${lessonId}/materials`);
+    return response.data;
+  },
+
+  attachMaterial: async (lessonId: number, materialId: number): Promise<void> => {
+    await api.post(`/lessons/${lessonId}/materials`, { material_id: materialId });
+  },
+
+  detachMaterial: async (lessonId: number, materialId: number): Promise<void> => {
+    await api.delete(`/lessons/${lessonId}/materials/${materialId}`);
   },
 };
 

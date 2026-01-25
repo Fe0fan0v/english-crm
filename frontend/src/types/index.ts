@@ -205,6 +205,15 @@ export interface LessonStudentDetail {
   charged: boolean;
 }
 
+export interface LessonMaterial {
+  id: number;
+  title: string;
+  file_url: string;
+  attached_at: string;
+  attached_by: number;
+  attacher_name: string;
+}
+
 export interface LessonDetail {
   id: number;
   title: string;
@@ -219,6 +228,7 @@ export interface LessonDetail {
   meeting_url: string | null;
   status: LessonStatus;
   students: LessonStudentDetail[];
+  materials?: LessonMaterial[];
   created_at: string;
   updated_at: string;
 }

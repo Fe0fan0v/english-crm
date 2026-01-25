@@ -16,11 +16,14 @@ class LessonBase(BaseModel):
 
 
 class LessonCreate(LessonBase):
-    student_ids: list[int] = []  # If group_id is provided, students are auto-populated from group
+    student_ids: list[int] = (
+        []
+    )  # If group_id is provided, students are auto-populated from group
 
 
 class LessonCreateBatch(BaseModel):
     """Schema for creating recurring lessons (batch creation)."""
+
     teacher_id: int
     lesson_type_id: int
     weekdays: list[str]  # ["monday", "wednesday", "friday"]
@@ -34,6 +37,7 @@ class LessonCreateBatch(BaseModel):
 
 class LessonCreateBatchResponse(BaseModel):
     """Response for batch lesson creation."""
+
     created: list["ScheduleLesson"]
     conflicts: list[dict]  # List of conflicts that prevented lesson creation
 
@@ -94,6 +98,22 @@ class LessonResponse(BaseModel):
 class LessonListResponse(BaseModel):
     items: list[LessonResponse]
     total: int
+
+
+class LessonMaterialResponse(BaseModel):
+    id: int
+    title: str
+    file_url: str
+    attached_at: datetime
+    attached_by: int
+    attacher_name: str
+
+    class Config:
+        from_attributes = True
+
+
+class LessonMaterialAttach(BaseModel):
+    material_id: int
 
 
 class ScheduleLesson(BaseModel):

@@ -1,24 +1,29 @@
 from datetime import datetime, timedelta
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select, func, and_, or_
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import ManagerUser, get_db
+from app.api.deps import CurrentUser, ManagerUser, get_db
 from app.models.group import Group, GroupStudent
 from app.models.lesson import AttendanceStatus, Lesson, LessonStatus, LessonStudent
+from app.models.lesson_material import LessonMaterial
 from app.models.lesson_type import LessonType
+from app.models.material import Material
 from app.models.user import User
 from app.schemas.lesson import (
     LessonCreate,
     LessonCreateBatch,
     LessonCreateBatchResponse,
-    LessonUpdate,
-    LessonResponse,
     LessonListResponse,
-    StudentInfo,
+    LessonMaterialAttach,
+    LessonMaterialResponse,
+    LessonResponse,
+    LessonUpdate,
     ScheduleLesson,
+    StudentInfo,
 )
 
 # Lesson duration in minutes (used for conflict checking)
@@ -75,7 +80,8 @@ async def check_teacher_conflict(
             Lesson.status != LessonStatus.CANCELLED,
             # Check for overlap: existing lesson overlaps with new lesson time
             Lesson.scheduled_at < lesson_end,
-            Lesson.scheduled_at + timedelta(minutes=LESSON_DURATION_MINUTES) > lesson_start,
+            Lesson.scheduled_at + timedelta(minutes=LESSON_DURATION_MINUTES)
+            > lesson_start,
         )
     )
 
@@ -100,13 +106,18 @@ async def check_students_conflict(
     lesson_end = scheduled_at + timedelta(minutes=LESSON_DURATION_MINUTES)
 
     # Find lessons that overlap with the given time
-    query = select(Lesson).where(
-        and_(
-            Lesson.status != LessonStatus.CANCELLED,
-            Lesson.scheduled_at < lesson_end,
-            Lesson.scheduled_at + timedelta(minutes=LESSON_DURATION_MINUTES) > lesson_start,
+    query = (
+        select(Lesson)
+        .where(
+            and_(
+                Lesson.status != LessonStatus.CANCELLED,
+                Lesson.scheduled_at < lesson_end,
+                Lesson.scheduled_at + timedelta(minutes=LESSON_DURATION_MINUTES)
+                > lesson_start,
+            )
         )
-    ).options(selectinload(Lesson.students).selectinload(LessonStudent.student))
+        .options(selectinload(Lesson.students).selectinload(LessonStudent.student))
+    )
 
     if exclude_lesson_id:
         query = query.where(Lesson.id != exclude_lesson_id)
@@ -119,12 +130,14 @@ async def check_students_conflict(
     for lesson in conflicting_lessons:
         for ls in lesson.students:
             if ls.student_id in student_ids:
-                conflicts.append({
-                    "student_id": ls.student_id,
-                    "student_name": ls.student.name,
-                    "conflicting_lesson": lesson.title,
-                    "conflicting_time": lesson.scheduled_at.isoformat(),
-                })
+                conflicts.append(
+                    {
+                        "student_id": ls.student_id,
+                        "student_name": ls.student.name,
+                        "conflicting_lesson": lesson.title,
+                        "conflicting_time": lesson.scheduled_at.isoformat(),
+                    }
+                )
 
     return conflicts
 
@@ -148,8 +161,6 @@ def generate_lesson_dates(
     time_str: str,
 ) -> list[datetime]:
     """Generate list of lesson datetimes for given weekdays over specified weeks."""
-    from datetime import date as date_type
-
     dates = []
     # Parse time
     time_parts = time_str.split(":")
@@ -275,22 +286,30 @@ async def create_lessons_batch(
 
     for scheduled_at in lesson_dates:
         # Check teacher conflict
-        teacher_conflict = await check_teacher_conflict(db, data.teacher_id, scheduled_at)
+        teacher_conflict = await check_teacher_conflict(
+            db, data.teacher_id, scheduled_at
+        )
         if teacher_conflict:
-            conflicts.append({
-                "date": scheduled_at.isoformat(),
-                "reason": f"Преподаватель занят ({teacher_conflict.title})",
-            })
+            conflicts.append(
+                {
+                    "date": scheduled_at.isoformat(),
+                    "reason": f"Преподаватель занят ({teacher_conflict.title})",
+                }
+            )
             continue
 
         # Check students conflicts
         student_conflicts = await check_students_conflict(db, student_ids, scheduled_at)
         if student_conflicts:
-            conflict_names = ", ".join(set(c["student_name"] for c in student_conflicts[:3]))
-            conflicts.append({
-                "date": scheduled_at.isoformat(),
-                "reason": f"Ученики заняты: {conflict_names}",
-            })
+            conflict_names = ", ".join(
+                set(c["student_name"] for c in student_conflicts[:3])
+            )
+            conflicts.append(
+                {
+                    "date": scheduled_at.isoformat(),
+                    "reason": f"Ученики заняты: {conflict_names}",
+                }
+            )
             continue
 
         # Create lesson
@@ -372,8 +391,12 @@ async def list_lessons(
 ):
     """Get lessons with filters."""
     # Strip timezone info for comparison with naive datetime in DB
-    date_from_naive = date_from.replace(tzinfo=None) if date_from and date_from.tzinfo else date_from
-    date_to_naive = date_to.replace(tzinfo=None) if date_to and date_to.tzinfo else date_to
+    date_from_naive = (
+        date_from.replace(tzinfo=None) if date_from and date_from.tzinfo else date_from
+    )
+    date_to_naive = (
+        date_to.replace(tzinfo=None) if date_to and date_to.tzinfo else date_to
+    )
 
     query = select(Lesson).options(
         selectinload(Lesson.teacher),
@@ -457,7 +480,9 @@ async def get_schedule(
     lessons_to_complete = []
     for lesson in lessons:
         if lesson.status == LessonStatus.SCHEDULED:
-            lesson_end = lesson.scheduled_at + timedelta(minutes=lesson.duration_minutes)
+            lesson_end = lesson.scheduled_at + timedelta(
+                minutes=lesson.duration_minutes
+            )
             if now >= lesson_end:
                 lesson.status = LessonStatus.COMPLETED
                 lessons_to_complete.append(lesson)
@@ -554,7 +579,9 @@ async def create_lesson(
             )
 
     # Check teacher conflict
-    teacher_conflict = await check_teacher_conflict(db, data.teacher_id, data.scheduled_at)
+    teacher_conflict = await check_teacher_conflict(
+        db, data.teacher_id, data.scheduled_at
+    )
     if teacher_conflict:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -582,13 +609,19 @@ async def create_lesson(
 
     # Check students conflicts
     if student_ids:
-        student_conflicts = await check_students_conflict(db, student_ids, data.scheduled_at)
+        student_conflicts = await check_students_conflict(
+            db, student_ids, data.scheduled_at
+        )
         if student_conflicts:
             conflict_details = ", ".join(
                 f"{c['student_name']} ({c['conflicting_lesson']})"
                 for c in student_conflicts[:3]  # Show first 3 conflicts
             )
-            more = f" и ещё {len(student_conflicts) - 3}" if len(student_conflicts) > 3 else ""
+            more = (
+                f" и ещё {len(student_conflicts) - 3}"
+                if len(student_conflicts) > 3
+                else ""
+            )
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Ученики уже заняты в это время: {conflict_details}{more}",
@@ -692,7 +725,11 @@ async def update_lesson(
                     f"{c['student_name']} ({c['conflicting_lesson']})"
                     for c in student_conflicts[:3]
                 )
-                more = f" и ещё {len(student_conflicts) - 3}" if len(student_conflicts) > 3 else ""
+                more = (
+                    f" и ещё {len(student_conflicts) - 3}"
+                    if len(student_conflicts) > 3
+                    else ""
+                )
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=f"Ученики уже заняты в это время: {conflict_details}{more}",
@@ -772,3 +809,125 @@ async def update_attendance(
     await db.commit()
 
     return {"success": True}
+
+
+@router.get("/{lesson_id}/materials", response_model=list[LessonMaterialResponse])
+async def get_lesson_materials(
+    lesson_id: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentUser,
+):
+    """Get materials attached to a lesson (accessible by teacher, students, admin, manager)"""
+    lesson = await db.get(Lesson, lesson_id)
+    if not lesson:
+        raise HTTPException(404, "Lesson not found")
+
+    # Check permissions
+    if current_user.role not in ["admin", "manager"]:
+        if lesson.teacher_id != current_user.id:
+            # Check if user is a student in this lesson
+            stmt = select(LessonStudent).where(
+                LessonStudent.lesson_id == lesson_id,
+                LessonStudent.student_id == current_user.id,
+            )
+            result = await db.execute(stmt)
+            if not result.scalar_one_or_none():
+                raise HTTPException(403, "Not authorized")
+
+    # Get materials
+    stmt = (
+        select(LessonMaterial)
+        .options(
+            selectinload(LessonMaterial.material), selectinload(LessonMaterial.attacher)
+        )
+        .where(LessonMaterial.lesson_id == lesson_id)
+        .order_by(LessonMaterial.attached_at.desc())
+    )
+    result = await db.execute(stmt)
+    lesson_materials = result.scalars().all()
+
+    return [
+        LessonMaterialResponse(
+            id=lm.material.id,
+            title=lm.material.title,
+            file_url=lm.material.file_url,
+            attached_at=lm.attached_at,
+            attached_by=lm.attached_by,
+            attacher_name=lm.attacher.name,
+        )
+        for lm in lesson_materials
+    ]
+
+
+@router.post("/{lesson_id}/materials")
+async def attach_material_to_lesson(
+    lesson_id: int,
+    data: LessonMaterialAttach,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentUser,
+):
+    """Attach material to a lesson (only lesson teacher, admin, manager)"""
+    lesson = await db.get(Lesson, lesson_id)
+    if not lesson:
+        raise HTTPException(404, "Lesson not found")
+
+    # Check permissions
+    if current_user.role not in ["admin", "manager"]:
+        if lesson.teacher_id != current_user.id:
+            raise HTTPException(403, "Only lesson teacher can attach materials")
+
+    # Check if material exists
+    material = await db.get(Material, data.material_id)
+    if not material:
+        raise HTTPException(404, "Material not found")
+
+    # Check if material is already attached
+    stmt = select(LessonMaterial).where(
+        LessonMaterial.lesson_id == lesson_id,
+        LessonMaterial.material_id == data.material_id,
+    )
+    result = await db.execute(stmt)
+    if result.scalar_one_or_none():
+        raise HTTPException(400, "Material already attached to this lesson")
+
+    # Create the association
+    lesson_material = LessonMaterial(
+        lesson_id=lesson_id, material_id=data.material_id, attached_by=current_user.id
+    )
+    db.add(lesson_material)
+    await db.commit()
+
+    return {"message": "Material attached successfully"}
+
+
+@router.delete("/{lesson_id}/materials/{material_id}")
+async def detach_material_from_lesson(
+    lesson_id: int,
+    material_id: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentUser,
+):
+    """Detach material from a lesson (only lesson teacher, admin, manager)"""
+    lesson = await db.get(Lesson, lesson_id)
+    if not lesson:
+        raise HTTPException(404, "Lesson not found")
+
+    # Check permissions
+    if current_user.role not in ["admin", "manager"]:
+        if lesson.teacher_id != current_user.id:
+            raise HTTPException(403, "Only lesson teacher can detach materials")
+
+    # Find and delete the association
+    stmt = select(LessonMaterial).where(
+        LessonMaterial.lesson_id == lesson_id, LessonMaterial.material_id == material_id
+    )
+    result = await db.execute(stmt)
+    lesson_material = result.scalar_one_or_none()
+
+    if not lesson_material:
+        raise HTTPException(404, "Material not attached to this lesson")
+
+    await db.delete(lesson_material)
+    await db.commit()
+
+    return {"message": "Material detached successfully"}

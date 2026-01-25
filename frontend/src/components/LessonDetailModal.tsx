@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { lessonsApi } from "../services/api";
-import type { LessonDetail, AttendanceStatus } from "../types";
+import { useAuthStore } from "../stores/authStore";
+import type { LessonDetail, AttendanceStatus, LessonMaterial } from "../types";
+import AttachMaterialModal from "./AttachMaterialModal";
 
 interface LessonDetailModalProps {
   lessonId: number;
@@ -34,10 +36,19 @@ export default function LessonDetailModal({
   const [isDeleting, setIsDeleting] = useState(false);
   const [updatingStudentId, setUpdatingStudentId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<"attendance" | "materials">("attendance");
+  const [materials, setMaterials] = useState<LessonMaterial[]>([]);
+  const [isAttachModalOpen, setIsAttachModalOpen] = useState(false);
+  const { user: currentUser } = useAuthStore();
 
   useEffect(() => {
     loadLesson();
   }, [lessonId]);
+
+  useEffect(() => {
+    if (activeTab === "materials" && lesson) {
+      loadMaterials();
+    }
+  }, [activeTab, lesson]);
 
   const loadLesson = async () => {
     try {
@@ -51,6 +62,27 @@ export default function LessonDetailModal({
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const loadMaterials = async () => {
+    try {
+      const data = await lessonsApi.getLessonMaterials(lessonId);
+      setMaterials(data);
+    } catch (err) {
+      console.error("Failed to load materials:", err);
+    }
+  };
+
+  const handleAttach = async (materialId: number) => {
+    await lessonsApi.attachMaterial(lessonId, materialId);
+    await loadMaterials();
+    setIsAttachModalOpen(false);
+  };
+
+  const handleDetach = async (materialId: number) => {
+    if (!confirm("Открепить этот материал от урока?")) return;
+    await lessonsApi.detachMaterial(lessonId, materialId);
+    await loadMaterials();
   };
 
   const handleCancelLesson = async () => {
@@ -290,12 +322,65 @@ export default function LessonDetailModal({
           )}
 
           {activeTab === "materials" && (
-            <div className="text-center py-12">
-              <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <h3 className="text-lg font-medium text-gray-700 mb-2">Материалы урока</h3>
-              <p className="text-gray-500">Раздел в разработке</p>
+            <div className="space-y-4">
+              {/* Attach button - only for teacher */}
+              {lesson && currentUser?.role !== "student" && (
+                <button
+                  onClick={() => setIsAttachModalOpen(true)}
+                  className="btn btn-primary w-full"
+                >
+                  + Прикрепить материал PDF
+                </button>
+              )}
+
+              {/* Materials list */}
+              {materials.length > 0 ? (
+                <div className="space-y-3">
+                  {materials.map((material) => (
+                    <div key={material.id} className="p-4 bg-gray-50 rounded-xl">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-800">{material.title}</h4>
+                          <p className="text-sm text-gray-500 mt-1">
+                            Прикреплено: {new Date(material.attached_at).toLocaleDateString("ru-RU", {
+                              year: "numeric",
+                              month: "long",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })} • {material.attacher_name}
+                          </p>
+                        </div>
+                        <div className="flex gap-2 ml-4">
+                          <a
+                            href={material.file_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn btn-secondary btn-sm"
+                          >
+                            Открыть
+                          </a>
+                          {currentUser?.role !== "student" && (
+                            <button
+                              onClick={() => handleDetach(material.id)}
+                              className="btn btn-sm bg-red-500 text-white hover:bg-red-600"
+                            >
+                              Открепить
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-gray-500">
+                  <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <p>Материалов нет</p>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -325,6 +410,16 @@ export default function LessonDetailModal({
           </div>
         </div>
       </div>
+
+      {/* Attach Material Modal */}
+      {isAttachModalOpen && (
+        <AttachMaterialModal
+          lessonId={lessonId}
+          attachedMaterialIds={materials.map((m) => m.id)}
+          onClose={() => setIsAttachModalOpen(false)}
+          onAttach={handleAttach}
+        />
+      )}
     </div>
   );
 }
