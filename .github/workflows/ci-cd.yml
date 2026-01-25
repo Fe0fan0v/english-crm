@@ -138,6 +138,9 @@ jobs:
             echo "=== Pulling latest code ==="
             git pull origin main
 
+            echo "=== Using production docker-compose ==="
+            cp docker-compose.prod.yml docker-compose.yml
+
             echo "=== Building containers ==="
             docker compose build
 
