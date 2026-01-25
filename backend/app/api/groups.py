@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import func, or_, select
 
-from app.api.deps import DBSession, ManagerUser
+from app.api.deps import DBSession, ManagerUser, TeacherUser
 from app.models.group import Group, GroupStudent
 from app.models.user import User, UserRole
 from app.schemas.group import (
@@ -21,13 +21,13 @@ router = APIRouter()
 @router.get("", response_model=GroupListResponse)
 async def list_groups(
     db: DBSession,
-    current_user: ManagerUser,
+    current_user: TeacherUser,
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     search: str | None = Query(None),
     teacher_id: int | None = Query(None),
 ) -> GroupListResponse:
-    """List all groups with pagination and search."""
+    """List all groups with pagination and search. Available for teachers, managers, and admins."""
     query = select(Group).where(Group.is_active == True)
     count_query = select(func.count(Group.id)).where(Group.is_active == True)
 
@@ -98,7 +98,7 @@ async def list_groups(
 async def get_group(
     group_id: int,
     db: DBSession,
-    current_user: ManagerUser,
+    current_user: TeacherUser,
 ) -> GroupDetailResponse:
     """Get a specific group by ID with students."""
     result = await db.execute(select(Group).where(Group.id == group_id))

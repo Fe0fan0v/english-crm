@@ -6,7 +6,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Query, UploadFile, status
 from sqlalchemy import func, or_, select
 
-from app.api.deps import CurrentUser, DBSession, ManagerUser
+from app.api.deps import CurrentUser, DBSession, ManagerUser, TeacherUser
 from app.config import settings
 from app.models.group import Group, GroupStudent
 from app.models.transaction import Transaction, TransactionType
@@ -29,12 +29,12 @@ router = APIRouter()
 @router.get("", response_model=UserListResponse)
 async def list_users(
     db: DBSession,
-    current_user: ManagerUser,
+    current_user: TeacherUser,
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     search: str | None = Query(None),
 ) -> UserListResponse:
-    """List all users with pagination and search."""
+    """List all users with pagination and search. Available for teachers, managers, and admins."""
     query = select(User)
     count_query = select(func.count(User.id))
 
