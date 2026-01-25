@@ -25,7 +25,7 @@ export default function AttachMaterialModal({
   const loadMaterials = async () => {
     try {
       setLoading(true);
-      const data = await materialsApi.getMaterials();
+      const data = await materialsApi.list();
       setMaterials(data.items);
     } catch (error) {
       console.error("Failed to load materials:", error);

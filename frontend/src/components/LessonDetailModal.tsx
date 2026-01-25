@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { lessonsApi } from "../services/api";
-import { useAuthStore } from "../stores/authStore";
+import { useAuthStore } from "../store/authStore";
 import type { LessonDetail, AttendanceStatus, LessonMaterial } from "../types";
 import AttachMaterialModal from "./AttachMaterialModal";
 
