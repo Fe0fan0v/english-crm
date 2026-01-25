@@ -4,6 +4,7 @@
 - **Backend**: FastAPI + SQLAlchemy (async) + PostgreSQL + Alembic
 - **Frontend**: React + TypeScript + Vite + TailwindCSS
 - **Деплой**: Docker Compose на VPS (158.160.141.83), CI/CD через GitHub Actions
+- **Домен**: justspeak.heliad.ru (nginx reverse proxy + SSL/Let's Encrypt)
 
 ## Структура
 ```
@@ -259,6 +260,17 @@ cd frontend && npm run lint && npm run build
 ssh admin@158.160.141.83
 cd /home/admin/english-crm
 docker compose logs -f backend
+
+# Nginx на сервере
+sudo nginx -t                    # Проверка конфигурации
+sudo systemctl reload nginx      # Перезагрузка nginx
+sudo systemctl status nginx      # Статус nginx
+sudo cat /etc/nginx/sites-available/justspeak.heliad.ru  # Просмотр конфигурации
+
+# SSL сертификат (после настройки DNS)
+~/setup-ssl.sh                   # Автоматическая установка SSL
+sudo certbot renew --dry-run     # Проверка автообновления
+sudo certbot certificates        # Просмотр установленных сертификатов
 ```
 
 ## CI/CD
@@ -367,3 +379,5 @@ docker compose logs -f backend
 34. **Полноценная система новостей** — админ создаёт новости с заголовком, текстом, баннером (ссылка или загрузка файла), статусом публикации; ученики видят опубликованные новости
 35. **Загрузка баннера для новости** — поддержка как ссылки на изображение, так и загрузки файла (JPG, PNG, GIF, WebP, до 10MB)
 36. **Уникальные иконки в меню** — заменена повторяющаяся иконка "графики" для новостей на уникальную иконку "газета"
+37. **Система привязки PDF к урокам** — преподаватели могут прикреплять PDF материалы из "Базы PDF" к урокам, ученики видят материалы в деталях урока
+38. **Nginx reverse proxy** — настроен nginx на сервере для домена justspeak.heliad.ru с поддержкой SSL (Let's Encrypt)
