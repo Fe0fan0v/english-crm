@@ -17,7 +17,6 @@ import type {
   TeacherAvailability,
   User,
   LessonWithMaterials,
-  LessonMaterial,
 } from "../types";
 
 type TabType = "info" | "students" | "availability" | "materials" | "messages";
