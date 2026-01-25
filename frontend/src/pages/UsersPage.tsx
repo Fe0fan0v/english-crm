@@ -49,6 +49,21 @@ export default function UsersPage() {
     await fetchUsers();
   };
 
+  const handleDeleteUser = async (userId: number, userName: string) => {
+    if (!confirm(`Вы уверены, что хотите удалить пользователя "${userName}"? Это действие нельзя отменить.`)) {
+      return;
+    }
+
+    try {
+      await usersApi.delete(userId);
+      // Refresh the list after deleting
+      await fetchUsers();
+    } catch (error) {
+      console.error("Failed to delete user:", error);
+      alert("Не удалось удалить пользователя");
+    }
+  };
+
   return (
     <div>
       {/* Header */}
@@ -141,6 +156,7 @@ export default function UsersPage() {
               user={user}
               onProfile={() => navigate(`/users/${user.id}`)}
               onSchedule={user.role === "teacher" ? () => navigate(`/teachers/${user.id}`) : undefined}
+              onDelete={() => handleDeleteUser(user.id, user.name)}
             />
           ))}
 
@@ -192,9 +208,10 @@ interface UserCardProps {
   user: User;
   onProfile: () => void;
   onSchedule?: () => void;
+  onDelete: () => void;
 }
 
-function UserCard({ user, onProfile, onSchedule }: UserCardProps) {
+function UserCard({ user, onProfile, onSchedule, onDelete }: UserCardProps) {
   return (
     <div className="card card-hover flex items-center gap-4 py-4">
       <Avatar name={user.name} photo={user.photo_url} size="lg" />
@@ -274,6 +291,27 @@ function UserCard({ user, onProfile, onSchedule }: UserCardProps) {
             />
           </svg>
           Профиль
+        </button>
+        {/* Delete button */}
+        <button
+          onClick={onDelete}
+          className="btn bg-red-500 hover:bg-red-600 text-white"
+          title="Удалить пользователя"
+        >
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+            />
+          </svg>
+          Удалить
         </button>
       </div>
     </div>
