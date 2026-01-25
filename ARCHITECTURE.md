@@ -32,6 +32,14 @@ https://justspeak.heliad.ru/api/docs
 ```
 - Интерактивная документация API
 
+### WebSocket (Групповой чат)
+```
+wss://justspeak.heliad.ru/api/groups/ws/{group_id}/chat?token={jwt_token}
+```
+- Real-time групповой чат
+- Автоматический выбор протокола (WSS на HTTPS, WS на HTTP)
+- См. подробности в [WEBSOCKET.md](WEBSOCKET.md)
+
 ## 🔒 Внутренние адреса (доступны только на сервере)
 
 ### Frontend Container
@@ -98,7 +106,32 @@ Backend Container (127.0.0.1:8005)
 GET /api/users → возвращает данные
 ```
 
-### 3. Загрузка статических файлов
+### 3. WebSocket соединение (Групповой чат)
+
+**Код в браузере (frontend/src/services/api.ts):**
+```typescript
+getWebSocketUrl: (groupId: number): string => {
+  const token = localStorage.getItem("token");
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const host = window.location.host;
+  return `${protocol}//${host}/api/groups/ws/${groupId}/chat?token=${token}`;
+}
+```
+
+**Маршрут соединения:**
+```
+JavaScript создаёт WebSocket
+    ↓ WSS запрос (Upgrade: websocket)
+wss://justspeak.heliad.ru/api/groups/ws/5/chat?token=...
+    ↓
+Nginx (видит Upgrade заголовок)
+    ↓ проксирует WebSocket на
+Backend Container (127.0.0.1:8005)
+    ↓ FastAPI WebSocket handler
+Real-time двусторонняя связь
+```
+
+### 4. Загрузка статических файлов
 
 ```
 Браузер запрашивает
@@ -120,10 +153,24 @@ JavaScript файл
 server {
     server_name justspeak.heliad.ru;
 
-    # Backend API
+    # Backend API (включая WebSocket)
     location /api {
         proxy_pass http://127.0.0.1:8005;
-        # Headers для правильной работы
+
+        # WebSocket поддержка
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        # Стандартные headers
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Таймауты для долгих соединений
+        proxy_read_timeout 300;
+        proxy_connect_timeout 300;
     }
 
     # Backend Health
