@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter
 from sqlalchemy import and_, select
@@ -10,6 +10,7 @@ from app.models import (
     GroupStudent,
     Lesson,
     LessonStudent,
+    LessonMaterial,
     Material,
     MaterialAccess,
     Test,
@@ -257,3 +258,74 @@ async def get_student_tests(
         )
         for access in accesses
     ]
+
+
+@router.get("/lessons-with-materials")
+async def get_student_lessons_with_materials(
+    db: DBSession,
+    current_user: StudentOnlyUser,
+):
+    """
+    Get student's lessons with materials.
+    Only shows lessons that:
+    - Have started (scheduled_at <= now)
+    - Are not older than 30 days (scheduled_at >= now - 30 days)
+    - Have materials attached
+    """
+    now = datetime.utcnow()
+    one_month_ago = now - timedelta(days=30)
+
+    # Get student's lessons
+    result = await db.execute(
+        select(LessonStudent)
+        .where(LessonStudent.student_id == current_user.id)
+        .options(
+            selectinload(LessonStudent.lesson)
+            .selectinload(Lesson.teacher),
+            selectinload(LessonStudent.lesson)
+            .selectinload(Lesson.lesson_type),
+        )
+    )
+    lesson_students = result.scalars().all()
+
+    # Filter lessons: started and within last month
+    filtered_lessons = [
+        ls for ls in lesson_students
+        if one_month_ago <= ls.lesson.scheduled_at <= now
+    ]
+
+    # Get materials for each lesson
+    lessons_with_materials = []
+    for ls in filtered_lessons:
+        # Get materials for this lesson
+        materials_result = await db.execute(
+            select(LessonMaterial)
+            .where(LessonMaterial.lesson_id == ls.lesson.id)
+            .options(selectinload(LessonMaterial.material))
+        )
+        lesson_materials = materials_result.scalars().all()
+
+        if lesson_materials:  # Only include lessons with materials
+            materials_list = [
+                {
+                    "id": lm.material.id,
+                    "title": lm.material.title,
+                    "file_url": lm.material.file_url,
+                }
+                for lm in lesson_materials
+            ]
+
+            lessons_with_materials.append({
+                "id": ls.lesson.id,
+                "title": ls.lesson.title,
+                "scheduled_at": ls.lesson.scheduled_at.isoformat(),
+                "teacher_name": ls.lesson.teacher.name,
+                "lesson_type_name": ls.lesson.lesson_type.name,
+                "meeting_url": ls.lesson.meeting_url,
+                "materials": materials_list,
+            })
+
+    # Sort by scheduled_at descending (newest first)
+    lessons_with_materials.sort(key=lambda x: x["scheduled_at"], reverse=True)
+
+    return lessons_with_materials
