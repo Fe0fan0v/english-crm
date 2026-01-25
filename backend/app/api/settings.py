@@ -11,7 +11,7 @@ from app.schemas.settings import (
     SettingsUpdate,
 )
 
-router = APIRouter(prefix="/settings", tags=["settings"])
+router = APIRouter()
 
 
 @router.get("/public", response_model=PublicSettingsResponse)
