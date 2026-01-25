@@ -23,9 +23,14 @@ export default function SettingsPage() {
       const response = await axios.get<Setting[]>("/api/settings", {
         headers: { Authorization: `Bearer ${token}` },
       });
+      console.log("Settings loaded:", response.data);
       setSettings(response.data);
     } catch (error) {
       console.error("Failed to fetch settings:", error);
+      if (axios.isAxiosError(error)) {
+        console.error("Response:", error.response?.data);
+        console.error("Status:", error.response?.status);
+      }
     } finally {
       setIsLoading(false);
     }
