@@ -50,6 +50,10 @@ chat_uploads_path = Path(settings.storage_path) / "chat"
 chat_uploads_path.mkdir(parents=True, exist_ok=True)
 app.mount("/api/uploads/chat", StaticFiles(directory=str(chat_uploads_path)), name="chat")
 
+materials_path = Path(settings.storage_path) / "materials"
+materials_path.mkdir(parents=True, exist_ok=True)
+app.mount("/api/uploads/materials", StaticFiles(directory=str(materials_path)), name="materials")
+
 
 @app.get("/health")
 async def health_check():

@@ -338,6 +338,8 @@ function MaterialModal({
     Partial<Record<keyof MaterialFormData, string>>
   >({});
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadMode, setUploadMode] = useState<"file" | "url">("file");
 
   const isEditing = !!material;
 
@@ -347,8 +349,11 @@ function MaterialModal({
         title: material.title,
         file_url: material.file_url,
       });
+      setUploadMode("url");
     } else {
       setFormData({ title: "", file_url: "" });
+      setUploadMode("file");
+      setSelectedFile(null);
     }
     setErrors({});
   }, [material, isOpen]);
@@ -360,8 +365,14 @@ function MaterialModal({
       newErrors.title = "Введите название";
     }
 
-    if (!formData.file_url.trim()) {
-      newErrors.file_url = "Введите ссылку на файл";
+    if (uploadMode === "file") {
+      if (!selectedFile && !isEditing) {
+        newErrors.file_url = "Выберите PDF файл";
+      }
+    } else {
+      if (!formData.file_url.trim()) {
+        newErrors.file_url = "Введите ссылку на файл";
+      }
     }
 
     setErrors(newErrors);
@@ -375,12 +386,39 @@ function MaterialModal({
 
     setIsLoading(true);
     try {
-      await onSubmit(formData);
+      let fileUrl = formData.file_url;
+
+      // Upload file if in file mode and file is selected
+      if (uploadMode === "file" && selectedFile) {
+        const formDataUpload = new FormData();
+        formDataUpload.append("file", selectedFile);
+
+        const token = localStorage.getItem("token");
+        const response = await fetch("/api/uploads/materials", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formDataUpload,
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.detail || "Failed to upload file");
+        }
+
+        const uploadResult = await response.json();
+        fileUrl = uploadResult.file_url;
+      }
+
+      await onSubmit({ ...formData, file_url: fileUrl });
       setFormData({ title: "", file_url: "" });
+      setSelectedFile(null);
       setErrors({});
       onClose();
     } catch (error) {
       console.error("Failed to save material:", error);
+      alert(error instanceof Error ? error.message : "Не удалось сохранить материал");
     } finally {
       setIsLoading(false);
     }
@@ -391,6 +429,32 @@ function MaterialModal({
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (errors[name as keyof MaterialFormData]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.name.toLowerCase().endsWith(".pdf")) {
+        setErrors((prev) => ({ ...prev, file_url: "Допускаются только PDF файлы" }));
+        return;
+      }
+
+      // Validate file size (50MB)
+      const maxSize = 50 * 1024 * 1024;
+      if (file.size > maxSize) {
+        setErrors((prev) => ({ ...prev, file_url: "Файл слишком большой (максимум 50 МБ)" }));
+        return;
+      }
+
+      setSelectedFile(file);
+      // Auto-fill title if empty
+      if (!formData.title) {
+        const titleFromFilename = file.name.replace(/\.pdf$/i, "");
+        setFormData((prev) => ({ ...prev, title: titleFromFilename }));
+      }
+      setErrors((prev) => ({ ...prev, file_url: undefined }));
     }
   };
 
@@ -443,22 +507,95 @@ function MaterialModal({
             )}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Ссылка на файл (URL) *
-            </label>
-            <input
-              type="url"
-              name="file_url"
-              value={formData.file_url}
-              onChange={handleChange}
-              className={`input w-full ${errors.file_url ? "border-red-500" : ""}`}
-              placeholder="https://..."
-            />
-            {errors.file_url && (
-              <p className="text-red-500 text-sm mt-1">{errors.file_url}</p>
-            )}
-          </div>
+          {!isEditing && (
+            <div className="flex gap-4 mb-4">
+              <button
+                type="button"
+                onClick={() => setUploadMode("file")}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
+                  uploadMode === "file"
+                    ? "bg-cyan-500 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                Загрузить файл
+              </button>
+              <button
+                type="button"
+                onClick={() => setUploadMode("url")}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
+                  uploadMode === "url"
+                    ? "bg-cyan-500 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                Указать URL
+              </button>
+            </div>
+          )}
+
+          {uploadMode === "file" && !isEditing ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                PDF файл *
+              </label>
+              <div className="mt-1">
+                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer hover:border-cyan-500 transition-colors">
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    <svg
+                      className="w-10 h-10 mb-3 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                      />
+                    </svg>
+                    <p className="mb-2 text-sm text-gray-500">
+                      {selectedFile ? (
+                        <span className="font-semibold text-cyan-600">{selectedFile.name}</span>
+                      ) : (
+                        <>
+                          <span className="font-semibold">Нажмите для выбора</span> или перетащите файл
+                        </>
+                      )}
+                    </p>
+                    <p className="text-xs text-gray-500">PDF (максимум 50 МБ)</p>
+                  </div>
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".pdf"
+                    onChange={handleFileChange}
+                  />
+                </label>
+              </div>
+              {errors.file_url && (
+                <p className="text-red-500 text-sm mt-1">{errors.file_url}</p>
+              )}
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Ссылка на файл (URL) *
+              </label>
+              <input
+                type="url"
+                name="file_url"
+                value={formData.file_url}
+                onChange={handleChange}
+                className={`input w-full ${errors.file_url ? "border-red-500" : ""}`}
+                placeholder="https://..."
+              />
+              {errors.file_url && (
+                <p className="text-red-500 text-sm mt-1">{errors.file_url}</p>
+              )}
+            </div>
+          )}
 
           <div className="flex gap-3 pt-4">
             <button

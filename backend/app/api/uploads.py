@@ -13,6 +13,10 @@ router = APIRouter()
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".txt", ".zip", ".rar"}
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
+# Allowed file extensions for materials (PDF only)
+ALLOWED_MATERIAL_EXTENSIONS = {".pdf"}
+MAX_MATERIAL_FILE_SIZE = 50 * 1024 * 1024  # 50MB
+
 
 @router.post("/chat")
 async def upload_chat_file(
@@ -59,6 +63,59 @@ async def upload_chat_file(
 
     # Return URL
     file_url = f"/api/uploads/chat/{unique_filename}"
+
+    return {
+        "file_url": file_url,
+        "filename": file.filename,
+        "size": len(content),
+    }
+
+
+@router.post("/materials")
+async def upload_material_file(
+    file: UploadFile,
+    db: DBSession,
+    current_user: CurrentUser,
+) -> dict:
+    """Upload a PDF material file."""
+    if not file.filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No file provided",
+        )
+
+    # Check extension
+    file_ext = Path(file.filename).suffix.lower()
+    if file_ext not in ALLOWED_MATERIAL_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File type not allowed. Only PDF files are allowed.",
+        )
+
+    # Read file content
+    content = await file.read()
+
+    # Check file size
+    if len(content) > MAX_MATERIAL_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File too large. Maximum size: {MAX_MATERIAL_FILE_SIZE // (1024 * 1024)}MB",
+        )
+
+    # Create uploads directory if not exists
+    uploads_dir = Path(settings.storage_path) / "materials"
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+
+    # Generate unique filename
+    unique_filename = f"{uuid.uuid4()}{file_ext}"
+    file_path = uploads_dir / unique_filename
+
+    # Save file
+    with open(file_path, "wb") as f:
+        f.write(content)
+
+    # Return URL
+    file_url = f"/api/uploads/materials/{unique_filename}"
 
     return {
         "file_url": file_url,
