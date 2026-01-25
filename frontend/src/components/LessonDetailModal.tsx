@@ -42,12 +42,14 @@ export default function LessonDetailModal({
 
   useEffect(() => {
     loadLesson();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lessonId]);
 
   useEffect(() => {
     if (activeTab === "materials" && lesson) {
       loadMaterials();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, lesson]);
 
   const loadLesson = async () => {
@@ -414,7 +416,6 @@ export default function LessonDetailModal({
       {/* Attach Material Modal */}
       {isAttachModalOpen && (
         <AttachMaterialModal
-          lessonId={lessonId}
           attachedMaterialIds={materials.map((m) => m.id)}
           onClose={() => setIsAttachModalOpen(false)}
           onAttach={handleAttach}

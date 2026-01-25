@@ -3,14 +3,12 @@ import { materialsApi } from "../services/api";
 import type { Material } from "../types";
 
 interface AttachMaterialModalProps {
-  lessonId: number;
   attachedMaterialIds: number[];
   onClose: () => void;
   onAttach: (materialId: number) => Promise<void>;
 }
 
 export default function AttachMaterialModal({
-  lessonId,
   attachedMaterialIds,
   onClose,
   onAttach,
@@ -66,8 +64,13 @@ export default function AttachMaterialModal({
     try {
       setAttaching(true);
       await onAttach(materialId);
-    } catch (error: any) {
-      alert(error.response?.data?.detail || "Не удалось прикрепить материал");
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : (error as { response?: { data?: { detail?: string } } })?.response
+              ?.data?.detail || "Не удалось прикрепить материал";
+      alert(errorMessage);
     } finally {
       setAttaching(false);
     }
