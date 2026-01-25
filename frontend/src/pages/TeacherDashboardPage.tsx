@@ -837,12 +837,23 @@ export default function TeacherDashboardPage() {
       {/* Attach Material Modal */}
       {selectedLessonForMaterial && (
         <AttachMaterialModal
-          lessonId={selectedLessonForMaterial}
+          attachedMaterialIds={
+            lessonsWithMaterials
+              .find((l) => l.id === selectedLessonForMaterial)
+              ?.materials.map((m) => m.id) || []
+          }
           onClose={() => setSelectedLessonForMaterial(null)}
-          onSuccess={async () => {
-            setSelectedLessonForMaterial(null);
-            // Refresh lessons with materials
+          onAttach={async (materialId: number) => {
             const token = localStorage.getItem("token");
+            await fetch(`/api/lessons/${selectedLessonForMaterial}/materials`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ material_id: materialId }),
+            });
+            // Refresh lessons with materials
             const response = await fetch("/api/teacher/lessons-with-materials", {
               headers: { Authorization: `Bearer ${token}` },
             });
