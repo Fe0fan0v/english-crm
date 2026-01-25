@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import { settingsApi } from "../services/api";
 
 interface Setting {
   id: number;
@@ -19,18 +19,11 @@ export default function SettingsPage() {
   const fetchSettings = async () => {
     setIsLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      const response = await axios.get<Setting[]>("/api/settings", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      console.log("Settings loaded:", response.data);
-      setSettings(response.data);
+      const data = await settingsApi.list();
+      console.log("Settings loaded:", data);
+      setSettings(data);
     } catch (error) {
       console.error("Failed to fetch settings:", error);
-      if (axios.isAxiosError(error)) {
-        console.error("Response:", error.response?.data);
-        console.error("Status:", error.response?.status);
-      }
     } finally {
       setIsLoading(false);
     }
@@ -53,14 +46,7 @@ export default function SettingsPage() {
   const handleSave = async (key: string) => {
     setIsSaving(true);
     try {
-      const token = localStorage.getItem("token");
-      await axios.patch(
-        `/api/settings/${key}`,
-        { value: editValue },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      await settingsApi.update(key, editValue);
       await fetchSettings();
       setEditingKey(null);
       setEditValue("");

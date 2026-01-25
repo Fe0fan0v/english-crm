@@ -795,6 +795,25 @@ export const settingsApi = {
     const response = await api.get<PublicSettings>("/settings/public");
     return response.data;
   },
+  list: async () => {
+    const response = await api.get("/settings");
+    return response.data;
+  },
+  get: async (key: string) => {
+    const response = await api.get(`/settings/${key}`);
+    return response.data;
+  },
+  update: async (key: string, value: string) => {
+    const response = await api.patch(`/settings/${key}`, { value });
+    return response.data;
+  },
+  create: async (key: string, value: string) => {
+    const response = await api.post("/settings", { key, value });
+    return response.data;
+  },
+  delete: async (key: string) => {
+    await api.delete(`/settings/${key}`);
+  },
 };
 
 export default api;
