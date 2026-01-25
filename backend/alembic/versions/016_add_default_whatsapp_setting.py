@@ -1,7 +1,7 @@
 """add_default_whatsapp_setting
 
-Revision ID: eca8c7c7c0e7
-Revises: 015_add_lesson_materials
+Revision ID: 016
+Revises: 015
 Create Date: 2026-01-25 14:35:16.322335
 
 """

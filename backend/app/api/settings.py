@@ -37,19 +37,24 @@ async def get_all_settings(
     _current_user: AdminUser = ...,
 ):
     """Get all settings (admin only)"""
-    result = await db.execute(select(Settings))
-    settings = result.scalars().all()
+    # Check if whatsapp_manager_phone exists
+    whatsapp_result = await db.execute(
+        select(Settings).where(Settings.key == "whatsapp_manager_phone")
+    )
+    whatsapp_setting = whatsapp_result.scalar_one_or_none()
 
-    # Initialize default settings if none exist
-    if not settings:
-        default_setting = Settings(
+    # Initialize default whatsapp setting if it doesn't exist
+    if not whatsapp_setting:
+        whatsapp_setting = Settings(
             key="whatsapp_manager_phone",
             value="+77001234567"
         )
-        db.add(default_setting)
+        db.add(whatsapp_setting)
         await db.commit()
-        await db.refresh(default_setting)
-        settings = [default_setting]
+
+    # Get all settings
+    result = await db.execute(select(Settings))
+    settings = result.scalars().all()
 
     return settings
 
