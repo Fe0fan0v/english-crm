@@ -96,8 +96,10 @@ export default function TeacherDashboardPage() {
   const [lessonsWithMaterials, setLessonsWithMaterials] = useState<LessonWithMaterials[]>([]);
   const [selectedLessonForMaterial, setSelectedLessonForMaterial] = useState<number | null>(null);
 
-  // Check if current user can create lessons (only admin/manager can create lessons)
-  const canCreateLesson = currentUser?.role === "admin" || currentUser?.role === "manager";
+  // Check if current user can create lessons
+  // Teachers can create lessons in their own dashboard
+  // Admins/managers can create lessons when viewing other teachers
+  const canCreateLesson = !isManagerView || currentUser?.role === "admin" || currentUser?.role === "manager";
 
   // Handle cell click to create lesson with prefilled date/time
   const handleCellClick = (date: Date, hour: number) => {
