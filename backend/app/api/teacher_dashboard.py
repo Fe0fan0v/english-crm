@@ -251,7 +251,7 @@ async def get_teacher_students(
     db: DBSession,
     current_user: TeacherOnlyUser,
 ):
-    """Get all students from teacher's groups."""
+    """Get all students from teacher's groups and individual lessons."""
     # Get groups
     groups_result = await db.execute(
         select(Group)
@@ -271,6 +271,23 @@ async def get_teacher_students(
                     "group_names": [],
                 }
             students_map[student.id]["group_names"].append(group.name)
+
+    # Also get students from individual lessons (not in groups)
+    lessons_result = await db.execute(
+        select(LessonStudent)
+        .join(Lesson)
+        .where(Lesson.teacher_id == current_user.id)
+        .options(selectinload(LessonStudent.student))
+    )
+    lesson_students = lessons_result.scalars().all()
+
+    for ls in lesson_students:
+        student = ls.student
+        if student and student.id not in students_map:
+            students_map[student.id] = {
+                "student": student,
+                "group_names": [],
+            }
 
     return [
         TeacherStudentInfo(
@@ -511,6 +528,23 @@ async def get_teacher_students_by_id(
                     "group_names": [],
                 }
             students_map[student.id]["group_names"].append(group.name)
+
+    # Also get students from individual lessons (not in groups)
+    lessons_result = await db.execute(
+        select(LessonStudent)
+        .join(Lesson)
+        .where(Lesson.teacher_id == teacher_id)
+        .options(selectinload(LessonStudent.student))
+    )
+    lesson_students = lessons_result.scalars().all()
+
+    for ls in lesson_students:
+        student = ls.student
+        if student and student.id not in students_map:
+            students_map[student.id] = {
+                "student": student,
+                "group_names": [],
+            }
 
     return [
         TeacherStudentInfo(
