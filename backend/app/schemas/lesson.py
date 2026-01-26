@@ -40,6 +40,37 @@ class LessonCreate(LessonBase):
     )  # If group_id is provided, students are auto-populated from group
 
 
+class TeacherLessonCreate(BaseModel):
+    """Schema for teacher creating their own lesson (teacher_id is inferred from auth)."""
+
+    title: str = Field(..., min_length=1, max_length=255)
+    lesson_type_id: int
+    scheduled_at: datetime
+    duration_minutes: int = Field(default=60, ge=15, le=480)
+    meeting_url: str | None = None
+    group_id: int | None = None
+    student_ids: list[int] = []
+
+    @field_validator("scheduled_at", mode="before")
+    @classmethod
+    def normalize_scheduled_at(cls, v):
+        """
+        Normalize scheduled_at to UTC naive datetime.
+        Converts any timezone-aware datetime to UTC and removes timezone info.
+        This ensures all datetimes are stored in UTC in the database.
+        """
+        if isinstance(v, str):
+            dt = datetime.fromisoformat(v.replace("Z", "+00:00"))
+        else:
+            dt = v
+
+        # If datetime has timezone info, convert to UTC and make naive
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+
+        return dt
+
+
 class LessonCreateBatch(BaseModel):
     """Schema for creating recurring lessons (batch creation)."""
 

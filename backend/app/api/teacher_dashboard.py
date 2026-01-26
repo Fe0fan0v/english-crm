@@ -32,7 +32,11 @@ from app.schemas.dashboard import (
     TeacherStats,
     TeacherStudentInfo,
 )
-from app.schemas.lesson import AttendanceBulkUpdate, LessonCreate, LessonUpdate
+from app.schemas.lesson import (
+    AttendanceBulkUpdate,
+    LessonUpdate,
+    TeacherLessonCreate,
+)
 from app.schemas.teacher_availability import (
     TeacherAvailabilityCreate,
     TeacherAvailabilityListResponse,
@@ -620,7 +624,7 @@ async def get_teacher_lesson(
     "/lessons", response_model=TeacherLesson, status_code=status.HTTP_201_CREATED
 )
 async def create_teacher_lesson(
-    data: LessonCreate,
+    data: TeacherLessonCreate,
     db: DBSession,
     current_user: TeacherOnlyUser,
 ):
@@ -971,9 +975,15 @@ async def mark_attendance(
                     LOW_BALANCE_THRESHOLD = Decimal("5000")
                     if student.balance < LOW_BALANCE_THRESHOLD:
                         if student.balance == 0:
-                            notification_message = "Ваш баланс равен 0. Пожалуйста, пополните баланс для продолжения занятий."
+                            notification_message = (
+                                "Ваш баланс равен 0. Пожалуйста, "
+                                "пополните баланс для продолжения занятий."
+                            )
                         else:
-                            notification_message = f"Ваш баланс низкий: {student.balance:,.0f} тг. Рекомендуем пополнить баланс."
+                            notification_message = (
+                                f"Ваш баланс низкий: {student.balance:,.0f} тг. "
+                                "Рекомендуем пополнить баланс."
+                            )
 
                         notification = Notification(
                             user_id=student.id,
@@ -985,11 +995,16 @@ async def mark_attendance(
                         db.add(notification)
                 else:
                     # Insufficient balance - create notification but don't charge
+                    message = (
+                        f"Не удалось списать оплату за урок '{lesson.title}'. "
+                        f"Баланс: {student.balance:,.0f} тг, "
+                        f"стоимость: {price:,.0f} тг."
+                    )
                     notification = Notification(
                         user_id=student.id,
                         type=NotificationType.LOW_BALANCE.value,
                         title="Недостаточно средств",
-                        message=f"Не удалось списать оплату за урок '{lesson.title}'. Баланс: {student.balance:,.0f} тг, стоимость: {price:,.0f} тг.",
+                        message=message,
                         data={"balance": str(student.balance), "price": str(price)},
                     )
                     db.add(notification)
