@@ -95,6 +95,9 @@ export default function TeacherDashboardPage() {
   const [availability, setAvailability] = useState<TeacherAvailability[]>([]);
   const [lessonsWithMaterials, setLessonsWithMaterials] = useState<LessonWithMaterials[]>([]);
   const [selectedLessonForMaterial, setSelectedLessonForMaterial] = useState<number | null>(null);
+  const [lessonsFilter, setLessonsFilter] = useState<{ type: 'student' | 'group'; id: number; name: string } | null>(null);
+  const [studentSearchFilter, setStudentSearchFilter] = useState("");
+  const [groupFilter, setGroupFilter] = useState<number | null>(null);
 
   // Check if current user can create lessons
   // Teachers can create lessons in their own dashboard
@@ -579,10 +582,27 @@ export default function TeacherDashboardPage() {
         <div className="space-y-6">
           {/* Groups Section */}
           <div className="card">
-            <h2 className="section-title mb-4">Группы</h2>
-            {groups.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="section-title mb-0">Группы</h2>
+              <select
+                value={groupFilter || ""}
+                onChange={(e) => setGroupFilter(e.target.value ? parseInt(e.target.value) : null)}
+                className="input max-w-xs"
+              >
+                <option value="">Все группы</option>
                 {groups.map((group) => (
+                  <option key={group.id} value={group.id}>{group.name}</option>
+                ))}
+              </select>
+            </div>
+            {(() => {
+              const filteredGroups = groupFilter
+                ? groups.filter((g) => g.id === groupFilter)
+                : groups;
+
+              return filteredGroups.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredGroups.map((group) => (
                   <div
                     key={group.id}
                     className="p-4 bg-gray-50 rounded-xl"
@@ -601,7 +621,10 @@ export default function TeacherDashboardPage() {
                       </button>
                       <button
                         className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-purple-100 text-purple-700 rounded-lg text-sm hover:bg-purple-200 transition-colors"
-                        onClick={() => alert('Функция в разработке')}
+                        onClick={() => {
+                          setLessonsFilter({ type: 'group', id: group.id, name: group.name });
+                          setActiveTab('materials');
+                        }}
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -613,16 +636,52 @@ export default function TeacherDashboardPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-gray-500 text-center py-8">У вас пока нет групп</p>
-            )}
+              <p className="text-gray-500 text-center py-8">
+                {groupFilter ? "Группа не найдена" : "У вас пока нет групп"}
+              </p>
+            );
+            })()}
           </div>
 
           {/* All Students Section */}
           <div className="card">
-            <h2 className="section-title mb-4">Все ученики</h2>
-            {students.length > 0 ? (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <h2 className="section-title mb-0">Все ученики</h2>
+              <div className="relative max-w-xs">
+                <svg
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Поиск по имени или email"
+                  value={studentSearchFilter}
+                  onChange={(e) => setStudentSearchFilter(e.target.value)}
+                  className="input pl-9 w-full"
+                />
+              </div>
+            </div>
+            {(() => {
+              const filteredStudents = students.filter((student) => {
+                const searchLower = studentSearchFilter.toLowerCase();
+                return (
+                  student.name.toLowerCase().includes(searchLower) ||
+                  student.email.toLowerCase().includes(searchLower)
+                );
+              });
+
+              return filteredStudents.length > 0 ? (
               <div className="space-y-3">
-                {students.map((student) => (
+                {filteredStudents.map((student) => (
                   <div
                     key={student.id}
                     className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl"
@@ -651,7 +710,10 @@ export default function TeacherDashboardPage() {
                       </button>
                       <button
                         className="btn btn-secondary btn-sm flex items-center gap-1"
-                        onClick={() => alert('Функция в разработке')}
+                        onClick={() => {
+                          setLessonsFilter({ type: 'student', id: student.id, name: student.name });
+                          setActiveTab('materials');
+                        }}
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -663,8 +725,11 @@ export default function TeacherDashboardPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-gray-500 text-center py-8">У вас пока нет учеников</p>
-            )}
+              <p className="text-gray-500 text-center py-8">
+                {studentSearchFilter ? "Ученики не найдены" : "У вас пока нет учеников"}
+              </p>
+            );
+            })()}
           </div>
         </div>
       )}
@@ -681,13 +746,46 @@ export default function TeacherDashboardPage() {
 
       {activeTab === "materials" && (
         <div className="card">
-          <h2 className="section-title mb-4">Уроки с материалами</h2>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="section-title mb-1">Уроки с материалами</h2>
+              {lessonsFilter && (
+                <p className="text-sm text-cyan-600">
+                  Фильтр: {lessonsFilter.type === 'group' ? 'Группа' : 'Ученик'} - {lessonsFilter.name}
+                </p>
+              )}
+            </div>
+            {lessonsFilter && (
+              <button
+                onClick={() => setLessonsFilter(null)}
+                className="btn btn-secondary btn-sm flex items-center gap-1"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Сбросить фильтр
+              </button>
+            )}
+          </div>
           <p className="text-sm text-gray-500 mb-6">
             Прикрепляйте материалы из "Базы PDF" к урокам. Материалы будут доступны ученикам с момента начала урока и в течение 30 дней.
           </p>
-          {lessonsWithMaterials.length > 0 ? (
+          {(() => {
+            const filteredLessons = lessonsFilter
+              ? lessonsWithMaterials.filter((lesson) => {
+                  if (lessonsFilter.type === 'group') {
+                    // Filter by group - check if lesson has students from this group
+                    return lesson.group_id === lessonsFilter.id;
+                  } else {
+                    // Filter by student - check if this student is in the lesson
+                    return lesson.students?.includes(lessonsFilter.name);
+                  }
+                })
+              : lessonsWithMaterials;
+
+            return filteredLessons.length > 0 ? (
             <div className="space-y-4">
-              {lessonsWithMaterials.map((lesson) => {
+              {filteredLessons.map((lesson) => {
                 const lessonDate = new Date(lesson.scheduled_at);
                 const formattedDate = lessonDate.toLocaleDateString("ru-RU", {
                   day: "numeric",
@@ -698,11 +796,16 @@ export default function TeacherDashboardPage() {
                   hour: "2-digit",
                   minute: "2-digit",
                 });
+                const isToday = lessonDate.toDateString() === new Date().toDateString();
 
                 return (
-                  <div key={lesson.id} className="border border-gray-200 rounded-xl overflow-hidden">
+                  <div key={lesson.id} className={`border rounded-xl overflow-hidden ${
+                    isToday ? "border-cyan-400 border-2 shadow-lg" : "border-gray-200"
+                  }`}>
                     {/* Lesson Header */}
-                    <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-4 border-b border-gray-200">
+                    <div className={`p-4 border-b border-gray-200 ${
+                      isToday ? "bg-gradient-to-r from-cyan-50 to-blue-50" : "bg-gradient-to-r from-purple-50 to-pink-50"
+                    }`}>
                       <div className="flex items-center gap-3">
                         <div className="w-12 h-12 rounded-xl bg-purple-500 text-white flex items-center justify-center flex-shrink-0">
                           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -789,9 +892,12 @@ export default function TeacherDashboardPage() {
               <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
               </svg>
-              <p className="text-gray-500">У вас пока нет уроков</p>
+              <p className="text-gray-500">
+                {lessonsFilter ? 'Нет уроков с выбранным фильтром' : 'У вас пока нет уроков'}
+              </p>
             </div>
-          )}
+          );
+          })()}
         </div>
       )}
 

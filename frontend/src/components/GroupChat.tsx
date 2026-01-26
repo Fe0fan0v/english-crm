@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { groupMessagesApi, uploadsApi } from "../services/api";
 import { useAuthStore } from "../store/authStore";
 import Avatar from "./Avatar";
-import type { GroupMessage } from "../types";
+import SelectMaterialModal from "./SelectMaterialModal";
+import type { GroupMessage, Material } from "../types";
 
 interface GroupChatProps {
   groupId: number;
@@ -27,6 +28,7 @@ export default function GroupChat({ groupId }: GroupChatProps) {
   const [isSending, setIsSending] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [pendingFile, setPendingFile] = useState<{ url: string; name: string } | null>(null);
+  const [showMaterialModal, setShowMaterialModal] = useState(false);
   const [error, setError] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -139,6 +141,10 @@ export default function GroupChat({ groupId }: GroupChatProps) {
 
   const removePendingFile = () => {
     setPendingFile(null);
+  };
+
+  const handleMaterialSelect = (material: Material) => {
+    setPendingFile({ url: material.file_url, name: material.title });
   };
 
   const handleSendMessage = async () => {
@@ -393,6 +399,16 @@ export default function GroupChat({ groupId }: GroupChatProps) {
               </svg>
             )}
           </button>
+          {/* Material from base button */}
+          <button
+            onClick={() => setShowMaterialModal(true)}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500 touch-target flex items-center justify-center"
+            title="Прикрепить из базы PDF"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+          </button>
           <input
             type="text"
             value={newMessage}
@@ -431,6 +447,14 @@ export default function GroupChat({ groupId }: GroupChatProps) {
           </button>
         </div>
       </div>
+
+      {/* Material Selection Modal */}
+      {showMaterialModal && (
+        <SelectMaterialModal
+          onClose={() => setShowMaterialModal(false)}
+          onSelect={handleMaterialSelect}
+        />
+      )}
     </div>
   );
 }

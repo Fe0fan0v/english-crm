@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -30,6 +30,15 @@ from app.schemas.lesson import (
 LESSON_DURATION_MINUTES = 60
 
 router = APIRouter()
+
+
+def normalize_datetime_to_utc(dt: datetime | None) -> datetime | None:
+    """Convert timezone-aware datetime to UTC naive datetime."""
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
 
 
 def build_lesson_response(lesson: Lesson) -> LessonResponse:
@@ -390,13 +399,9 @@ async def list_lessons(
     _: ManagerUser = None,
 ):
     """Get lessons with filters."""
-    # Strip timezone info for comparison with naive datetime in DB
-    date_from_naive = (
-        date_from.replace(tzinfo=None) if date_from and date_from.tzinfo else date_from
-    )
-    date_to_naive = (
-        date_to.replace(tzinfo=None) if date_to and date_to.tzinfo else date_to
-    )
+    # Convert to UTC naive datetime for comparison with naive datetime in DB
+    date_from_naive = normalize_datetime_to_utc(date_from)
+    date_to_naive = normalize_datetime_to_utc(date_to)
 
     query = select(Lesson).options(
         selectinload(Lesson.teacher),
@@ -450,9 +455,9 @@ async def get_schedule(
     _: ManagerUser = None,
 ):
     """Get lessons for schedule view."""
-    # Strip timezone info for comparison with naive datetime in DB
-    date_from_naive = date_from.replace(tzinfo=None) if date_from.tzinfo else date_from
-    date_to_naive = date_to.replace(tzinfo=None) if date_to.tzinfo else date_to
+    # Convert to UTC naive datetime for comparison with naive datetime in DB
+    date_from_naive = normalize_datetime_to_utc(date_from)
+    date_to_naive = normalize_datetime_to_utc(date_to)
 
     query = select(Lesson).options(
         selectinload(Lesson.teacher),

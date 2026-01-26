@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter
 from sqlalchemy import and_, select
@@ -9,13 +9,10 @@ from app.models import (
     Group,
     GroupStudent,
     Lesson,
-    LessonStudent,
     LessonMaterial,
-    Material,
+    LessonStudent,
     MaterialAccess,
-    Test,
     TestAccess,
-    User,
 )
 from app.models.lesson import LessonStatus
 from app.schemas.dashboard import (
@@ -28,6 +25,15 @@ from app.schemas.dashboard import (
 )
 
 router = APIRouter()
+
+
+def normalize_datetime_to_utc(dt: datetime | None) -> datetime | None:
+    """Convert timezone-aware datetime to UTC naive datetime."""
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
 
 
 @router.get("/dashboard", response_model=StudentDashboardResponse)
@@ -43,15 +49,11 @@ async def get_student_dashboard(
     groups_result = await db.execute(
         select(GroupStudent)
         .where(GroupStudent.student_id == student_id)
-        .options(
-            selectinload(GroupStudent.group).selectinload(Group.teacher)
-        )
+        .options(selectinload(GroupStudent.group).selectinload(Group.teacher))
     )
     group_students = groups_result.scalars().all()
 
-    active_groups = [
-        gs for gs in group_students if gs.group.is_active
-    ]
+    active_groups = [gs for gs in group_students if gs.group.is_active]
 
     # Get upcoming lessons count
     lessons_result = await db.execute(
@@ -62,7 +64,8 @@ async def get_student_dashboard(
     lesson_students = lessons_result.scalars().all()
 
     upcoming_count = sum(
-        1 for ls in lesson_students
+        1
+        for ls in lesson_students
         if ls.lesson.scheduled_at >= now and ls.lesson.status == LessonStatus.SCHEDULED
     )
 
@@ -90,18 +93,18 @@ async def get_student_dashboard(
         select(LessonStudent)
         .where(LessonStudent.student_id == student_id)
         .options(
-            selectinload(LessonStudent.lesson)
-            .selectinload(Lesson.teacher),
-            selectinload(LessonStudent.lesson)
-            .selectinload(Lesson.lesson_type),
+            selectinload(LessonStudent.lesson).selectinload(Lesson.teacher),
+            selectinload(LessonStudent.lesson).selectinload(Lesson.lesson_type),
         )
     )
     all_lesson_students = upcoming_lessons_result.scalars().all()
 
     upcoming_lessons = sorted(
         [
-            ls for ls in all_lesson_students
-            if ls.lesson.scheduled_at >= now and ls.lesson.status == LessonStatus.SCHEDULED
+            ls
+            for ls in all_lesson_students
+            if ls.lesson.scheduled_at >= now
+            and ls.lesson.status == LessonStatus.SCHEDULED
         ],
         key=lambda ls: ls.lesson.scheduled_at,
     )[:10]
@@ -137,24 +140,23 @@ async def get_student_schedule(
     date_to: datetime,
 ):
     """Get student's lesson schedule for a date range."""
-    # Strip timezone info for comparison with naive datetime in DB
-    date_from_naive = date_from.replace(tzinfo=None) if date_from.tzinfo else date_from
-    date_to_naive = date_to.replace(tzinfo=None) if date_to.tzinfo else date_to
+    # Convert to UTC naive datetime for comparison with naive datetime in DB
+    date_from_naive = normalize_datetime_to_utc(date_from)
+    date_to_naive = normalize_datetime_to_utc(date_to)
 
     result = await db.execute(
         select(LessonStudent)
         .where(LessonStudent.student_id == current_user.id)
         .options(
-            selectinload(LessonStudent.lesson)
-            .selectinload(Lesson.teacher),
-            selectinload(LessonStudent.lesson)
-            .selectinload(Lesson.lesson_type),
+            selectinload(LessonStudent.lesson).selectinload(Lesson.teacher),
+            selectinload(LessonStudent.lesson).selectinload(Lesson.lesson_type),
         )
     )
     lesson_students = result.scalars().all()
 
     lessons_in_range = [
-        ls for ls in lesson_students
+        ls
+        for ls in lesson_students
         if date_from_naive <= ls.lesson.scheduled_at <= date_to_naive
     ]
 
@@ -184,9 +186,7 @@ async def get_student_groups(
     result = await db.execute(
         select(GroupStudent)
         .where(GroupStudent.student_id == current_user.id)
-        .options(
-            selectinload(GroupStudent.group).selectinload(Group.teacher)
-        )
+        .options(selectinload(GroupStudent.group).selectinload(Group.teacher))
     )
     group_students = result.scalars().all()
 
@@ -280,18 +280,15 @@ async def get_student_lessons_with_materials(
         select(LessonStudent)
         .where(LessonStudent.student_id == current_user.id)
         .options(
-            selectinload(LessonStudent.lesson)
-            .selectinload(Lesson.teacher),
-            selectinload(LessonStudent.lesson)
-            .selectinload(Lesson.lesson_type),
+            selectinload(LessonStudent.lesson).selectinload(Lesson.teacher),
+            selectinload(LessonStudent.lesson).selectinload(Lesson.lesson_type),
         )
     )
     lesson_students = result.scalars().all()
 
     # Filter lessons: started and within last month
     filtered_lessons = [
-        ls for ls in lesson_students
-        if one_month_ago <= ls.lesson.scheduled_at <= now
+        ls for ls in lesson_students if one_month_ago <= ls.lesson.scheduled_at <= now
     ]
 
     # Get materials for each lesson
@@ -315,15 +312,17 @@ async def get_student_lessons_with_materials(
                 for lm in lesson_materials
             ]
 
-            lessons_with_materials.append({
-                "id": ls.lesson.id,
-                "title": ls.lesson.title,
-                "scheduled_at": ls.lesson.scheduled_at.isoformat(),
-                "teacher_name": ls.lesson.teacher.name,
-                "lesson_type_name": ls.lesson.lesson_type.name,
-                "meeting_url": ls.lesson.meeting_url,
-                "materials": materials_list,
-            })
+            lessons_with_materials.append(
+                {
+                    "id": ls.lesson.id,
+                    "title": ls.lesson.title,
+                    "scheduled_at": ls.lesson.scheduled_at.isoformat(),
+                    "teacher_name": ls.lesson.teacher.name,
+                    "lesson_type_name": ls.lesson.lesson_type.name,
+                    "meeting_url": ls.lesson.meeting_url,
+                    "materials": materials_list,
+                }
+            )
 
     # Sort by scheduled_at descending (newest first)
     lessons_with_materials.sort(key=lambda x: x["scheduled_at"], reverse=True)

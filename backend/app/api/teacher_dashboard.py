@@ -1,22 +1,21 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import and_, func, select
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import DBSession, TeacherOnlyUser, ManagerUser
-from app.api.lessons import check_teacher_conflict, check_students_conflict
+from app.api.deps import DBSession, ManagerUser, TeacherOnlyUser
+from app.api.lessons import check_students_conflict, check_teacher_conflict
 from app.models import (
     AttendanceStatus,
     Group,
     GroupStudent,
     Lesson,
-    LessonStudent,
     LessonMaterial,
+    LessonStudent,
     LessonType,
     LevelLessonTypePayment,
-    Material,
     Notification,
     NotificationType,
     TeacherAvailability,
@@ -41,6 +40,15 @@ from app.schemas.teacher_availability import (
 )
 
 router = APIRouter()
+
+
+def normalize_datetime_to_utc(dt: datetime | None) -> datetime | None:
+    """Convert timezone-aware datetime to UTC naive datetime."""
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
 
 
 @router.get("/dashboard", response_model=TeacherDashboardResponse)
@@ -68,7 +76,7 @@ async def get_teacher_dashboard(
     # Get teacher's groups
     groups_result = await db.execute(
         select(Group)
-        .where(and_(Group.teacher_id == teacher_id, Group.is_active == True))
+        .where(and_(Group.teacher_id == teacher_id, Group.is_active is True))
         .options(selectinload(Group.students))
     )
     groups = groups_result.scalars().all()
@@ -177,9 +185,9 @@ async def get_teacher_schedule(
     date_to: datetime,
 ):
     """Get teacher's lesson schedule for a date range."""
-    # Strip timezone info for comparison with naive datetime in DB
-    date_from_naive = date_from.replace(tzinfo=None) if date_from.tzinfo else date_from
-    date_to_naive = date_to.replace(tzinfo=None) if date_to.tzinfo else date_to
+    # Convert to UTC naive datetime for comparison with naive datetime in DB
+    date_from_naive = normalize_datetime_to_utc(date_from)
+    date_to_naive = normalize_datetime_to_utc(date_to)
 
     result = await db.execute(
         select(Lesson)
@@ -233,7 +241,7 @@ async def get_teacher_groups(
     """Get teacher's groups."""
     result = await db.execute(
         select(Group)
-        .where(and_(Group.teacher_id == current_user.id, Group.is_active == True))
+        .where(and_(Group.teacher_id == current_user.id, Group.is_active is True))
         .options(selectinload(Group.students))
     )
     groups = result.scalars().all()
@@ -257,7 +265,7 @@ async def get_teacher_students(
     # Get groups
     groups_result = await db.execute(
         select(Group)
-        .where(and_(Group.teacher_id == current_user.id, Group.is_active == True))
+        .where(and_(Group.teacher_id == current_user.id, Group.is_active is True))
         .options(selectinload(Group.students).selectinload(GroupStudent.student))
     )
     groups = groups_result.scalars().all()
@@ -337,7 +345,7 @@ async def get_teacher_dashboard_by_id(
     # Get teacher's groups
     groups_result = await db.execute(
         select(Group)
-        .where(and_(Group.teacher_id == teacher_id, Group.is_active == True))
+        .where(and_(Group.teacher_id == teacher_id, Group.is_active is True))
         .options(selectinload(Group.students))
     )
     groups = groups_result.scalars().all()
@@ -446,9 +454,9 @@ async def get_teacher_schedule_by_id(
     date_to: datetime,
 ):
     """Manager can view specific teacher's schedule."""
-    # Strip timezone info for comparison with naive datetime in DB
-    date_from_naive = date_from.replace(tzinfo=None) if date_from.tzinfo else date_from
-    date_to_naive = date_to.replace(tzinfo=None) if date_to.tzinfo else date_to
+    # Convert to UTC naive datetime for comparison with naive datetime in DB
+    date_from_naive = normalize_datetime_to_utc(date_from)
+    date_to_naive = normalize_datetime_to_utc(date_to)
 
     # Verify teacher exists
     teacher = await db.get(User, teacher_id)
@@ -514,7 +522,7 @@ async def get_teacher_students_by_id(
     # Get groups
     groups_result = await db.execute(
         select(Group)
-        .where(and_(Group.teacher_id == teacher_id, Group.is_active == True))
+        .where(and_(Group.teacher_id == teacher_id, Group.is_active is True))
         .options(selectinload(Group.students).selectinload(GroupStudent.student))
     )
     groups = groups_result.scalars().all()
@@ -608,7 +616,9 @@ async def get_teacher_lesson(
     )
 
 
-@router.post("/lessons", response_model=TeacherLesson, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/lessons", response_model=TeacherLesson, status_code=status.HTTP_201_CREATED
+)
 async def create_teacher_lesson(
     data: LessonCreate,
     db: DBSession,
@@ -631,7 +641,9 @@ async def create_teacher_lesson(
             raise HTTPException(status_code=403, detail="Это не ваша группа")
 
     # Check teacher conflict
-    teacher_conflict = await check_teacher_conflict(db, current_user.id, data.scheduled_at)
+    teacher_conflict = await check_teacher_conflict(
+        db, current_user.id, data.scheduled_at
+    )
     if teacher_conflict:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -658,13 +670,18 @@ async def create_teacher_lesson(
 
     # Check students conflicts
     if student_ids:
-        student_conflicts = await check_students_conflict(db, student_ids, data.scheduled_at)
+        student_conflicts = await check_students_conflict(
+            db, student_ids, data.scheduled_at
+        )
         if student_conflicts:
             conflict_details = ", ".join(
-                f"{c['student_name']}"
-                for c in student_conflicts[:3]
+                f"{c['student_name']}" for c in student_conflicts[:3]
             )
-            more = f" и ещё {len(student_conflicts) - 3}" if len(student_conflicts) > 3 else ""
+            more = (
+                f" и ещё {len(student_conflicts) - 3}"
+                if len(student_conflicts) > 3
+                else ""
+            )
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Ученики уже заняты в это время: {conflict_details}{more}",
@@ -772,10 +789,13 @@ async def update_teacher_lesson(
             )
             if student_conflicts:
                 conflict_details = ", ".join(
-                    f"{c['student_name']}"
-                    for c in student_conflicts[:3]
+                    f"{c['student_name']}" for c in student_conflicts[:3]
                 )
-                more = f" и ещё {len(student_conflicts) - 3}" if len(student_conflicts) > 3 else ""
+                more = (
+                    f" и ещё {len(student_conflicts) - 3}"
+                    if len(student_conflicts) > 3
+                    else ""
+                )
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=f"Ученики уже заняты в это время: {conflict_details}{more}",
@@ -854,7 +874,7 @@ async def cancel_teacher_lesson(
             user_id=lesson_student.student_id,
             type=NotificationType.LESSON_CANCELLED.value,
             title="Урок отменён",
-            message=f"Урок \"{lesson.title}\" ({formatted_date}) был отменён преподавателем.",
+            message=f'Урок "{lesson.title}" ({formatted_date}) был отменён преподавателем.',
             data={"lesson_id": lesson_id},
         )
         db.add(notification)
@@ -910,7 +930,6 @@ async def mark_attendance(
         if not lesson_student:
             continue
 
-        old_status = lesson_student.attendance_status
         new_status = attendance.status
         was_charged = lesson_student.charged
 
@@ -952,7 +971,7 @@ async def mark_attendance(
                     LOW_BALANCE_THRESHOLD = Decimal("5000")
                     if student.balance < LOW_BALANCE_THRESHOLD:
                         if student.balance == 0:
-                            notification_message = f"Ваш баланс равен 0. Пожалуйста, пополните баланс для продолжения занятий."
+                            notification_message = "Ваш баланс равен 0. Пожалуйста, пополните баланс для продолжения занятий."
                         else:
                             notification_message = f"Ваш баланс низкий: {student.balance:,.0f} тг. Рекомендуем пополнить баланс."
 
@@ -986,7 +1005,8 @@ async def mark_attendance(
                             select(LevelLessonTypePayment).where(
                                 and_(
                                     LevelLessonTypePayment.level_id == teacher.level_id,
-                                    LevelLessonTypePayment.lesson_type_id == lesson_type_id,
+                                    LevelLessonTypePayment.lesson_type_id
+                                    == lesson_type_id,
                                 )
                             )
                         )
@@ -1125,7 +1145,9 @@ async def create_availability(
     return availability
 
 
-@router.delete("/availability/{availability_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/availability/{availability_id}", status_code=status.HTTP_204_NO_CONTENT
+)
 async def delete_availability(
     availability_id: int,
     db: DBSession,
@@ -1221,15 +1243,18 @@ async def get_teacher_lessons_with_materials(
         # Get student names
         student_names = [ls.student.name for ls in lesson.students if ls.student]
 
-        lessons_with_materials.append({
-            "id": lesson.id,
-            "title": lesson.title,
-            "scheduled_at": lesson.scheduled_at.isoformat(),
-            "lesson_type_name": lesson.lesson_type.name,
-            "meeting_url": lesson.meeting_url,
-            "status": lesson.status.value,
-            "students": student_names,
-            "materials": materials_list,
-        })
+        lessons_with_materials.append(
+            {
+                "id": lesson.id,
+                "title": lesson.title,
+                "scheduled_at": lesson.scheduled_at.isoformat(),
+                "lesson_type_name": lesson.lesson_type.name,
+                "meeting_url": lesson.meeting_url,
+                "status": lesson.status.value,
+                "group_id": lesson.group_id,
+                "students": student_names,
+                "materials": materials_list,
+            }
+        )
 
     return lessons_with_materials

@@ -1,6 +1,6 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.models.lesson import AttendanceStatus, LessonStatus
 
@@ -13,6 +13,25 @@ class LessonBase(BaseModel):
     duration_minutes: int = Field(default=60, ge=15, le=480)  # 15 min to 8 hours
     meeting_url: str | None = None
     group_id: int | None = None
+
+    @field_validator("scheduled_at", mode="before")
+    @classmethod
+    def normalize_scheduled_at(cls, v):
+        """
+        Normalize scheduled_at to UTC naive datetime.
+        Converts any timezone-aware datetime to UTC and removes timezone info.
+        This ensures all datetimes are stored in UTC in the database.
+        """
+        if isinstance(v, str):
+            dt = datetime.fromisoformat(v.replace("Z", "+00:00"))
+        else:
+            dt = v
+
+        # If datetime has timezone info, convert to UTC and make naive
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+
+        return dt
 
 
 class LessonCreate(LessonBase):
@@ -51,6 +70,27 @@ class LessonUpdate(BaseModel):
     meeting_url: str | None = None
     group_id: int | None = None
     status: LessonStatus | None = None
+
+    @field_validator("scheduled_at", mode="before")
+    @classmethod
+    def normalize_scheduled_at(cls, v):
+        """
+        Normalize scheduled_at to UTC naive datetime.
+        Converts any timezone-aware datetime to UTC and removes timezone info.
+        """
+        if v is None:
+            return v
+
+        if isinstance(v, str):
+            dt = datetime.fromisoformat(v.replace("Z", "+00:00"))
+        else:
+            dt = v
+
+        # If datetime has timezone info, convert to UTC and make naive
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+
+        return dt
 
 
 class StudentInfo(BaseModel):

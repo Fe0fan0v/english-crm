@@ -12,7 +12,7 @@ import type {
   LessonWithMaterials,
 } from "../types";
 
-type TabType = "info" | "lessons" | "tests" | "materials" | "messages";
+type TabType = "info" | "lessons" | "tests" | "messages";
 
 function formatDate(date: Date): string {
   return date.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
@@ -101,17 +101,7 @@ export default function StudentDashboardPage() {
   }, [weekDates]);
 
   useEffect(() => {
-    if (activeTab === "materials") {
-      const fetchMaterials = async () => {
-        try {
-          const result = await studentApi.getMaterials();
-          setMaterials(result);
-        } catch (error) {
-          console.error("Failed to fetch materials:", error);
-        }
-      };
-      fetchMaterials();
-    } else if (activeTab === "lessons") {
+    if (activeTab === "lessons") {
       const fetchLessonsWithMaterials = async () => {
         try {
           const token = localStorage.getItem("token");
@@ -311,7 +301,6 @@ export default function StudentDashboardPage() {
           { key: "info" as TabType, label: "Моя страница" },
           { key: "lessons" as TabType, label: "Уроки" },
           { key: "tests" as TabType, label: "Тесты" },
-          { key: "materials" as TabType, label: "Материалы" },
           { key: "messages" as TabType, label: "Сообщения" },
         ].map((tab) => (
           <button
@@ -772,46 +761,6 @@ export default function StudentDashboardPage() {
               <p className="text-gray-500">Нет доступных материалов к урокам</p>
               <p className="text-sm text-gray-400 mt-2">Материалы появятся после начала урока</p>
             </div>
-          )}
-        </div>
-      )}
-
-      {activeTab === "materials" && (
-        <div className="card">
-          <h2 className="section-title mb-4">Мои материалы</h2>
-          {materials.length > 0 ? (
-            <div className="space-y-3">
-              {materials.map((material) => (
-                <div
-                  key={material.id}
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-xl"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h3 className="font-medium text-gray-800">{material.title}</h3>
-                      <p className="text-xs text-gray-500">
-                        Доступен с {new Date(material.granted_at).toLocaleDateString("ru-RU")}
-                      </p>
-                    </div>
-                  </div>
-                  <a
-                    href={material.file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-secondary btn-sm"
-                  >
-                    Скачать
-                  </a>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-500 text-center py-8">У вас пока нет доступных материалов</p>
           )}
         </div>
       )}

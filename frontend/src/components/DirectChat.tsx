@@ -2,7 +2,8 @@ import { useEffect, useState, useRef } from "react";
 import { directMessagesApi, uploadsApi } from "../services/api";
 import { useAuthStore } from "../store/authStore";
 import Avatar from "./Avatar";
-import type { DirectMessage, ConversationSummary } from "../types";
+import SelectMaterialModal from "./SelectMaterialModal";
+import type { DirectMessage, ConversationSummary, Material } from "../types";
 
 interface DirectChatProps {
   partnerId: number;
@@ -28,6 +29,7 @@ export default function DirectChat({ partnerId, partnerName, onClose }: DirectCh
   const [isSending, setIsSending] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [pendingFile, setPendingFile] = useState<{ url: string; name: string } | null>(null);
+  const [showMaterialModal, setShowMaterialModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -112,6 +114,10 @@ export default function DirectChat({ partnerId, partnerName, onClose }: DirectCh
 
   const removePendingFile = () => {
     setPendingFile(null);
+  };
+
+  const handleMaterialSelect = (material: Material) => {
+    setPendingFile({ url: material.file_url, name: material.title });
   };
 
   return (
@@ -273,6 +279,16 @@ export default function DirectChat({ partnerId, partnerName, onClose }: DirectCh
                 </svg>
               )}
             </button>
+            {/* Material from base button */}
+            <button
+              onClick={() => setShowMaterialModal(true)}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500 touch-target flex items-center justify-center"
+              title="Прикрепить из базы PDF"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+            </button>
             <textarea
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
@@ -300,6 +316,14 @@ export default function DirectChat({ partnerId, partnerName, onClose }: DirectCh
           </div>
         </div>
       </div>
+
+      {/* Material Selection Modal */}
+      {showMaterialModal && (
+        <SelectMaterialModal
+          onClose={() => setShowMaterialModal(false)}
+          onSelect={handleMaterialSelect}
+        />
+      )}
     </div>
   );
 }

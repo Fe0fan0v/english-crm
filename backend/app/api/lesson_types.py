@@ -1,14 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import AdminUser, ManagerUser, TeacherUser, get_db
+from app.api.deps import AdminUser, TeacherUser, get_db
 from app.models.lesson_type import LessonType
 from app.schemas.lesson_type import (
     LessonTypeCreate,
-    LessonTypeUpdate,
-    LessonTypeResponse,
     LessonTypeListResponse,
+    LessonTypeResponse,
+    LessonTypeUpdate,
 )
 
 router = APIRouter()
@@ -46,9 +46,7 @@ async def get_lesson_type(
     _: TeacherUser = None,
 ):
     """Get a specific lesson type. Available for teachers, managers, and admins."""
-    result = await db.execute(
-        select(LessonType).where(LessonType.id == lesson_type_id)
-    )
+    result = await db.execute(select(LessonType).where(LessonType.id == lesson_type_id))
     lesson_type = result.scalar_one_or_none()
 
     if not lesson_type:
@@ -68,9 +66,7 @@ async def create_lesson_type(
 ):
     """Create a new lesson type."""
     # Check if name already exists
-    existing = await db.execute(
-        select(LessonType).where(LessonType.name == data.name)
-    )
+    existing = await db.execute(select(LessonType).where(LessonType.name == data.name))
     if existing.scalar_one_or_none():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -93,9 +89,7 @@ async def update_lesson_type(
     _: AdminUser = None,
 ):
     """Update a lesson type."""
-    result = await db.execute(
-        select(LessonType).where(LessonType.id == lesson_type_id)
-    )
+    result = await db.execute(select(LessonType).where(LessonType.id == lesson_type_id))
     lesson_type = result.scalar_one_or_none()
 
     if not lesson_type:
@@ -133,15 +127,28 @@ async def delete_lesson_type(
     _: AdminUser = None,
 ):
     """Delete a lesson type."""
-    result = await db.execute(
-        select(LessonType).where(LessonType.id == lesson_type_id)
-    )
+    result = await db.execute(select(LessonType).where(LessonType.id == lesson_type_id))
     lesson_type = result.scalar_one_or_none()
 
     if not lesson_type:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Lesson type not found",
+        )
+
+    # Check if lesson type is used in any lessons
+    from app.models.lesson import Lesson
+
+    lessons_count = await db.scalar(
+        select(func.count())
+        .select_from(Lesson)
+        .where(Lesson.lesson_type_id == lesson_type_id)
+    )
+
+    if lessons_count and lessons_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot delete lesson type. It is used in {lessons_count} lesson(s).",
         )
 
     await db.delete(lesson_type)
