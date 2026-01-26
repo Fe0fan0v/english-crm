@@ -113,6 +113,7 @@ export interface LessonWithMaterials {
   lesson_type_name: string;
   meeting_url?: string;
   status?: string;
+  group_id?: number | null;
   students?: string[];
   materials: LessonMaterial[];
 }

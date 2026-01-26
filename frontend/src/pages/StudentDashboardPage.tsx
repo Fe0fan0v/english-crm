@@ -7,7 +7,6 @@ import PhotoUpload from "../components/PhotoUpload";
 import type {
   StudentDashboardResponse,
   StudentLessonInfo,
-  StudentMaterialInfo,
   StudentTestInfo,
   LessonWithMaterials,
 } from "../types";
@@ -44,7 +43,6 @@ export default function StudentDashboardPage() {
   const [activeTab, setActiveTab] = useState<TabType>("info");
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [schedule, setSchedule] = useState<StudentLessonInfo[]>([]);
-  const [materials, setMaterials] = useState<StudentMaterialInfo[]>([]);
   const [tests, setTests] = useState<StudentTestInfo[]>([]);
   const [lessonsWithMaterials, setLessonsWithMaterials] = useState<LessonWithMaterials[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
