@@ -175,79 +175,91 @@ export default function DashboardPage() {
         {/* Lessons chart */}
         <div className="card">
           <h3 className="font-semibold text-gray-800 mb-4">Проведено уроков</h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data?.charts.lessons_chart || []}>
-                <defs>
-                  <linearGradient id="lessonsGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#22d3ee" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis
-                  dataKey="date"
-                  tick={{ fontSize: 12 }}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "white",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: "8px",
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="value"
-                  stroke="#22d3ee"
-                  strokeWidth={2}
-                  fill="url(#lessonsGradient)"
-                  name="Уроков"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+          <div className="h-64" style={{ minHeight: '256px' }}>
+            {data?.charts.lessons_chart && data.charts.lessons_chart.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%" minHeight={256}>
+                <AreaChart data={data.charts.lessons_chart}>
+                  <defs>
+                    <linearGradient id="lessonsGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#22d3ee" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 12 }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "white",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "8px",
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    stroke="#22d3ee"
+                    strokeWidth={2}
+                    fill="url(#lessonsGradient)"
+                    name="Уроков"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-500">
+                Нет данных для отображения
+              </div>
+            )}
           </div>
         </div>
 
         {/* Income chart */}
         <div className="card">
           <h3 className="font-semibold text-gray-800 mb-4">Доход от уроков</h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data?.charts.income_chart || []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis
-                  dataKey="date"
-                  tick={{ fontSize: 12 }}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "white",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: "8px",
-                  }}
-                  formatter={(value) => [
-                    `${Number(value).toLocaleString("ru-RU")} тг`,
-                    "Доход",
-                  ]}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="value"
-                  stroke="#a855f7"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ r: 4 }}
-                  name="Доход"
-                />
-              </LineChart>
-            </ResponsiveContainer>
+          <div className="h-64" style={{ minHeight: '256px' }}>
+            {data?.charts.income_chart && data.charts.income_chart.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%" minHeight={256}>
+                <LineChart data={data.charts.income_chart}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 12 }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "white",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "8px",
+                    }}
+                    formatter={(value) => [
+                      `${Number(value).toLocaleString("ru-RU")} тг`,
+                      "Доход",
+                    ]}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="value"
+                    stroke="#a855f7"
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 4 }}
+                    name="Доход"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-500">
+                Нет данных для отображения
+              </div>
+            )}
           </div>
         </div>
       </div>
