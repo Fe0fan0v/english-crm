@@ -8,14 +8,18 @@ from fastapi.staticfiles import StaticFiles
 from app.api import api_router
 from app.config import settings
 from app.database import engine
+from app.scheduler import shutdown_scheduler, start_scheduler
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup - store engine for WebSocket connections
     app.state.engine = engine
+    # Start background scheduler
+    start_scheduler()
     yield
-    # Shutdown - dispose engine
+    # Shutdown - stop scheduler and dispose engine
+    shutdown_scheduler()
     await engine.dispose()
 
 
@@ -48,11 +52,17 @@ app.mount("/api/uploads/photos", StaticFiles(directory=str(photos_path)), name="
 
 chat_uploads_path = Path(settings.storage_path) / "chat"
 chat_uploads_path.mkdir(parents=True, exist_ok=True)
-app.mount("/api/uploads/chat", StaticFiles(directory=str(chat_uploads_path)), name="chat")
+app.mount(
+    "/api/uploads/chat", StaticFiles(directory=str(chat_uploads_path)), name="chat"
+)
 
 materials_path = Path(settings.storage_path) / "materials"
 materials_path.mkdir(parents=True, exist_ok=True)
-app.mount("/api/uploads/materials", StaticFiles(directory=str(materials_path)), name="materials")
+app.mount(
+    "/api/uploads/materials",
+    StaticFiles(directory=str(materials_path)),
+    name="materials",
+)
 
 
 @app.get("/health")
