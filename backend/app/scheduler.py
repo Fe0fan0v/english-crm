@@ -6,7 +6,7 @@ from datetime import datetime
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy import select, update
 
-from app.database import get_db_session
+from app.database import async_session_maker
 from app.models.lesson import Lesson
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ async def clear_past_lesson_links():
     """
     logger.info("Starting task: clear_past_lesson_links")
     try:
-        async for db in get_db_session():
+        async with async_session_maker() as db:
             now = datetime.utcnow()
 
             # Find all lessons where scheduled_at + duration_minutes < now
@@ -60,8 +60,6 @@ async def clear_past_lesson_links():
                 )
             else:
                 logger.info("No past lessons with meeting URLs found")
-
-            break  # Exit after first db session
     except Exception as e:
         logger.error(f"Error in clear_past_lesson_links: {e}", exc_info=True)
 
