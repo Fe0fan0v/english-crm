@@ -39,9 +39,15 @@ export default function LessonTypesPage() {
   };
 
   const handleDelete = async (id: number) => {
-    await lessonTypesApi.delete(id);
-    setDeleteConfirm(null);
-    await fetchLessonTypes();
+    try {
+      await lessonTypesApi.delete(id);
+      setDeleteConfirm(null);
+      await fetchLessonTypes();
+    } catch (error: any) {
+      setDeleteConfirm(null);
+      const errorMessage = error?.response?.data?.detail || "Не удалось удалить тип занятия";
+      alert(errorMessage);
+    }
   };
 
   const openCreateModal = () => {
