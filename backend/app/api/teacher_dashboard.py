@@ -80,7 +80,7 @@ async def get_teacher_dashboard(
     # Get teacher's groups
     groups_result = await db.execute(
         select(Group)
-        .where(and_(Group.teacher_id == teacher_id, Group.is_active is True))
+        .where(and_(Group.teacher_id == teacher_id, Group.is_active))
         .options(selectinload(Group.students))
     )
     groups = groups_result.scalars().all()
@@ -245,7 +245,7 @@ async def get_teacher_groups(
     """Get teacher's groups."""
     result = await db.execute(
         select(Group)
-        .where(and_(Group.teacher_id == current_user.id, Group.is_active is True))
+        .where(and_(Group.teacher_id == current_user.id, Group.is_active))
         .options(selectinload(Group.students))
     )
     groups = result.scalars().all()
@@ -269,7 +269,7 @@ async def get_teacher_students(
     # Get groups
     groups_result = await db.execute(
         select(Group)
-        .where(and_(Group.teacher_id == current_user.id, Group.is_active is True))
+        .where(and_(Group.teacher_id == current_user.id, Group.is_active))
         .options(selectinload(Group.students).selectinload(GroupStudent.student))
     )
     groups = groups_result.scalars().all()
@@ -349,7 +349,7 @@ async def get_teacher_dashboard_by_id(
     # Get teacher's groups
     groups_result = await db.execute(
         select(Group)
-        .where(and_(Group.teacher_id == teacher_id, Group.is_active is True))
+        .where(and_(Group.teacher_id == teacher_id, Group.is_active))
         .options(selectinload(Group.students))
     )
     groups = groups_result.scalars().all()
@@ -526,7 +526,7 @@ async def get_teacher_students_by_id(
     # Get groups
     groups_result = await db.execute(
         select(Group)
-        .where(and_(Group.teacher_id == teacher_id, Group.is_active is True))
+        .where(and_(Group.teacher_id == teacher_id, Group.is_active))
         .options(selectinload(Group.students).selectinload(GroupStudent.student))
     )
     groups = groups_result.scalars().all()
