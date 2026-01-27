@@ -24,6 +24,14 @@ frontend/
 │   ├── services/api.ts # API клиент
 │   └── types/index.ts # TypeScript типы
 └── package.json
+
+backup/
+├── backup-to-s3.sh    # Скрипт автоматического бэкапа PostgreSQL в S3
+├── restore-from-s3.sh # Скрипт восстановления из бэкапа
+├── backup-config.env.example # Шаблон конфигурации
+├── SETUP.md           # Детальная инструкция по настройке
+├── QUICKSTART.md      # Быстрый старт после получения credentials
+└── README.md          # Краткое описание
 ```
 
 ## Роли пользователей
@@ -303,6 +311,7 @@ frontend/
 - [x] Production deployment с доменом и SSL сертификатом
 - [x] WebSocket поддержка (WSS через Nginx с автоматическим выбором протокола)
 - [x] Безопасная конфигурация (все сервисы на localhost, доступ только через Nginx)
+- [x] Автоматические бэкапы PostgreSQL в ps.kz S3 (ежедневно, хранение 7 дней, автоочистка)
 
 ### В процессе / TODO
 - [ ] Тесты для учеников в разделе "Материалы"
@@ -342,6 +351,13 @@ sudo cat /etc/nginx/sites-available/justspeak.heliad.ru  # Просмотр ко
 ~/setup-ssl.sh                   # Автоматическая установка SSL
 sudo certbot renew --dry-run     # Проверка автообновления
 sudo certbot certificates        # Просмотр установленных сертификатов
+
+# Бэкапы БД на сервере
+cd /home/admin/english-crm/backup
+./backup-to-s3.sh                # Создать бэкап вручную
+./restore-from-s3.sh             # Список доступных бэкапов
+./restore-from-s3.sh backup-file.sql.gz  # Восстановить из бэкапа
+tail -f /var/log/postgres-backup.log     # Просмотр логов бэкапов
 ```
 
 ## CI/CD
