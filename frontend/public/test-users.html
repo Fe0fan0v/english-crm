@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест API Users</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .result { background: #f0f0f0; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .student { background: #e3f2fd; }
+        .teacher { background: #fff3e0; }
+        pre { white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h1>Диагностика API Users</h1>
+    <button onclick="testAPI()">Проверить API</button>
+    <div id="results"></div>
+
+    <script>
+        async function testAPI() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<p>Загрузка...</p>';
+
+            try {
+                // Get token from localStorage
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    resultsDiv.innerHTML = '<div class="result">❌ Токен не найден. Пожалуйста, залогиньтесь.</div>';
+                    return;
+                }
+
+                // Make API request
+                const response = await fetch('/api/users?page=1&size=100', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    resultsDiv.innerHTML = `<div class="result">❌ Ошибка API: ${response.status} ${response.statusText}</div>`;
+                    return;
+                }
+
+                const data = await response.json();
+
+                // Filter by role
+                const students = data.items.filter(u => u.role === 'student');
+                const teachers = data.items.filter(u => u.role === 'teacher');
+                const staff = data.items.filter(u => u.role === 'admin' || u.role === 'manager');
+
+                let html = `
+                    <div class="result">
+                        <h2>✅ API работает!</h2>
+                        <p><strong>Всего пользователей:</strong> ${data.total}</p>
+                        <p><strong>Получено в ответе:</strong> ${data.items.length}</p>
+                        <p><strong>Учеников:</strong> ${students.length}</p>
+                        <p><strong>Преподавателей:</strong> ${teachers.length}</p>
+                        <p><strong>Сотрудников:</strong> ${staff.length}</p>
+                    </div>
+                `;
+
+                if (students.length > 0) {
+                    html += '<div class="result student"><h3>Ученики:</h3>';
+                    students.forEach(s => {
+                        html += `<p>• ${s.name} (${s.email}) - role: "${s.role}", is_active: ${s.is_active}</p>`;
+                    });
+                    html += '</div>';
+                } else {
+                    html += '<div class="result">⚠️ Учеников не найдено!</div>';
+                }
+
+                if (teachers.length > 0) {
+                    html += `<div class="result teacher"><h3>Первые 5 преподавателей:</h3>`;
+                    teachers.slice(0, 5).forEach(t => {
+                        html += `<p>• ${t.name} (${t.email})</p>`;
+                    });
+                    html += '</div>';
+                }
+
+                html += '<div class="result"><h3>Полный ответ API:</h3><pre>' + JSON.stringify(data, null, 2) + '</pre></div>';
+
+                resultsDiv.innerHTML = html;
+
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="result">❌ Ошибка: ${error.message}</div>`;
+                console.error('Error:', error);
+            }
+        }
+    </script>
+</body>
+</html>
