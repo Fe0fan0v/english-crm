@@ -33,10 +33,16 @@ async def list_users(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     search: str | None = Query(None),
+    role: str | None = Query(None),
 ) -> UserListResponse:
     """List all users with pagination and search. Available for teachers, managers, and admins."""
     query = select(User).where(User.is_active == True)
     count_query = select(func.count(User.id)).where(User.is_active == True)
+
+    # Filter by role if specified
+    if role:
+        query = query.where(User.role == role)
+        count_query = count_query.where(User.role == role)
 
     if search:
         search_filter = or_(

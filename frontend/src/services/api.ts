@@ -109,12 +109,14 @@ export const usersApi = {
     page = 1,
     size = 20,
     search?: string,
+    role?: string,
   ): Promise<UserListResponse> => {
     const params = new URLSearchParams({
       page: String(page),
       size: String(size),
     });
     if (search) params.append("search", search);
+    if (role) params.append("role", role);
     const response = await api.get<UserListResponse>(`/users?${params}`);
     return response.data;
   },
