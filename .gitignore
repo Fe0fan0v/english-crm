@@ -38,6 +38,9 @@ env/
 .env.local
 .env.*.local
 
+# Backup credentials
+backup/backup-config.env
+
 # Database
 *.db
 *.sqlite3
