@@ -43,6 +43,16 @@ export default function UsersPage() {
 
   const totalCount = filteredUsers.length;
 
+  // Debug logging
+  if (data && activeTab === "students") {
+    console.log('=== DEBUG UsersPage ===');
+    console.log('Active tab:', activeTab);
+    console.log('Total users from API:', data.total);
+    console.log('Users in response:', data.items.length);
+    console.log('Filtered students:', filteredUsers.length);
+    console.log('Students:', filteredUsers.map(u => `${u.name} (${u.email}) - role: ${u.role}`));
+  }
+
   const handleCreateUser = async (userData: CreateUserData) => {
     await usersApi.create(userData);
     // Refresh the list after creating
