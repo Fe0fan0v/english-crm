@@ -35,8 +35,8 @@ async def list_users(
     search: str | None = Query(None),
 ) -> UserListResponse:
     """List all users with pagination and search. Available for teachers, managers, and admins."""
-    query = select(User)
-    count_query = select(func.count(User.id))
+    query = select(User).where(User.is_active == True)
+    count_query = select(func.count(User.id)).where(User.is_active == True)
 
     if search:
         search_filter = or_(
