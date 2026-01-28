@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { usersApi, directMessagesApi } from "../services/api";
-import DirectChat, { ConversationList } from "../components/DirectChat";
+import { usersApi } from "../services/api";
+import DirectChat from "../components/DirectChat";
 import type { User } from "../types";
 
 export default function ManagerMessagesPage() {
@@ -20,7 +20,7 @@ export default function ManagerMessagesPage() {
     setIsLoading(true);
     try {
       // Load all students (with role filter)
-      const response = await usersApi.getUsers(1, 1000, "", "student");
+      const response = await usersApi.list(1, 1000, "", "student");
       setStudents(response.items);
     } catch (error) {
       console.error("Failed to load students:", error);
@@ -111,17 +111,6 @@ export default function ManagerMessagesPage() {
           )}
         </div>
       </div>
-
-      {/* Alternative: Show conversations list */}
-      {/*
-      <div className="mt-6">
-        <ConversationList
-          onSelectChat={(user) =>
-            setSelectedStudent({ id: user.user_id, name: user.user_name })
-          }
-        />
-      </div>
-      */}
     </div>
   );
 }
