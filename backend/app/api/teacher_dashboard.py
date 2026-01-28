@@ -274,30 +274,42 @@ async def get_teacher_students(
     )
     groups = groups_result.scalars().all()
 
-    # Collect students with their groups
+    # Collect students with their groups (only active students)
     students_map: dict[int, dict] = {}
     for group in groups:
         for gs in group.students:
             student = gs.student
-            if student.id not in students_map:
+            # Only include active students
+            if student.is_active and student.id not in students_map:
                 students_map[student.id] = {
                     "student": student,
                     "group_names": [],
                 }
-            students_map[student.id]["group_names"].append(group.name)
+            if student.is_active and student.id in students_map:
+                students_map[student.id]["group_names"].append(group.name)
 
     # Also get students from individual lessons (not in groups)
+    # Only include recent lessons (scheduled in the last 90 days or in the future)
+    ninety_days_ago = datetime.utcnow() - timedelta(days=90)
     lessons_result = await db.execute(
         select(LessonStudent)
         .join(Lesson)
-        .where(Lesson.teacher_id == current_user.id)
+        .join(User, LessonStudent.student_id == User.id)
+        .where(
+            and_(
+                Lesson.teacher_id == current_user.id,
+                Lesson.scheduled_at >= ninety_days_ago,
+                User.is_active,
+            )
+        )
         .options(selectinload(LessonStudent.student))
+        .distinct()
     )
     lesson_students = lessons_result.scalars().all()
 
     for ls in lesson_students:
         student = ls.student
-        if student and student.id not in students_map:
+        if student and student.is_active and student.id not in students_map:
             students_map[student.id] = {
                 "student": student,
                 "group_names": [],
@@ -589,30 +601,42 @@ async def get_teacher_students_by_id(
     )
     groups = groups_result.scalars().all()
 
-    # Collect students with their groups
+    # Collect students with their groups (only active students)
     students_map: dict[int, dict] = {}
     for group in groups:
         for gs in group.students:
             student = gs.student
-            if student.id not in students_map:
+            # Only include active students
+            if student.is_active and student.id not in students_map:
                 students_map[student.id] = {
                     "student": student,
                     "group_names": [],
                 }
-            students_map[student.id]["group_names"].append(group.name)
+            if student.is_active and student.id in students_map:
+                students_map[student.id]["group_names"].append(group.name)
 
     # Also get students from individual lessons (not in groups)
+    # Only include recent lessons (scheduled in the last 90 days or in the future)
+    ninety_days_ago = datetime.utcnow() - timedelta(days=90)
     lessons_result = await db.execute(
         select(LessonStudent)
         .join(Lesson)
-        .where(Lesson.teacher_id == teacher_id)
+        .join(User, LessonStudent.student_id == User.id)
+        .where(
+            and_(
+                Lesson.teacher_id == teacher_id,
+                Lesson.scheduled_at >= ninety_days_ago,
+                User.is_active,
+            )
+        )
         .options(selectinload(LessonStudent.student))
+        .distinct()
     )
     lesson_students = lessons_result.scalars().all()
 
     for ls in lesson_students:
         student = ls.student
-        if student and student.id not in students_map:
+        if student and student.is_active and student.id not in students_map:
             students_map[student.id] = {
                 "student": student,
                 "group_names": [],
