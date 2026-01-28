@@ -289,8 +289,7 @@ async def get_teacher_students(
                 students_map[student.id]["group_names"].append(group.name)
 
     # Also get students from individual lessons (not in groups)
-    # Only include recent lessons (scheduled in the last 90 days or in the future)
-    ninety_days_ago = datetime.utcnow() - timedelta(days=90)
+    # Only include active students
     lessons_result = await db.execute(
         select(LessonStudent)
         .join(Lesson)
@@ -298,7 +297,6 @@ async def get_teacher_students(
         .where(
             and_(
                 Lesson.teacher_id == current_user.id,
-                Lesson.scheduled_at >= ninety_days_ago,
                 User.is_active,
             )
         )
@@ -381,9 +379,39 @@ async def get_my_groups_for_lessons(
     )
     groups = groups_result.scalars().all()
 
-    # Return in simple format for SearchableSelect
+    # Build GroupResponse with computed fields
     from app.schemas.group import GroupResponse
-    return [GroupResponse.model_validate(group) for group in groups]
+    result = []
+    for group in groups:
+        # Get teacher name
+        teacher_name = None
+        if group.teacher_id:
+            teacher_result = await db.execute(
+                select(User.name).where(User.id == group.teacher_id)
+            )
+            teacher_name = teacher_result.scalar()
+
+        # Count students
+        students_count_result = await db.execute(
+            select(func.count(GroupStudent.id)).where(GroupStudent.group_id == group.id)
+        )
+        students_count = students_count_result.scalar() or 0
+
+        result.append(
+            GroupResponse(
+                id=group.id,
+                name=group.name,
+                description=group.description,
+                teacher_id=group.teacher_id,
+                teacher_name=teacher_name,
+                students_count=students_count,
+                is_active=group.is_active,
+                created_at=group.created_at,
+                updated_at=group.updated_at,
+            )
+        )
+
+    return result
 
 
 # ============ MANAGER ENDPOINTS (view teacher data) ============
@@ -616,8 +644,7 @@ async def get_teacher_students_by_id(
                 students_map[student.id]["group_names"].append(group.name)
 
     # Also get students from individual lessons (not in groups)
-    # Only include recent lessons (scheduled in the last 90 days or in the future)
-    ninety_days_ago = datetime.utcnow() - timedelta(days=90)
+    # Only include active students
     lessons_result = await db.execute(
         select(LessonStudent)
         .join(Lesson)
@@ -625,7 +652,6 @@ async def get_teacher_students_by_id(
         .where(
             and_(
                 Lesson.teacher_id == teacher_id,
-                Lesson.scheduled_at >= ninety_days_ago,
                 User.is_active,
             )
         )
