@@ -4,13 +4,14 @@ from sqlalchemy.orm import selectinload
 
 from app.api.deps import DBSession, CurrentUser
 from app.models.direct_message import DirectMessage
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.schemas.direct_message import (
     DirectMessageCreate,
     DirectMessageResponse,
     ConversationSummary,
     ConversationListResponse,
 )
+from app.utils.email import send_message_notification
 
 router = APIRouter()
 
@@ -225,6 +226,27 @@ async def send_message(
 
     # Get sender info
     sender = await db.get(User, current_user.id)
+
+    # Send email notification if recipient is a student
+    if recipient.role == UserRole.STUDENT and recipient.email:
+        # Prepare message preview
+        message_preview = data.content[:100] if data.content else "[Файл]"
+        if len(data.content) > 100:
+            message_preview += "..."
+
+        # Send email asynchronously (don't wait for it)
+        try:
+            await send_message_notification(
+                recipient_email=recipient.email,
+                recipient_name=recipient.name,
+                sender_name=sender.name,
+                message_preview=message_preview,
+            )
+        except Exception as e:
+            # Log error but don't fail the request
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to send email notification: {str(e)}")
 
     return DirectMessageResponse(
         id=message.id,

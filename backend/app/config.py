@@ -23,6 +23,15 @@ class Settings(BaseSettings):
     debug: bool = True
     app_name: str = "EngCRM"
 
+    # Email / SMTP
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = ""
+    smtp_from_name: str = "Just Speak It"
+    email_enabled: bool = False  # Set to True when SMTP is configured
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
