@@ -316,6 +316,64 @@ async def get_teacher_students(
     ]
 
 
+@router.get("/my-students-for-lessons", response_model=list)
+async def get_my_students_for_lessons(
+    db: DBSession,
+    current_user: TeacherOnlyUser,
+):
+    """
+    Get list of students for lesson creation (only students who had lessons with this teacher).
+    Returns students in UserResponse format for SearchableSelect.
+    """
+    # Get unique student IDs from all lessons of this teacher
+    result = await db.execute(
+        select(LessonStudent.student_id)
+        .join(Lesson)
+        .where(Lesson.teacher_id == current_user.id)
+        .distinct()
+    )
+    student_ids = [row[0] for row in result.all()]
+
+    if not student_ids:
+        return []
+
+    # Get student details
+    students_result = await db.execute(
+        select(User).where(
+            and_(
+                User.id.in_(student_ids),
+                User.is_active == True,
+            )
+        )
+        .order_by(User.name)
+    )
+    students = students_result.scalars().all()
+
+    # Return in UserResponse format
+    from app.schemas.user import UserResponse
+    return [UserResponse.model_validate(student) for student in students]
+
+
+@router.get("/my-groups-for-lessons", response_model=list)
+async def get_my_groups_for_lessons(
+    db: DBSession,
+    current_user: TeacherOnlyUser,
+):
+    """
+    Get list of groups for lesson creation (only groups where teacher teaches).
+    """
+    groups_result = await db.execute(
+        select(Group)
+        .where(and_(Group.teacher_id == current_user.id, Group.is_active))
+        .order_by(Group.name)
+    )
+    groups = groups_result.scalars().all()
+
+    # Return in simple format for SearchableSelect
+    from app.schemas.group import GroupResponse
+    return [GroupResponse.model_validate(group) for group in groups]
+
+
 # ============ MANAGER ENDPOINTS (view teacher data) ============
 
 

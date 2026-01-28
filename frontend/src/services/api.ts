@@ -592,6 +592,18 @@ export const teacherApi = {
     return response.data;
   },
 
+  // Get students for lesson creation (only students who had lessons with this teacher)
+  getMyStudentsForLessons: async (): Promise<User[]> => {
+    const response = await api.get<User[]>("/teacher/my-students-for-lessons");
+    return response.data;
+  },
+
+  // Get groups for lesson creation (only teacher's groups)
+  getMyGroupsForLessons: async (): Promise<Group[]> => {
+    const response = await api.get<Group[]>("/teacher/my-groups-for-lessons");
+    return response.data;
+  },
+
   getLesson: async (lessonId: number): Promise<TeacherLesson> => {
     const response = await api.get<TeacherLesson>(`/teacher/lessons/${lessonId}`);
     return response.data;

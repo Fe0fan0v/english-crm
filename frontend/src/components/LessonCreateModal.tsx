@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
-import { lessonTypesApi, groupsApi, usersApi, lessonsApi } from "../services/api";
+import { lessonTypesApi, groupsApi, usersApi, lessonsApi, teacherApi } from "../services/api";
 import SearchableSelect, { type SearchableSelectOption } from "./SearchableSelect";
 import type { LessonType, Group, User, LessonBatchResponse } from "../types";
+import { useAuthStore } from "../store/authStore";
 
 interface LessonCreateModalProps {
   onClose: () => void;
@@ -107,22 +108,33 @@ export default function LessonCreateModal({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [batchResult, setBatchResult] = useState<LessonBatchResponse | null>(null);
+  const { user } = useAuthStore();
 
   // Load lesson types, groups, and students
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [lessonTypesRes, studentsRes] = await Promise.all([
-          lessonTypesApi.list(),
-          usersApi.list(1, 100),
-        ]);
+        const lessonTypesRes = await lessonTypesApi.list();
         setLessonTypes(lessonTypesRes.items);
-        setStudents(studentsRes.items.filter((u) => u.role === "student"));
 
-        // Load groups for the selected teacher
-        if (selectedTeacherId) {
-          const groupsRes = await groupsApi.list(1, 100, undefined, selectedTeacherId);
-          setGroups(groupsRes.items);
+        // If teacher is creating lesson, load only their students and groups
+        if (user?.role === "teacher") {
+          const [myStudents, myGroups] = await Promise.all([
+            teacherApi.getMyStudentsForLessons(),
+            teacherApi.getMyGroupsForLessons(),
+          ]);
+          setStudents(myStudents);
+          setGroups(myGroups);
+        } else {
+          // Admin/Manager can see all students
+          const studentsRes = await usersApi.list(1, 100, undefined, "student");
+          setStudents(studentsRes.items);
+
+          // Load groups for the selected teacher
+          if (selectedTeacherId) {
+            const groupsRes = await groupsApi.list(1, 100, undefined, selectedTeacherId);
+            setGroups(groupsRes.items);
+          }
         }
       } catch (err) {
         console.error("Failed to load data:", err);
@@ -130,7 +142,7 @@ export default function LessonCreateModal({
       }
     };
     loadData();
-  }, [selectedTeacherId]);
+  }, [selectedTeacherId, user?.role]);
 
   // When group is selected, load its students
   useEffect(() => {
