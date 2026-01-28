@@ -47,5 +47,7 @@ class User(Base):
     # Relationships
     level: Mapped["Level | None"] = relationship("Level", back_populates="users")
     transactions: Mapped[list["Transaction"]] = relationship(
-        "Transaction", back_populates="user"
+        "Transaction",
+        foreign_keys="Transaction.user_id",
+        back_populates="user"
     )
