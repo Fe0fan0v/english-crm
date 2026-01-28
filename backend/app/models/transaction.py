@@ -29,8 +29,12 @@ class Transaction(Base):
         ForeignKey("lessons.id"), nullable=True
     )
     description: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     # Relationships
-    user: Mapped["User"] = relationship("User", back_populates="transactions")
+    user: Mapped["User"] = relationship("User", foreign_keys=[user_id], back_populates="transactions")
     lesson: Mapped["Lesson | None"] = relationship("Lesson")
+    created_by: Mapped["User | None"] = relationship("User", foreign_keys=[created_by_id])

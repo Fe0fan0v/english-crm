@@ -157,6 +157,26 @@ export interface TeacherReportResponse {
   date_to: string;
 }
 
+export interface TransactionReportRow {
+  transaction_id: number;
+  student_id: number;
+  student_name: string;
+  amount: string;
+  description: string | null;
+  created_at: string;
+  created_by_id: number | null;
+  created_by_name: string | null;
+}
+
+export interface TransactionReportResponse {
+  items: TransactionReportRow[];
+  total: number;
+  page: number;
+  size: number;
+  pages: number;
+  total_amount: string;
+}
+
 // Dashboard
 export interface DashboardStats {
   total_balance: string;

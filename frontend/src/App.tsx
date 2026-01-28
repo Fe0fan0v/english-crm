@@ -23,6 +23,7 @@ import KnowledgeBasePage from "./pages/KnowledgeBasePage";
 import NewsPage from "./pages/NewsPage";
 import NewsManagementPage from "./pages/NewsManagementPage";
 import SettingsPage from "./pages/SettingsPage";
+import ManagerMessagesPage from "./pages/ManagerMessagesPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { token, user, fetchUser, logout } = useAuthStore();
@@ -310,6 +311,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <GroupDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/messages"
+        element={
+          <ProtectedRoute>
+            <ManagerMessagesPage />
           </ProtectedRoute>
         }
       />

@@ -235,6 +235,7 @@ async def change_user_balance(
         amount=abs_amount,
         type=transaction_type,
         description=data.description or ("Пополнение баланса" if data.amount >= 0 else "Списание"),
+        created_by_id=current_user.id,
     )
     db.add(transaction)
 
@@ -397,6 +398,7 @@ async def reset_teachers_balances(
             amount=abs(old_balance),
             type=TransactionType.DEBIT if old_balance > 0 else TransactionType.CREDIT,
             description="Обнуление баланса (конец периода)",
+            created_by_id=current_user.id,
         )
         db.add(transaction)
 

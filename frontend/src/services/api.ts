@@ -15,6 +15,7 @@ import type {
   Test,
   TestListResponse,
   TeacherReportResponse,
+  TransactionReportResponse,
   DashboardResponse,
   ScheduleLesson,
   LessonDetail,
@@ -424,6 +425,19 @@ export const reportsApi = {
     link.click();
     link.remove();
     window.URL.revokeObjectURL(url);
+  },
+
+  transactionsReport: async (params: {
+    date_from?: string;
+    date_to?: string;
+    search?: string;
+    page?: number;
+    size?: number;
+  }): Promise<TransactionReportResponse> => {
+    const response = await api.get<TransactionReportResponse>("/reports/transactions", {
+      params,
+    });
+    return response.data;
   },
 };
 

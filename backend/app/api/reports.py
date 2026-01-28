@@ -3,24 +3,27 @@ from datetime import date, datetime, time
 from decimal import Decimal
 from io import BytesIO
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from fastapi.responses import StreamingResponse
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, or_, func
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import DBSession, ManagerUser
 from app.models.lesson import AttendanceStatus, Lesson, LessonStatus, LessonStudent
 from app.models.lesson_type import LessonType
 from app.models.level_lesson_type_payment import LevelLessonTypePayment
-from app.models.user import User
+from app.models.transaction import Transaction, TransactionType
+from app.models.user import User, UserRole
 from app.schemas.report import (
     ReportRequest,
     StudentReportRow,
     TeacherReport,
     TeacherReportResponse,
+    TransactionReportResponse,
+    TransactionReportRow,
 )
 
 router = APIRouter()
@@ -330,4 +333,131 @@ async def export_teacher_report(
         output,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+@router.get("/transactions", response_model=TransactionReportResponse)
+async def get_transactions_report(
+    db: DBSession,
+    current_user: ManagerUser,
+    date_from: date | None = Query(None, description="Filter from date (inclusive)"),
+    date_to: date | None = Query(None, description="Filter to date (inclusive)"),
+    search: str | None = Query(None, description="Search by student name, description, or manager name"),
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+):
+    """
+    Get report of all student balance credit transactions (only increases).
+
+    Supports:
+    - Date range filtering
+    - Fuzzy search by student name, description, or manager name
+    - Pagination
+    """
+
+    # Base query - only CREDIT transactions for students
+    query = (
+        select(Transaction)
+        .join(Transaction.user)
+        .where(
+            and_(
+                Transaction.type == TransactionType.CREDIT,
+                User.role == UserRole.STUDENT,
+            )
+        )
+        .options(
+            selectinload(Transaction.user),
+            selectinload(Transaction.created_by),
+        )
+    )
+
+    # Count query for pagination
+    count_query = (
+        select(func.count(Transaction.id))
+        .join(Transaction.user)
+        .where(
+            and_(
+                Transaction.type == TransactionType.CREDIT,
+                User.role == UserRole.STUDENT,
+            )
+        )
+    )
+
+    # Apply date filters
+    if date_from:
+        date_from_dt = datetime.combine(date_from, time.min)
+        query = query.where(Transaction.created_at >= date_from_dt)
+        count_query = count_query.where(Transaction.created_at >= date_from_dt)
+
+    if date_to:
+        date_to_dt = datetime.combine(date_to, time.max)
+        query = query.where(Transaction.created_at <= date_to_dt)
+        count_query = count_query.where(Transaction.created_at <= date_to_dt)
+
+    # Apply search filter
+    if search:
+        # Join with created_by user for manager name search
+        search_filter = or_(
+            User.name.ilike(f"%{search}%"),  # student name
+            Transaction.description.ilike(f"%{search}%"),  # description
+        )
+        query = query.where(search_filter)
+        count_query = count_query.where(search_filter)
+
+    # Get total count
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
+
+    # Get total amount (sum of all filtered transactions)
+    sum_query = (
+        select(func.coalesce(func.sum(Transaction.amount), 0))
+        .join(Transaction.user)
+        .where(
+            and_(
+                Transaction.type == TransactionType.CREDIT,
+                User.role == UserRole.STUDENT,
+            )
+        )
+    )
+
+    if date_from:
+        sum_query = sum_query.where(Transaction.created_at >= datetime.combine(date_from, time.min))
+    if date_to:
+        sum_query = sum_query.where(Transaction.created_at <= datetime.combine(date_to, time.max))
+    if search:
+        sum_query = sum_query.where(search_filter)
+
+    sum_result = await db.execute(sum_query)
+    total_amount = Decimal(str(sum_result.scalar() or 0))
+
+    # Get paginated results
+    offset = (page - 1) * size
+    query = query.offset(offset).limit(size).order_by(Transaction.created_at.desc())
+
+    result = await db.execute(query)
+    transactions = result.scalars().all()
+
+    # Build response
+    items = []
+    for txn in transactions:
+        items.append(TransactionReportRow(
+            transaction_id=txn.id,
+            student_id=txn.user_id,
+            student_name=txn.user.name,
+            amount=txn.amount,
+            description=txn.description,
+            created_at=txn.created_at,
+            created_by_id=txn.created_by_id,
+            created_by_name=txn.created_by.name if txn.created_by else None,
+        ))
+
+    pages = (total + size - 1) // size if total > 0 else 1
+
+    return TransactionReportResponse(
+        items=items,
+        total=total,
+        page=page,
+        size=size,
+        pages=pages,
+        total_amount=total_amount,
     )

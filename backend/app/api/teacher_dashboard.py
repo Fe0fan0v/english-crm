@@ -967,6 +967,7 @@ async def mark_attendance(
                         type=TransactionType.DEBIT,
                         lesson_id=lesson_id,
                         description=description,
+                        created_by_id=current_user.id,
                     )
                     db.add(transaction)
                     lesson_student.charged = True
@@ -1042,6 +1043,7 @@ async def mark_attendance(
                         type=TransactionType.CREDIT,
                         lesson_id=lesson_id,
                         description=f"Оплата за урок: {lesson.title} ({student.name})",
+                        created_by_id=current_user.id,
                     )
                     db.add(teacher_transaction)
 
@@ -1058,6 +1060,7 @@ async def mark_attendance(
                     type=TransactionType.CREDIT,
                     lesson_id=lesson_id,
                     description=f"Возврат за урок (уважительная причина): {lesson.title}",
+                    created_by_id=current_user.id,
                 )
                 db.add(transaction)
                 lesson_student.charged = False
@@ -1085,6 +1088,7 @@ async def mark_attendance(
                             type=TransactionType.DEBIT,
                             lesson_id=lesson_id,
                             description=f"Отмена оплаты за урок: {lesson.title} ({student.name})",
+                            created_by_id=current_user.id,
                         )
                         db.add(teacher_transaction)
 

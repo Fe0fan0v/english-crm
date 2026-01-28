@@ -1,8 +1,58 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { reportsApi } from "../services/api";
-import type { TeacherReportResponse } from "../types";
+import type { TeacherReportResponse, TransactionReportResponse } from "../types";
+
+type TabType = "teachers" | "transactions";
 
 export default function ReportsPage() {
+  const [activeTab, setActiveTab] = useState<TabType>("teachers");
+
+  return (
+    <div>
+      {/* Header */}
+      <h1 className="page-title">Отчёты</h1>
+
+      {/* Tabs */}
+      <div className="border-b border-gray-200 mb-6">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            onClick={() => setActiveTab("teachers")}
+            className={`
+              py-4 px-1 border-b-2 font-medium text-sm transition-colors
+              ${
+                activeTab === "teachers"
+                  ? "border-cyan-500 text-cyan-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }
+            `}
+          >
+            Преподаватели
+          </button>
+          <button
+            onClick={() => setActiveTab("transactions")}
+            className={`
+              py-4 px-1 border-b-2 font-medium text-sm transition-colors
+              ${
+                activeTab === "transactions"
+                  ? "border-cyan-500 text-cyan-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }
+            `}
+          >
+            Транзакции
+          </button>
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === "teachers" && <TeachersReport />}
+      {activeTab === "transactions" && <TransactionsReport />}
+    </div>
+  );
+}
+
+// Teachers Report Component
+function TeachersReport() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [report, setReport] = useState<TeacherReportResponse | null>(null);
@@ -60,9 +110,6 @@ export default function ReportsPage() {
 
   return (
     <div>
-      {/* Header */}
-      <h1 className="page-title">Отчёты</h1>
-
       {/* Date Filter */}
       <div className="card mb-6">
         <h2 className="text-lg font-semibold text-gray-800 mb-4">
@@ -210,6 +257,244 @@ export default function ReportsPage() {
                   </span>
                 </div>
               </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Transactions Report Component
+function TransactionsReport() {
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [report, setReport] = useState<TransactionReportResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
+
+  const loadData = async (newPage: number = page) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const data = await reportsApi.transactionsReport({
+        date_from: dateFrom || undefined,
+        date_to: dateTo || undefined,
+        search: search || undefined,
+        page: newPage,
+        size: pageSize,
+      });
+      setReport(data);
+      setPage(newPage);
+    } catch (err) {
+      console.error("Failed to load transactions:", err);
+      setError("Не удалось загрузить транзакции");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData(1);
+  }, [dateFrom, dateTo, search]);
+
+  const handleSearch = () => {
+    setSearch(searchInput);
+  };
+
+  const formatMoney = (value: string) => {
+    return parseFloat(value).toLocaleString("ru-RU") + " тг";
+  };
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString("ru-RU", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  return (
+    <div>
+      {/* Filters */}
+      <div className="card mb-6">
+        <h2 className="text-lg font-semibold text-gray-800 mb-4">
+          Отчёт по транзакциям учеников
+        </h2>
+
+        <div className="space-y-4">
+          {/* Date filters */}
+          <div className="flex flex-wrap items-end gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Дата "С"
+              </label>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="input"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Дата "По"
+              </label>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="input"
+              />
+            </div>
+
+            {(dateFrom || dateTo) && (
+              <button
+                onClick={() => {
+                  setDateFrom("");
+                  setDateTo("");
+                }}
+                className="btn btn-secondary"
+              >
+                Сбросить даты
+              </button>
+            )}
+          </div>
+
+          {/* Search */}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Поиск по ученику, описанию или менеджеру..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              className="input flex-1"
+            />
+            <button onClick={handleSearch} className="btn btn-primary">
+              Найти
+            </button>
+            {search && (
+              <button
+                onClick={() => {
+                  setSearchInput("");
+                  setSearch("");
+                }}
+                className="btn btn-secondary"
+              >
+                Очистить
+              </button>
+            )}
+          </div>
+        </div>
+
+        {error && <p className="text-red-500 text-sm mt-3">{error}</p>}
+      </div>
+
+      {/* Results */}
+      {isLoading && (
+        <div className="card text-center py-12">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+        </div>
+      )}
+
+      {!isLoading && report && (
+        <div className="space-y-6">
+          {/* Summary */}
+          <div className="flex justify-between items-center">
+            <p className="text-gray-600">
+              Найдено транзакций: {report.total}
+            </p>
+            <p className="text-lg font-semibold text-cyan-600">
+              Общая сумма: {formatMoney(report.total_amount)}
+            </p>
+          </div>
+
+          {report.items.length === 0 ? (
+            <div className="card text-center py-12 text-gray-500">
+              Нет данных
+            </div>
+          ) : (
+            <>
+              {/* Table */}
+              <div className="card overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200 bg-gray-50">
+                      <th className="text-left py-3 px-4 font-medium text-gray-600 text-sm">
+                        Дата
+                      </th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-600 text-sm">
+                        Ученик
+                      </th>
+                      <th className="text-right py-3 px-4 font-medium text-gray-600 text-sm">
+                        Сумма
+                      </th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-600 text-sm">
+                        Описание
+                      </th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-600 text-sm">
+                        Менеджер
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.items.map((txn) => (
+                      <tr
+                        key={txn.transaction_id}
+                        className="border-b border-gray-100 last:border-0 hover:bg-gray-50"
+                      >
+                        <td className="py-3 px-4 text-gray-600 text-sm">
+                          {formatDate(txn.created_at)}
+                        </td>
+                        <td className="py-3 px-4 text-gray-800">
+                          {txn.student_name}
+                        </td>
+                        <td className="py-3 px-4 text-right text-green-600 font-semibold">
+                          +{formatMoney(txn.amount)}
+                        </td>
+                        <td className="py-3 px-4 text-gray-600">
+                          {txn.description || "—"}
+                        </td>
+                        <td className="py-3 px-4 text-gray-600">
+                          {txn.created_by_name || "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              {report.pages > 1 && (
+                <div className="flex justify-center gap-2">
+                  <button
+                    onClick={() => loadData(page - 1)}
+                    disabled={page === 1}
+                    className="btn btn-secondary disabled:opacity-50"
+                  >
+                    Назад
+                  </button>
+                  <span className="py-2 px-4 text-gray-600">
+                    Страница {page} из {report.pages}
+                  </span>
+                  <button
+                    onClick={() => loadData(page + 1)}
+                    disabled={page === report.pages}
+                    className="btn btn-secondary disabled:opacity-50"
+                  >
+                    Вперёд
+                  </button>
+                </div>
+              )}
             </>
           )}
         </div>
