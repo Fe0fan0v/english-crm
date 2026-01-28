@@ -20,7 +20,8 @@ export default function ManagerMessagesPage() {
     setIsLoading(true);
     try {
       // Load all students (with role filter)
-      const response = await usersApi.list(1, 1000, "", "student");
+      // Don't pass search parameter to avoid 422 error
+      const response = await usersApi.list(1, 100, undefined, "student");
       setStudents(response.items);
     } catch (error) {
       console.error("Failed to load students:", error);
