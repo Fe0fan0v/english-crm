@@ -11,6 +11,7 @@ from app.models.news import News
 from app.models.notification import Notification, NotificationType
 from app.models.settings import Settings
 from app.models.teacher_availability import DayOfWeek, TeacherAvailability
+from app.models.teacher_student import TeacherStudent
 from app.models.test import Test, TestAccess
 from app.models.transaction import Transaction
 from app.models.user import User
@@ -32,6 +33,7 @@ __all__ = [
     "NotificationType",
     "Settings",
     "TeacherAvailability",
+    "TeacherStudent",
     "DayOfWeek",
     "Test",
     "TestAccess",

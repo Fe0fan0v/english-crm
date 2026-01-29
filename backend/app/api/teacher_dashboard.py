@@ -19,6 +19,7 @@ from app.models import (
     Notification,
     NotificationType,
     TeacherAvailability,
+    TeacherStudent,
     Transaction,
     User,
 )
@@ -265,7 +266,7 @@ async def get_teacher_students(
     db: DBSession,
     current_user: TeacherOnlyUser,
 ):
-    """Get all students from teacher's groups and individual lessons."""
+    """Get all students from teacher's groups, direct assignments, and individual lessons."""
     # Get groups
     groups_result = await db.execute(
         select(Group)
@@ -287,6 +288,22 @@ async def get_teacher_students(
                 }
             if student.is_active and student.id in students_map:
                 students_map[student.id]["group_names"].append(group.name)
+
+    # Get directly assigned students (TeacherStudent)
+    direct_result = await db.execute(
+        select(TeacherStudent)
+        .where(TeacherStudent.teacher_id == current_user.id)
+        .options(selectinload(TeacherStudent.student))
+    )
+    direct_assignments = direct_result.scalars().all()
+
+    for ts in direct_assignments:
+        student = ts.student
+        if student and student.is_active and student.id not in students_map:
+            students_map[student.id] = {
+                "student": student,
+                "group_names": [],
+            }
 
     # Also get students from individual lessons (not in groups)
     # Only include active students
@@ -332,17 +349,39 @@ async def get_my_students_for_lessons(
     current_user: TeacherOnlyUser,
 ):
     """
-    Get list of students for lesson creation (only students who had lessons with this teacher).
+    Get list of students for lesson creation.
+    Includes: students from lessons, groups, and direct assignments.
     Returns students in UserResponse format for SearchableSelect.
     """
-    # Get unique student IDs from all lessons of this teacher
-    result = await db.execute(
+    student_ids = set()
+
+    # Get student IDs from all lessons of this teacher
+    lessons_result = await db.execute(
         select(LessonStudent.student_id)
         .join(Lesson)
         .where(Lesson.teacher_id == current_user.id)
         .distinct()
     )
-    student_ids = [row[0] for row in result.all()]
+    for row in lessons_result.all():
+        student_ids.add(row[0])
+
+    # Get student IDs from groups
+    groups_result = await db.execute(
+        select(GroupStudent.student_id)
+        .join(Group)
+        .where(and_(Group.teacher_id == current_user.id, Group.is_active))
+        .distinct()
+    )
+    for row in groups_result.all():
+        student_ids.add(row[0])
+
+    # Get student IDs from direct assignments (TeacherStudent)
+    direct_result = await db.execute(
+        select(TeacherStudent.student_id)
+        .where(TeacherStudent.teacher_id == current_user.id)
+    )
+    for row in direct_result.all():
+        student_ids.add(row[0])
 
     if not student_ids:
         return []
@@ -351,7 +390,7 @@ async def get_my_students_for_lessons(
     students_result = await db.execute(
         select(User).where(
             and_(
-                User.id.in_(student_ids),
+                User.id.in_(list(student_ids)),
                 User.is_active == True,
             )
         )
@@ -642,6 +681,22 @@ async def get_teacher_students_by_id(
                 }
             if student.is_active and student.id in students_map:
                 students_map[student.id]["group_names"].append(group.name)
+
+    # Get directly assigned students (TeacherStudent)
+    direct_result = await db.execute(
+        select(TeacherStudent)
+        .where(TeacherStudent.teacher_id == teacher_id)
+        .options(selectinload(TeacherStudent.student))
+    )
+    direct_assignments = direct_result.scalars().all()
+
+    for ts in direct_assignments:
+        student = ts.student
+        if student and student.is_active and student.id not in students_map:
+            students_map[student.id] = {
+                "student": student,
+                "group_names": [],
+            }
 
     # Also get students from individual lessons (not in groups)
     # Only include active students
