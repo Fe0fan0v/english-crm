@@ -4,8 +4,9 @@
 ## Технологии
 - **Backend**: FastAPI + SQLAlchemy (async) + PostgreSQL + Alembic
 - **Frontend**: React + TypeScript + Vite + TailwindCSS
-- **Деплой**: Docker Compose на VPS (158.160.141.83), CI/CD через GitHub Actions
-- **Домен**: justspeak.heliad.ru (nginx reverse proxy + SSL/Let's Encrypt)
+- **Деплой**: Docker Compose на VPS (ps.kz), CI/CD через GitHub Actions
+- **Домен**: lms.jsi.kz (nginx reverse proxy + SSL/Let's Encrypt)
+- **Хранилище**: ps.kz Object Storage (S3-совместимое)
 
 ## Структура
 ```
@@ -229,7 +230,10 @@ backup/
 - Автозаполнение названия материала из имени файла
 
 ### Production Deployment & Безопасность
-- **Домен**: https://justspeak.heliad.ru
+- **Сервер**: ps.kz VPS (Debian 12)
+- **IP**: 78.40.108.93
+- **SSH**: debian@78.40.108.93 (ключ id_jsi)
+- **Домен**: https://lms.jsi.kz
 - **SSL**: Let's Encrypt сертификат (автообновление каждые 90 дней)
 - **Nginx**: Reverse proxy с SSL терминацией
 - **Безопасность**:
@@ -238,20 +242,29 @@ backup/
   - Backend: `127.0.0.1:8005` (внутри контейнера порт 8000)
   - PostgreSQL: `127.0.0.1:5435` (внутри контейнера порт 5432)
   - Публичный доступ только через Nginx (порты 80, 443)
-- **CORS**: Настроен только для `https://justspeak.heliad.ru`
+  - SSH только по ключу (пароль отключён)
+- **CORS**: Настроен только для `https://lms.jsi.kz`
 - **Docker Compose**:
   - `docker-compose.yml` — локальная разработка (порты открыты)
   - `docker-compose.prod.yml` — production (порты на localhost)
-  - CI/CD автоматически копирует prod-конфиг при деплое
+  - На сервере используется docker-compose.yml с prod настройками
 - **WebSocket**: Поддержка WSS (WebSocket Secure) через Nginx
   - Автоматический выбор протокола (wss на HTTPS, ws на HTTP)
-  - URL: `wss://justspeak.heliad.ru/api/groups/ws/{group_id}/chat?token={jwt}`
+  - URL: `wss://lms.jsi.kz/api/groups/ws/{group_id}/chat?token={jwt}`
   - Nginx передаёт Upgrade заголовки для WebSocket proxying
 - **Nginx proxy_redirect**: Исправление HTTPS редиректов
   - FastAPI автоматически добавляет trailing slash к URL (307 redirect)
   - Директива `proxy_redirect http://$host/ https://$host/;` исправляет HTTP редиректы на HTTPS
   - Решает проблему Mixed Content Error в браузере
-- Подробности: [ARCHITECTURE.md](ARCHITECTURE.md), [WEBSOCKET.md](WEBSOCKET.md), [DEPLOYMENT.md](DEPLOYMENT.md)
+
+### S3 Object Storage (ps.kz)
+- **Endpoint**: https://object.pscloud.io
+- **Бакеты**:
+  - `jsi` — хранение файлов (фото, материалы, чат)
+  - `jsi-backups` — бэкапы БД
+- **Public URL**: https://jsi.object.pscloud.io
+- **Интеграция**: boto3 в backend, автоматическая загрузка файлов в S3
+- **Настройки**: S3_ENABLED, S3_ENDPOINT_URL, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY, S3_BUCKET_NAME, S3_PUBLIC_URL
 
 ### Автоматические бэкапы базы данных
 - **Хранилище**: ps.kz S3-совместимый Object Storage
@@ -346,27 +359,30 @@ cd backend && pytest -v
 cd frontend && npm run lint && npm run build
 
 # SSH на сервер
-ssh admin@158.160.141.83
-cd /home/admin/english-crm
-docker compose logs -f backend
+ssh jsi                          # Алиас из ~/.ssh/config
+# или: ssh debian@78.40.108.93
+cd ~/english-crm
+sudo docker compose logs -f backend
 
 # Nginx на сервере
 sudo nginx -t                    # Проверка конфигурации
 sudo systemctl reload nginx      # Перезагрузка nginx
 sudo systemctl status nginx      # Статус nginx
-sudo cat /etc/nginx/sites-available/justspeak.heliad.ru  # Просмотр конфигурации
+sudo cat /etc/nginx/sites-available/lms.jsi.kz  # Просмотр конфигурации
 
-# SSL сертификат (после настройки DNS)
-~/setup-ssl.sh                   # Автоматическая установка SSL
+# SSL сертификат
 sudo certbot renew --dry-run     # Проверка автообновления
 sudo certbot certificates        # Просмотр установленных сертификатов
 
 # Бэкапы БД на сервере
-cd /home/admin/english-crm/backup
-./backup-to-s3.sh                # Создать бэкап вручную
-./restore-from-s3.sh             # Список доступных бэкапов
-./restore-from-s3.sh backup-file.sql.gz  # Восстановить из бэкапа
+cd ~/english-crm/backup
+sudo ./backup-to-s3.sh           # Создать бэкап вручную
+# Бэкапы автоматически создаются в 00:00 UTC (cron)
 tail -f /var/log/postgres-backup.log     # Просмотр логов бэкапов
+
+# S3 команды
+aws s3 ls s3://jsi --endpoint-url https://object.pscloud.io          # Список файлов
+aws s3 ls s3://jsi-backups --endpoint-url https://object.pscloud.io  # Список бэкапов
 ```
 
 ## CI/CD
@@ -522,3 +538,6 @@ tail -f /var/log/postgres-backup.log     # Просмотр логов бэка�
 72. **Исправлена ошибка 500 в my-groups-for-lessons** — добавлены вычисляемые поля teacher_name и students_count при формировании GroupResponse в endpoint GET /api/teacher/my-groups-for-lessons, исправлена ошибка при создании урока преподавателем
 73. **Email-уведомления о новых сообщениях** — ученики получают красиво оформленное HTML-письмо при получении личного сообщения от преподавателя или менеджера, настройки SMTP через environment variables (EMAIL_ENABLED, SMTP_HOST, SMTP_USERNAME, SMTP_PASSWORD), поддержка Gmail/Yandex/Mail.ru, зависимость aiosmtplib==3.0.2, документация EMAIL_SETUP.md с инструкциями по настройке
 74. **Активация email-рассылки на production** — настроена email-рассылка на production сервере с корпоративной почты justspeakit1@gmail.com, SMTP credentials прописаны в docker-compose.prod.yml (environment variables), EMAIL_ENABLED=true, успешно протестирована отправка уведомлений ученикам о новых сообщениях
+75. **Миграция на новый сервер ps.kz** — перенос с 158.160.141.83 на 78.40.108.93 (ps.kz VPS, Debian 12), новый домен lms.jsi.kz, настроен SSH по ключу (id_jsi без passphrase), Docker, Nginx, SSL сертификат Let's Encrypt
+76. **Интеграция с S3 Object Storage** — файлы (фото, материалы, чат) хранятся в ps.kz S3 (бакет jsi), бэкапы БД в бакете jsi-backups, добавлен сервис S3StorageService (boto3), настройки через environment variables (S3_ENABLED, S3_ENDPOINT_URL и др.)
+77. **Автоматические бэкапы на новом сервере** — скрипт backup-to-s3.sh адаптирован для Docker, cron задача 00:00 UTC, бэкапы в s3://jsi-backups/postgres-backup/, ретенция 7 дней
