@@ -1,9 +1,13 @@
 """S3 Storage Service for file uploads."""
+import hashlib
+import hmac
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
 import boto3
+import httpx
 from botocore.config import Config as BotoConfig
 from botocore.exceptions import ClientError
 
@@ -17,6 +21,16 @@ class S3StorageService:
         self.enabled = settings.s3_enabled
         self.bucket_name = settings.s3_bucket_name
         self.public_url = settings.s3_public_url.rstrip("/") if settings.s3_public_url else None
+        self.access_key = settings.s3_access_key_id
+        self.secret_key = settings.s3_secret_access_key
+        self.region = settings.s3_region
+        self.endpoint_url = settings.s3_endpoint_url
+
+        # Extract host from endpoint URL
+        if self.endpoint_url:
+            self.host = self.endpoint_url.replace("https://", "").replace("http://", "").rstrip("/")
+        else:
+            self.host = None
 
         if self.enabled:
             self.client = boto3.client(
@@ -32,6 +46,81 @@ class S3StorageService:
             )
         else:
             self.client = None
+
+    def _sign(self, key: bytes, msg: str) -> bytes:
+        """HMAC-SHA256 signing helper."""
+        return hmac.new(key, msg.encode("utf-8"), hashlib.sha256).digest()
+
+    def _get_signature_key(self, date_stamp: str) -> bytes:
+        """Generate AWS Signature V4 signing key."""
+        k_date = self._sign(("AWS4" + self.secret_key).encode("utf-8"), date_stamp)
+        k_region = self._sign(k_date, self.region)
+        k_service = self._sign(k_region, "s3")
+        k_signing = self._sign(k_service, "aws4_request")
+        return k_signing
+
+    def _upload_with_httpx(self, content: bytes, s3_key: str, content_type: str) -> None:
+        """Upload file using httpx with manual AWS Signature V4."""
+        t = datetime.now(timezone.utc)
+        amz_date = t.strftime("%Y%m%dT%H%M%SZ")
+        date_stamp = t.strftime("%Y%m%d")
+
+        # Create canonical request
+        method = "PUT"
+        canonical_uri = f"/{self.bucket_name}/{s3_key}"
+        canonical_querystring = ""
+        payload_hash = hashlib.sha256(content).hexdigest()
+
+        canonical_headers = (
+            f"content-length:{len(content)}\n"
+            f"content-type:{content_type}\n"
+            f"host:{self.host}\n"
+            f"x-amz-content-sha256:{payload_hash}\n"
+            f"x-amz-date:{amz_date}\n"
+        )
+        signed_headers = "content-length;content-type;host;x-amz-content-sha256;x-amz-date"
+
+        canonical_request = (
+            f"{method}\n{canonical_uri}\n{canonical_querystring}\n"
+            f"{canonical_headers}\n{signed_headers}\n{payload_hash}"
+        )
+
+        # Create string to sign
+        algorithm = "AWS4-HMAC-SHA256"
+        credential_scope = f"{date_stamp}/{self.region}/s3/aws4_request"
+        string_to_sign = (
+            f"{algorithm}\n{amz_date}\n{credential_scope}\n"
+            + hashlib.sha256(canonical_request.encode("utf-8")).hexdigest()
+        )
+
+        # Create signature
+        signing_key = self._get_signature_key(date_stamp)
+        signature = hmac.new(
+            signing_key, string_to_sign.encode("utf-8"), hashlib.sha256
+        ).hexdigest()
+
+        # Create authorization header
+        authorization_header = (
+            f"{algorithm} Credential={self.access_key}/{credential_scope}, "
+            f"SignedHeaders={signed_headers}, Signature={signature}"
+        )
+
+        headers = {
+            "x-amz-date": amz_date,
+            "x-amz-content-sha256": payload_hash,
+            "Authorization": authorization_header,
+            "Content-Length": str(len(content)),
+            "Content-Type": content_type,
+        }
+
+        url = f"{self.endpoint_url}/{self.bucket_name}/{s3_key}"
+
+        with httpx.Client() as client:
+            response = client.put(url, content=content, headers=headers)
+            if response.status_code not in (200, 201, 204):
+                raise RuntimeError(
+                    f"S3 upload failed with status {response.status_code}: {response.text}"
+                )
 
     def upload_file(
         self,
@@ -64,17 +153,10 @@ class S3StorageService:
         if not content_type:
             content_type = self._get_content_type(file_ext)
 
-        # Upload to S3
-        extra_args = {"ContentType": content_type}
-
+        # Upload to S3 using httpx (boto3 has issues with ps.kz S3)
         try:
-            self.client.put_object(
-                Bucket=self.bucket_name,
-                Key=s3_key,
-                Body=content,
-                ContentType=content_type,
-            )
-        except ClientError as e:
+            self._upload_with_httpx(content, s3_key, content_type)
+        except Exception as e:
             raise RuntimeError(f"Failed to upload file to S3: {e}")
 
         # Return public URL
