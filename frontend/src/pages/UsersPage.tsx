@@ -20,7 +20,7 @@ export default function UsersPage() {
   const fetchUsers = async () => {
     setIsLoading(true);
     try {
-      const role = activeTab === "students" ? "student" : undefined;
+      const role = activeTab === "students" ? "student" : "teacher";
       const response = await usersApi.list(page, 20, search || undefined, role);
       setData(response);
     } catch (error) {
@@ -34,14 +34,9 @@ export default function UsersPage() {
     fetchUsers();
   }, [page, search, activeTab]);
 
-  // For students tab: server-side filtered, no client filter needed
-  // For staff tab: exclude students on client side
-  const filteredUsers =
-    activeTab === "students"
-      ? data?.items || []
-      : (data?.items || []).filter((user) => user.role !== "student");
-
-  const totalCount = activeTab === "students" ? data?.total || 0 : filteredUsers.length;
+  // Both tabs use server-side filtering now
+  const filteredUsers = data?.items || [];
+  const totalCount = data?.total || 0;
 
   const handleCreateUser = async (userData: CreateUserData) => {
     await usersApi.create(userData);
