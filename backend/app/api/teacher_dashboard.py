@@ -56,6 +56,21 @@ def normalize_datetime_to_utc(dt: datetime | None) -> datetime | None:
     return dt
 
 
+async def ensure_teacher_student_assignment(
+    db, teacher_id: int, student_id: int
+) -> None:
+    """Create TeacherStudent assignment if it doesn't exist."""
+    result = await db.execute(
+        select(TeacherStudent).where(
+            TeacherStudent.teacher_id == teacher_id,
+            TeacherStudent.student_id == student_id,
+        )
+    )
+    if not result.scalar_one_or_none():
+        assignment = TeacherStudent(teacher_id=teacher_id, student_id=student_id)
+        db.add(assignment)
+
+
 @router.get("/dashboard", response_model=TeacherDashboardResponse)
 async def get_teacher_dashboard(
     db: DBSession,
@@ -868,7 +883,7 @@ async def create_teacher_lesson(
     db.add(lesson)
     await db.flush()
 
-    # Add students
+    # Add students and create teacher-student assignments
     for student_id in student_ids:
         student = await db.get(User, student_id)
         if student and student.role.value == "student" and student.is_active:
@@ -879,6 +894,8 @@ async def create_teacher_lesson(
                 charged=False,
             )
             db.add(lesson_student)
+            # Create teacher-student assignment for chat access
+            await ensure_teacher_student_assignment(db, current_user.id, student_id)
 
     await db.commit()
 

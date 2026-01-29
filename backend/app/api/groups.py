@@ -3,6 +3,7 @@ from sqlalchemy import func, or_, select
 
 from app.api.deps import DBSession, ManagerUser, TeacherUser
 from app.models.group import Group, GroupStudent
+from app.models.teacher_student import TeacherStudent
 from app.models.user import User, UserRole
 from app.schemas.group import (
     GroupCreate,
@@ -16,6 +17,21 @@ from app.schemas.group import (
 )
 
 router = APIRouter()
+
+
+async def ensure_teacher_student_assignment(
+    db, teacher_id: int, student_id: int
+) -> None:
+    """Create TeacherStudent assignment if it doesn't exist."""
+    result = await db.execute(
+        select(TeacherStudent).where(
+            TeacherStudent.teacher_id == teacher_id,
+            TeacherStudent.student_id == student_id,
+        )
+    )
+    if not result.scalar_one_or_none():
+        assignment = TeacherStudent(teacher_id=teacher_id, student_id=student_id)
+        db.add(assignment)
 
 
 @router.get("", response_model=GroupListResponse)
@@ -239,11 +255,24 @@ async def update_group(
                 detail="Invalid teacher ID",
             )
 
+    # Check if teacher is being changed
+    new_teacher_id = update_data.get("teacher_id")
+    teacher_changed = new_teacher_id is not None and new_teacher_id != group.teacher_id
+
     for field, value in update_data.items():
         setattr(group, field, value)
 
     await db.flush()
     await db.refresh(group)
+
+    # If teacher changed, create teacher-student assignments for existing students
+    if teacher_changed and group.teacher_id:
+        group_students_result = await db.execute(
+            select(GroupStudent.student_id).where(GroupStudent.group_id == group.id)
+        )
+        for row in group_students_result.all():
+            await ensure_teacher_student_assignment(db, group.teacher_id, row[0])
+        await db.flush()
 
     teacher_name = None
     if group.teacher_id:
@@ -331,7 +360,7 @@ async def add_students_to_group(
     )
     existing_student_ids = {row[0] for row in existing_result.all()}
 
-    # Add new students
+    # Add new students and create teacher-student assignments
     for student_id in data.student_ids:
         if student_id not in existing_student_ids:
             group_student = GroupStudent(
@@ -339,6 +368,9 @@ async def add_students_to_group(
                 student_id=student_id,
             )
             db.add(group_student)
+            # Create teacher-student assignment for chat access
+            if group.teacher_id:
+                await ensure_teacher_student_assignment(db, group.teacher_id, student_id)
 
     await db.flush()
 

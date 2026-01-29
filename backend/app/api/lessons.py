@@ -12,6 +12,7 @@ from app.models.lesson import AttendanceStatus, Lesson, LessonStatus, LessonStud
 from app.models.lesson_material import LessonMaterial
 from app.models.lesson_type import LessonType
 from app.models.material import Material
+from app.models.teacher_student import TeacherStudent
 from app.models.user import User
 from app.schemas.lesson import (
     LessonCreate,
@@ -39,6 +40,21 @@ def normalize_datetime_to_utc(dt: datetime | None) -> datetime | None:
     if dt.tzinfo is not None:
         return dt.astimezone(timezone.utc).replace(tzinfo=None)
     return dt
+
+
+async def ensure_teacher_student_assignment(
+    db: AsyncSession, teacher_id: int, student_id: int
+) -> None:
+    """Create TeacherStudent assignment if it doesn't exist."""
+    result = await db.execute(
+        select(TeacherStudent).where(
+            TeacherStudent.teacher_id == teacher_id,
+            TeacherStudent.student_id == student_id,
+        )
+    )
+    if not result.scalar_one_or_none():
+        assignment = TeacherStudent(teacher_id=teacher_id, student_id=student_id)
+        db.add(assignment)
 
 
 def build_lesson_response(lesson: Lesson) -> LessonResponse:
@@ -289,6 +305,10 @@ async def create_lessons_batch(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Не удалось сформировать расписание",
         )
+
+    # Create teacher-student assignments for all students (do this once)
+    for student_id in student_ids:
+        await ensure_teacher_student_assignment(db, data.teacher_id, student_id)
 
     created_lessons = []
     conflicts = []
@@ -646,7 +666,7 @@ async def create_lesson(
     db.add(lesson)
     await db.flush()
 
-    # Add students
+    # Add students and create teacher-student assignments
     for student_id in student_ids:
         student = await db.get(User, student_id)
         if student:
@@ -657,6 +677,8 @@ async def create_lesson(
                 charged=False,
             )
             db.add(lesson_student)
+            # Create teacher-student assignment for chat access
+            await ensure_teacher_student_assignment(db, data.teacher_id, student_id)
 
     await db.commit()
 
