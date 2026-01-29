@@ -142,7 +142,7 @@ jobs:
             cp docker-compose.prod.yml docker-compose.yml
 
             echo "=== Building containers ==="
-            docker compose build
+            docker compose build --pull --no-cache
 
             echo "=== Restarting services ==="
             docker compose up -d
