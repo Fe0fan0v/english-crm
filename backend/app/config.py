@@ -32,6 +32,15 @@ class Settings(BaseSettings):
     smtp_from_name: str = "Just Speak It"
     email_enabled: bool = False  # Set to True when SMTP is configured
 
+    # S3 Storage
+    s3_enabled: bool = False
+    s3_endpoint_url: str = ""
+    s3_access_key_id: str = ""
+    s3_secret_access_key: str = ""
+    s3_bucket_name: str = ""
+    s3_region: str = "kz-ala-1"
+    s3_public_url: str = ""  # Public URL for accessing files (e.g., https://jsi.object.pscloud.io)
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
