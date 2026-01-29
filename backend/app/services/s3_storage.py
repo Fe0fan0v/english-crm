@@ -1,5 +1,4 @@
 """S3 Storage Service for file uploads."""
-import io
 import uuid
 from pathlib import Path
 from typing import Optional
@@ -26,7 +25,10 @@ class S3StorageService:
                 aws_access_key_id=settings.s3_access_key_id,
                 aws_secret_access_key=settings.s3_secret_access_key,
                 region_name=settings.s3_region,
-                config=BotoConfig(signature_version="s3v4"),
+                config=BotoConfig(
+                    signature_version="s3v4",
+                    s3={"addressing_style": "path"},
+                ),
             )
         else:
             self.client = None
@@ -66,12 +68,11 @@ class S3StorageService:
         extra_args = {"ContentType": content_type}
 
         try:
-            file_obj = io.BytesIO(content)
-            self.client.upload_fileobj(
-                file_obj,
-                self.bucket_name,
-                s3_key,
-                ExtraArgs={"ContentType": content_type},
+            self.client.put_object(
+                Bucket=self.bucket_name,
+                Key=s3_key,
+                Body=content,
+                ContentType=content_type,
             )
         except ClientError as e:
             raise RuntimeError(f"Failed to upload file to S3: {e}")
