@@ -1,4 +1,5 @@
 """S3 Storage Service for file uploads."""
+import io
 import uuid
 from pathlib import Path
 from typing import Optional
@@ -65,12 +66,12 @@ class S3StorageService:
         extra_args = {"ContentType": content_type}
 
         try:
-            self.client.put_object(
-                Bucket=self.bucket_name,
-                Key=s3_key,
-                Body=content,
-                ContentType=content_type,
-                ContentLength=len(content),
+            file_obj = io.BytesIO(content)
+            self.client.upload_fileobj(
+                file_obj,
+                self.bucket_name,
+                s3_key,
+                ExtraArgs={"ContentType": content_type},
             )
         except ClientError as e:
             raise RuntimeError(f"Failed to upload file to S3: {e}")
