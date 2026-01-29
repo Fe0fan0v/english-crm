@@ -70,6 +70,7 @@ class S3StorageService:
                 Key=s3_key,
                 Body=content,
                 ContentType=content_type,
+                ContentLength=len(content),
             )
         except ClientError as e:
             raise RuntimeError(f"Failed to upload file to S3: {e}")
