@@ -4,6 +4,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.deps import DBSession, CurrentUser
 from app.models.direct_message import DirectMessage
+from app.models.teacher_student import TeacherStudent
 from app.models.user import User, UserRole
 from app.schemas.direct_message import (
     DirectMessageCreate,
@@ -14,6 +15,43 @@ from app.schemas.direct_message import (
 from app.utils.email import send_message_notification
 
 router = APIRouter()
+
+
+async def can_message_user(db, sender: User, recipient: User) -> bool:
+    """Check if sender can message recipient based on their roles and assignments."""
+    # Admins and managers can message anyone
+    if sender.role in (UserRole.ADMIN, UserRole.MANAGER):
+        return True
+
+    # Teachers can message their assigned students
+    if sender.role == UserRole.TEACHER and recipient.role == UserRole.STUDENT:
+        result = await db.execute(
+            select(TeacherStudent).where(
+                TeacherStudent.teacher_id == sender.id,
+                TeacherStudent.student_id == recipient.id,
+            )
+        )
+        return result.scalar_one_or_none() is not None
+
+    # Students can message their assigned teachers
+    if sender.role == UserRole.STUDENT and recipient.role == UserRole.TEACHER:
+        result = await db.execute(
+            select(TeacherStudent).where(
+                TeacherStudent.teacher_id == recipient.id,
+                TeacherStudent.student_id == sender.id,
+            )
+        )
+        return result.scalar_one_or_none() is not None
+
+    # Students can message admins/managers (for support)
+    if sender.role == UserRole.STUDENT and recipient.role in (UserRole.ADMIN, UserRole.MANAGER):
+        return True
+
+    # Teachers can message admins/managers
+    if sender.role == UserRole.TEACHER and recipient.role in (UserRole.ADMIN, UserRole.MANAGER):
+        return True
+
+    return False
 
 
 @router.get("/unread/count")
@@ -133,6 +171,13 @@ async def get_messages_with_user(
             detail="User not found",
         )
 
+    # Check if user can access this conversation
+    if not await can_message_user(db, current_user, other_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="У вас нет доступа к переписке с этим пользователем",
+        )
+
     query = (
         select(DirectMessage)
         .where(
@@ -205,6 +250,13 @@ async def send_message(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot send message to yourself",
+        )
+
+    # Check if user is allowed to message this recipient
+    if not await can_message_user(db, current_user, recipient):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="У вас нет доступа к переписке с этим пользователем",
         )
 
     # Validate that message has content or file
