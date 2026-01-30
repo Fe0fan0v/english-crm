@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Автоматический бэкап PostgreSQL в ps.kz S3 Storage
+# Автоматический бэкап PostgreSQL в ps.kz S3 Storage (Docker версия)
 # Использование: ./backup-to-s3.sh
 #
 
@@ -22,7 +22,7 @@ source "$CONFIG_FILE"
 
 # Проверка обязательных переменных
 REQUIRED_VARS=(
-    "DB_HOST" "DB_PORT" "DB_NAME" "DB_USER" "DB_PASSWORD"
+    "DB_CONTAINER" "DB_NAME" "DB_USER" "DB_PASSWORD"
     "S3_ENDPOINT_URL" "S3_ACCESS_KEY_ID" "S3_SECRET_ACCESS_KEY" "S3_BUCKET_NAME"
 )
 
@@ -45,18 +45,17 @@ S3_PATH="s3://${S3_BUCKET_NAME}/${BACKUP_PREFIX}/${BACKUP_FILE}"
 mkdir -p "$BACKUP_DIR"
 
 echo "========================================="
-echo "PostgreSQL Backup to ps.kz S3"
+echo "PostgreSQL Backup to ps.kz S3 (Docker)"
 echo "========================================="
 echo "Timestamp: $TIMESTAMP"
 echo "Database: $DB_NAME"
+echo "Container: $DB_CONTAINER"
 echo "S3 Bucket: $S3_BUCKET_NAME"
 echo "========================================="
 
-# 1. Создание дампа PostgreSQL
-echo "📦 Creating PostgreSQL dump..."
-PGPASSWORD="$DB_PASSWORD" pg_dump \
-    -h "$DB_HOST" \
-    -p "$DB_PORT" \
+# 1. Создание дампа PostgreSQL через Docker
+echo "📦 Creating PostgreSQL dump via Docker..."
+sudo docker exec $DB_CONTAINER pg_dump \
     -U "$DB_USER" \
     -d "$DB_NAME" \
     --no-owner \
