@@ -1,5 +1,6 @@
 from app.api import (
     auth,
+    courses,
     dashboard,
     direct_messages,
     group_messages,
@@ -29,6 +30,7 @@ api_router.include_router(lesson_types.router, prefix="/lesson-types", tags=["le
 api_router.include_router(reports.router, prefix="/reports", tags=["reports"])
 api_router.include_router(levels.router, prefix="/levels", tags=["levels"])
 api_router.include_router(materials.router, prefix="/materials", tags=["materials"])
+api_router.include_router(courses.router, tags=["courses"])
 api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 api_router.include_router(tests.router, prefix="/tests", tags=["tests"])
 api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])

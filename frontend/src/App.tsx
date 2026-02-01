@@ -24,6 +24,10 @@ import NewsPage from "./pages/NewsPage";
 import NewsManagementPage from "./pages/NewsManagementPage";
 import SettingsPage from "./pages/SettingsPage";
 import ManagerMessagesPage from "./pages/ManagerMessagesPage";
+import CoursesPage from "./pages/CoursesPage";
+import CourseEditorPage from "./pages/CourseEditorPage";
+import LessonEditorPage from "./pages/LessonEditorPage";
+import LessonPreviewPage from "./pages/LessonPreviewPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { token, user, fetchUser, logout } = useAuthStore();
@@ -279,6 +283,46 @@ export default function App() {
         element={
           <ProtectedRoute>
             <MaterialsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/courses"
+        element={
+          <ProtectedRoute>
+            <CoursesPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/courses/:id"
+        element={
+          <ProtectedRoute>
+            <LessonPreviewPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/courses/:id/edit"
+        element={
+          <ProtectedRoute>
+            <CourseEditorPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/courses/lessons/:id"
+        element={
+          <ProtectedRoute>
+            <LessonPreviewPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/courses/lessons/:id/edit"
+        element={
+          <ProtectedRoute>
+            <LessonEditorPage />
           </ProtectedRoute>
         }
       />

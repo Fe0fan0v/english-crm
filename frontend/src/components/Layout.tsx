@@ -343,6 +343,12 @@ const navItems: NavItem[] = [
     roles: ["admin"],
   },
   {
+    path: "/courses",
+    label: "Курсы",
+    icon: icons.book,
+    roles: ["admin", "manager", "teacher"],
+  },
+  {
     path: "/tests",
     label: "Тесты",
     icon: icons.test,
@@ -402,6 +408,12 @@ const navItems: NavItem[] = [
     path: "/student/news",
     label: "Новости",
     icon: icons.chart,
+    roles: ["student"],
+  },
+  {
+    path: "/courses",
+    label: "Курсы",
+    icon: icons.book,
     roles: ["student"],
   },
 ];

@@ -19,11 +19,25 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     # PostgreSQL allows renaming enum values with ALTER TYPE
-    # Convert uppercase values to lowercase
-    op.execute("ALTER TYPE lessonstatus RENAME VALUE 'SCHEDULED' TO 'scheduled'")
-    op.execute("ALTER TYPE lessonstatus RENAME VALUE 'COMPLETED' TO 'completed'")
-    op.execute("ALTER TYPE lessonstatus RENAME VALUE 'CANCELLED' TO 'cancelled'")
-    op.execute("ALTER TYPE lessonstatus RENAME VALUE 'NO_SHOW' TO 'no_show'")
+    # Convert uppercase values to lowercase if they exist
+    # If enum was created with lowercase values (from initial migration), skip
+    op.execute("""
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'SCHEDULED' AND enumtypid = 'lessonstatus'::regtype) THEN
+                ALTER TYPE lessonstatus RENAME VALUE 'SCHEDULED' TO 'scheduled';
+            END IF;
+            IF EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'COMPLETED' AND enumtypid = 'lessonstatus'::regtype) THEN
+                ALTER TYPE lessonstatus RENAME VALUE 'COMPLETED' TO 'completed';
+            END IF;
+            IF EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'CANCELLED' AND enumtypid = 'lessonstatus'::regtype) THEN
+                ALTER TYPE lessonstatus RENAME VALUE 'CANCELLED' TO 'cancelled';
+            END IF;
+            IF EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'NO_SHOW' AND enumtypid = 'lessonstatus'::regtype) THEN
+                ALTER TYPE lessonstatus RENAME VALUE 'NO_SHOW' TO 'no_show';
+            END IF;
+        END $$;
+    """)
 
 
 def downgrade() -> None:
