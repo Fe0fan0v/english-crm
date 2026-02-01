@@ -553,6 +553,11 @@ export default function TeacherDashboardPage() {
                                 <div className="font-medium truncate">{lesson.title}</div>
                                 <div className="text-[10px] opacity-75">
                                   {lesson.students.length} уч.
+                                  {lesson.needs_attendance && (
+                                    <span className="text-orange-600 ml-1" title="Ожидается отметка">
+                                      !
+                                    </span>
+                                  )}
                                 </div>
                               </button>
                             ))}

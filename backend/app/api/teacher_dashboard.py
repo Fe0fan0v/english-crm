@@ -71,6 +71,18 @@ async def ensure_teacher_student_assignment(
         db.add(assignment)
 
 
+def check_needs_attendance(lesson: Lesson) -> bool:
+    """Check if lesson needs attendance marking."""
+    now = datetime.utcnow()
+    lesson_end = lesson.scheduled_at + timedelta(minutes=lesson.duration_minutes)
+    # Lesson has ended and has at least one PENDING student
+    if now >= lesson_end:
+        for ls in lesson.students:
+            if ls.attendance_status == AttendanceStatus.PENDING:
+                return True
+    return False
+
+
 @router.get("/dashboard", response_model=TeacherDashboardResponse)
 async def get_teacher_dashboard(
     db: DBSession,
@@ -187,6 +199,7 @@ async def get_teacher_dashboard(
                 meeting_url=lesson.meeting_url,
                 status=lesson.status,
                 students=students,
+                needs_attendance=check_needs_attendance(lesson),
             )
         )
 
@@ -248,6 +261,7 @@ async def get_teacher_schedule(
                 )
                 for ls in lesson.students
             ],
+            needs_attendance=check_needs_attendance(lesson),
         )
         for lesson in lessons
     ]
@@ -591,6 +605,7 @@ async def get_teacher_dashboard_by_id(
                 meeting_url=lesson.meeting_url,
                 status=lesson.status,
                 students=students,
+                needs_attendance=check_needs_attendance(lesson),
             )
         )
 
@@ -658,6 +673,7 @@ async def get_teacher_schedule_by_id(
                 )
                 for ls in lesson.students
             ],
+            needs_attendance=check_needs_attendance(lesson),
         )
         for lesson in lessons
     ]
@@ -795,6 +811,7 @@ async def get_teacher_lesson(
             )
             for ls in lesson.students
         ],
+        needs_attendance=check_needs_attendance(lesson),
     )
 
 
@@ -932,6 +949,7 @@ async def create_teacher_lesson(
             )
             for ls in lesson.students
         ],
+        needs_attendance=check_needs_attendance(lesson),
     )
 
 
@@ -1029,6 +1047,7 @@ async def update_teacher_lesson(
             )
             for ls in lesson.students
         ],
+        needs_attendance=check_needs_attendance(lesson),
     )
 
 

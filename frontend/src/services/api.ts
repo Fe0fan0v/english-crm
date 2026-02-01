@@ -49,6 +49,9 @@ import type {
   DirectMessage,
   ConversationListResponse,
   LessonBatchResponse,
+  CourseTreeItem,
+  LessonCourseMaterial,
+  CourseMaterialType,
 } from "../types";
 
 const api = axios.create({
@@ -841,6 +844,49 @@ export const settingsApi = {
   },
   delete: async (key: string) => {
     await api.delete(`/settings/${key}`);
+  },
+};
+
+// Course Materials for Lessons
+export const courseMaterialsApi = {
+  // Get course tree for material selection
+  getCourseTree: async (): Promise<CourseTreeItem[]> => {
+    const response = await api.get<CourseTreeItem[]>("/courses/tree");
+    return response.data;
+  },
+
+  // Get course materials attached to a lesson
+  getLessonCourseMaterials: async (lessonId: number): Promise<LessonCourseMaterial[]> => {
+    const response = await api.get<LessonCourseMaterial[]>(`/lessons/${lessonId}/course-materials`);
+    return response.data;
+  },
+
+  // Attach course material to a lesson
+  attachCourseMaterial: async (
+    lessonId: number,
+    materialType: CourseMaterialType,
+    courseId?: number,
+    sectionId?: number,
+    interactiveLessonId?: number
+  ): Promise<LessonCourseMaterial> => {
+    const response = await api.post<LessonCourseMaterial>(`/lessons/${lessonId}/course-materials`, {
+      material_type: materialType,
+      course_id: courseId,
+      section_id: sectionId,
+      interactive_lesson_id: interactiveLessonId,
+    });
+    return response.data;
+  },
+
+  // Detach course material from a lesson
+  detachCourseMaterial: async (lessonId: number, materialId: number): Promise<void> => {
+    await api.delete(`/lessons/${lessonId}/course-materials/${materialId}`);
+  },
+
+  // Get student's lessons with course materials
+  getStudentCourseMaterials: async () => {
+    const response = await api.get("/student/course-materials");
+    return response.data;
   },
 };
 

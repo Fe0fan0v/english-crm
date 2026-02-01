@@ -383,6 +383,7 @@ export interface TeacherLesson {
   meeting_url: string | null;
   status: LessonStatus;
   students: TeacherLessonStudent[];
+  needs_attendance?: boolean;
 }
 
 export interface TeacherDashboardResponse {
@@ -533,4 +534,28 @@ export interface ConversationSummary {
 
 export interface ConversationListResponse {
   items: ConversationSummary[];
+}
+
+// Course Materials for Lessons
+export type CourseMaterialType = 'course' | 'section' | 'lesson';
+
+export interface LessonCourseMaterial {
+  id: number;
+  material_type: CourseMaterialType;
+  course_id: number | null;
+  course_title: string | null;
+  section_id: number | null;
+  section_title: string | null;
+  interactive_lesson_id: number | null;
+  interactive_lesson_title: string | null;
+  attached_at: string;
+  attached_by: number;
+  attacher_name: string;
+}
+
+export interface CourseTreeItem {
+  id: number;
+  title: string;
+  type: 'course' | 'section' | 'lesson';
+  children: CourseTreeItem[];
 }

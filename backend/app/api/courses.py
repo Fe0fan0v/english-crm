@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import CurrentUser, ManagerUser, get_db
+from app.api.deps import AdminUser, CurrentUser, TeacherUser, get_db
 from app.models.course import Course, CourseSection, ExerciseBlock, InteractiveLesson
 from app.models.user import User, UserRole
 from app.schemas.course import (
@@ -27,17 +27,14 @@ from app.schemas.course import (
     InteractiveLessonUpdate,
     ReorderRequest,
 )
+from app.schemas.lesson_course_material import CourseTreeItem
 
 router = APIRouter()
 
 
 def can_edit_course(user: User, course: Course) -> bool:
-    """Check if user can edit the course."""
-    if user.role in [UserRole.ADMIN, UserRole.MANAGER]:
-        return True
-    if user.role == UserRole.TEACHER and course.created_by_id == user.id:
-        return True
-    return False
+    """Check if user can edit the course. Only admin can edit courses."""
+    return user.role == UserRole.ADMIN
 
 
 def can_view_course(user: User, course: Course) -> bool:
@@ -47,6 +44,73 @@ def can_view_course(user: User, course: Course) -> bool:
     if user.role == UserRole.STUDENT and course.is_published:
         return True
     return False
+
+
+# ============== Course Tree (for material selection) ==============
+
+@router.get("/courses/tree", response_model=list[CourseTreeItem])
+async def get_courses_tree(
+    current_user: TeacherUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """
+    Get tree of published courses for material selection.
+    Used by teachers to attach course materials to lessons.
+    Returns:
+    [
+      {id: 1, title: "Beginner", type: "course", children: [
+        {id: 10, title: "A-1", type: "section", children: [
+          {id: 100, title: "Warm Up", type: "lesson", children: []},
+          {id: 101, title: "Listening", type: "lesson", children: []}
+        ]}
+      ]}
+    ]
+    """
+    # Get all published courses with their sections and lessons
+    result = await db.execute(
+        select(Course)
+        .where(Course.is_published == True)  # noqa: E712
+        .options(
+            selectinload(Course.sections)
+            .selectinload(CourseSection.lessons)
+        )
+        .order_by(Course.title)
+    )
+    courses = result.scalars().all()
+
+    tree = []
+    for course in courses:
+        course_item = CourseTreeItem(
+            id=course.id,
+            title=course.title,
+            type="course",
+            children=[]
+        )
+        for section in sorted(course.sections, key=lambda s: s.position):
+            section_item = CourseTreeItem(
+                id=section.id,
+                title=section.title,
+                type="section",
+                children=[]
+            )
+            for lesson in sorted(section.lessons, key=lambda l: l.position):
+                # Only include published lessons
+                if lesson.is_published:
+                    lesson_item = CourseTreeItem(
+                        id=lesson.id,
+                        title=lesson.title,
+                        type="lesson",
+                        children=[]
+                    )
+                    section_item.children.append(lesson_item)
+            # Only include sections with lessons
+            if section_item.children:
+                course_item.children.append(section_item)
+        # Only include courses with sections
+        if course_item.children:
+            tree.append(course_item)
+
+    return tree
 
 
 # ============== Courses ==============
@@ -111,13 +175,10 @@ async def list_courses(
 @router.post("/courses", response_model=CourseResponse, status_code=status.HTTP_201_CREATED)
 async def create_course(
     course_data: CourseCreate,
-    current_user: CurrentUser,
+    current_user: AdminUser,
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    """Create a new course. Available to admin, manager, and teachers."""
-    if current_user.role == UserRole.STUDENT:
-        raise HTTPException(status_code=403, detail="Students cannot create courses")
-
+    """Create a new course. Only admin can create courses."""
     course = Course(
         title=course_data.title,
         description=course_data.description,

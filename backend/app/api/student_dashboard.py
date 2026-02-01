@@ -6,14 +6,17 @@ from sqlalchemy.orm import selectinload
 
 from app.api.deps import DBSession, StudentOnlyUser
 from app.models import (
+    AttendanceStatus,
     Group,
     GroupStudent,
     Lesson,
+    LessonCourseMaterial,
     LessonMaterial,
     LessonStudent,
     MaterialAccess,
     TestAccess,
 )
+from app.models.course import Course, CourseSection, InteractiveLesson
 from app.models.lesson import LessonStatus
 from app.schemas.dashboard import (
     StudentDashboardResponse,
@@ -328,3 +331,85 @@ async def get_student_lessons_with_materials(
     lessons_with_materials.sort(key=lambda x: x["scheduled_at"], reverse=True)
 
     return lessons_with_materials
+
+
+@router.get("/course-materials")
+async def get_student_course_materials(
+    db: DBSession,
+    current_user: StudentOnlyUser,
+):
+    """
+    Get course materials for student's lessons.
+    Only shows materials from lessons where:
+    - Student has attendance_status == PRESENT
+    - Lesson has started (scheduled_at <= now)
+    - Lesson is not older than 30 days
+    """
+    now = datetime.utcnow()
+    one_month_ago = now - timedelta(days=30)
+
+    # Get student's lesson participations with PRESENT status
+    result = await db.execute(
+        select(LessonStudent)
+        .where(
+            LessonStudent.student_id == current_user.id,
+            LessonStudent.attendance_status == AttendanceStatus.PRESENT,
+        )
+        .options(
+            selectinload(LessonStudent.lesson).selectinload(Lesson.teacher),
+            selectinload(LessonStudent.lesson).selectinload(Lesson.lesson_type),
+        )
+    )
+    lesson_students = result.scalars().all()
+
+    # Filter lessons: started and within last month
+    filtered_ls = [
+        ls for ls in lesson_students
+        if one_month_ago <= ls.lesson.scheduled_at <= now
+    ]
+
+    lessons_with_course_materials = []
+    for ls in filtered_ls:
+        # Get course materials for this lesson
+        materials_result = await db.execute(
+            select(LessonCourseMaterial)
+            .where(LessonCourseMaterial.lesson_id == ls.lesson.id)
+            .options(
+                selectinload(LessonCourseMaterial.course),
+                selectinload(LessonCourseMaterial.section),
+                selectinload(LessonCourseMaterial.interactive_lesson),
+            )
+        )
+        course_materials = materials_result.scalars().all()
+
+        if course_materials:
+            materials_list = []
+            for cm in course_materials:
+                material_info = {
+                    "id": cm.id,
+                    "material_type": cm.material_type.value,
+                }
+                if cm.course:
+                    material_info["course_id"] = cm.course.id
+                    material_info["course_title"] = cm.course.title
+                if cm.section:
+                    material_info["section_id"] = cm.section.id
+                    material_info["section_title"] = cm.section.title
+                if cm.interactive_lesson:
+                    material_info["interactive_lesson_id"] = cm.interactive_lesson.id
+                    material_info["interactive_lesson_title"] = cm.interactive_lesson.title
+                materials_list.append(material_info)
+
+            lessons_with_course_materials.append({
+                "id": ls.lesson.id,
+                "title": ls.lesson.title,
+                "scheduled_at": ls.lesson.scheduled_at.isoformat(),
+                "teacher_name": ls.lesson.teacher.name,
+                "lesson_type_name": ls.lesson.lesson_type.name,
+                "course_materials": materials_list,
+            })
+
+    # Sort by scheduled_at descending (newest first)
+    lessons_with_course_materials.sort(key=lambda x: x["scheduled_at"], reverse=True)
+
+    return lessons_with_course_materials

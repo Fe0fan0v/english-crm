@@ -73,6 +73,7 @@ class TeacherLesson(BaseModel):
     meeting_url: str | None
     status: LessonStatus
     students: list[TeacherLessonStudent]
+    needs_attendance: bool = False  # True if lesson has ended and has PENDING students
 
 
 class TeacherDashboardResponse(BaseModel):

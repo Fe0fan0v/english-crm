@@ -6,14 +6,16 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import CurrentUser, ManagerUser, get_db
+from app.api.deps import CurrentUser, ManagerUser, TeacherUser, get_db
+from app.models.course import Course, CourseSection, InteractiveLesson
 from app.models.group import Group, GroupStudent
 from app.models.lesson import AttendanceStatus, Lesson, LessonStatus, LessonStudent
+from app.models.lesson_course_material import CourseMaterialType, LessonCourseMaterial
 from app.models.lesson_material import LessonMaterial
 from app.models.lesson_type import LessonType
 from app.models.material import Material
 from app.models.teacher_student import TeacherStudent
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.schemas.lesson import (
     LessonCreate,
     LessonCreateBatch,
@@ -25,6 +27,10 @@ from app.schemas.lesson import (
     LessonUpdate,
     ScheduleLesson,
     StudentInfo,
+)
+from app.schemas.lesson_course_material import (
+    LessonCourseMaterialAttach,
+    LessonCourseMaterialResponse,
 )
 
 # Lesson duration in minutes (used for conflict checking)
@@ -958,3 +964,220 @@ async def detach_material_from_lesson(
     await db.commit()
 
     return {"message": "Material detached successfully"}
+
+
+# ============== Course Materials ==============
+
+
+@router.get("/{lesson_id}/course-materials", response_model=list[LessonCourseMaterialResponse])
+async def get_lesson_course_materials(
+    lesson_id: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentUser,
+):
+    """
+    Get course materials attached to a lesson.
+    For students: only shows if they have attendance_status == PRESENT.
+    For teachers/admin/manager: shows all.
+    """
+    lesson = await db.get(Lesson, lesson_id)
+    if not lesson:
+        raise HTTPException(404, "Lesson not found")
+
+    # Check permissions for students
+    if current_user.role == UserRole.STUDENT:
+        # Check if student is in this lesson with PRESENT status
+        stmt = select(LessonStudent).where(
+            LessonStudent.lesson_id == lesson_id,
+            LessonStudent.student_id == current_user.id,
+            LessonStudent.attendance_status == AttendanceStatus.PRESENT,
+        )
+        result = await db.execute(stmt)
+        if not result.scalar_one_or_none():
+            # Return empty list if student is not present
+            return []
+    elif current_user.role not in [UserRole.ADMIN, UserRole.MANAGER]:
+        # Teacher can only see their own lessons
+        if lesson.teacher_id != current_user.id:
+            raise HTTPException(403, "Not authorized")
+
+    # Get course materials
+    stmt = (
+        select(LessonCourseMaterial)
+        .where(LessonCourseMaterial.lesson_id == lesson_id)
+        .options(
+            selectinload(LessonCourseMaterial.course),
+            selectinload(LessonCourseMaterial.section),
+            selectinload(LessonCourseMaterial.interactive_lesson),
+            selectinload(LessonCourseMaterial.attacher),
+        )
+        .order_by(LessonCourseMaterial.attached_at.desc())
+    )
+    result = await db.execute(stmt)
+    materials = result.scalars().all()
+
+    return [
+        LessonCourseMaterialResponse(
+            id=m.id,
+            material_type=m.material_type,
+            course_id=m.course_id,
+            course_title=m.course.title if m.course else None,
+            section_id=m.section_id,
+            section_title=m.section.title if m.section else None,
+            interactive_lesson_id=m.interactive_lesson_id,
+            interactive_lesson_title=m.interactive_lesson.title if m.interactive_lesson else None,
+            attached_at=m.attached_at,
+            attached_by=m.attached_by,
+            attacher_name=m.attacher.name if m.attacher else "",
+        )
+        for m in materials
+    ]
+
+
+@router.post("/{lesson_id}/course-materials", response_model=LessonCourseMaterialResponse)
+async def attach_course_material(
+    lesson_id: int,
+    data: LessonCourseMaterialAttach,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: TeacherUser,
+):
+    """
+    Attach course material to a lesson.
+    Can attach:
+    - Whole course (material_type='course', course_id=X)
+    - Section (material_type='section', section_id=X)
+    - Interactive lesson (material_type='lesson', interactive_lesson_id=X)
+    """
+    lesson = await db.get(Lesson, lesson_id)
+    if not lesson:
+        raise HTTPException(404, "Lesson not found")
+
+    # Check permissions - teacher can only attach to their own lessons
+    if current_user.role not in [UserRole.ADMIN, UserRole.MANAGER]:
+        if lesson.teacher_id != current_user.id:
+            raise HTTPException(403, "Only lesson teacher can attach materials")
+
+    # Validate that the referenced material exists and is published
+    if data.material_type == CourseMaterialType.COURSE:
+        course = await db.get(Course, data.course_id)
+        if not course:
+            raise HTTPException(404, "Course not found")
+        if not course.is_published:
+            raise HTTPException(400, "Course is not published")
+    elif data.material_type == CourseMaterialType.SECTION:
+        result = await db.execute(
+            select(CourseSection)
+            .where(CourseSection.id == data.section_id)
+            .options(selectinload(CourseSection.course))
+        )
+        section = result.scalar_one_or_none()
+        if not section:
+            raise HTTPException(404, "Section not found")
+        if not section.course.is_published:
+            raise HTTPException(400, "Course is not published")
+    elif data.material_type == CourseMaterialType.LESSON:
+        result = await db.execute(
+            select(InteractiveLesson)
+            .where(InteractiveLesson.id == data.interactive_lesson_id)
+            .options(
+                selectinload(InteractiveLesson.section)
+                .selectinload(CourseSection.course)
+            )
+        )
+        interactive_lesson = result.scalar_one_or_none()
+        if not interactive_lesson:
+            raise HTTPException(404, "Interactive lesson not found")
+        if not interactive_lesson.is_published:
+            raise HTTPException(400, "Interactive lesson is not published")
+        if not interactive_lesson.section.course.is_published:
+            raise HTTPException(400, "Course is not published")
+
+    # Check for duplicates
+    stmt = select(LessonCourseMaterial).where(
+        LessonCourseMaterial.lesson_id == lesson_id,
+        LessonCourseMaterial.material_type == data.material_type,
+    )
+    if data.material_type == CourseMaterialType.COURSE:
+        stmt = stmt.where(LessonCourseMaterial.course_id == data.course_id)
+    elif data.material_type == CourseMaterialType.SECTION:
+        stmt = stmt.where(LessonCourseMaterial.section_id == data.section_id)
+    elif data.material_type == CourseMaterialType.LESSON:
+        stmt = stmt.where(LessonCourseMaterial.interactive_lesson_id == data.interactive_lesson_id)
+
+    result = await db.execute(stmt)
+    if result.scalar_one_or_none():
+        raise HTTPException(400, "This material is already attached to the lesson")
+
+    # Create the attachment
+    material = LessonCourseMaterial(
+        lesson_id=lesson_id,
+        material_type=data.material_type,
+        course_id=data.course_id if data.material_type == CourseMaterialType.COURSE else None,
+        section_id=data.section_id if data.material_type == CourseMaterialType.SECTION else None,
+        interactive_lesson_id=data.interactive_lesson_id if data.material_type == CourseMaterialType.LESSON else None,
+        attached_by=current_user.id,
+    )
+    db.add(material)
+    await db.commit()
+    await db.refresh(material)
+
+    # Load relationships for response
+    result = await db.execute(
+        select(LessonCourseMaterial)
+        .where(LessonCourseMaterial.id == material.id)
+        .options(
+            selectinload(LessonCourseMaterial.course),
+            selectinload(LessonCourseMaterial.section),
+            selectinload(LessonCourseMaterial.interactive_lesson),
+            selectinload(LessonCourseMaterial.attacher),
+        )
+    )
+    material = result.scalar_one()
+
+    return LessonCourseMaterialResponse(
+        id=material.id,
+        material_type=material.material_type,
+        course_id=material.course_id,
+        course_title=material.course.title if material.course else None,
+        section_id=material.section_id,
+        section_title=material.section.title if material.section else None,
+        interactive_lesson_id=material.interactive_lesson_id,
+        interactive_lesson_title=material.interactive_lesson.title if material.interactive_lesson else None,
+        attached_at=material.attached_at,
+        attached_by=material.attached_by,
+        attacher_name=material.attacher.name if material.attacher else "",
+    )
+
+
+@router.delete("/{lesson_id}/course-materials/{material_id}")
+async def detach_course_material(
+    lesson_id: int,
+    material_id: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: TeacherUser,
+):
+    """Detach course material from a lesson."""
+    lesson = await db.get(Lesson, lesson_id)
+    if not lesson:
+        raise HTTPException(404, "Lesson not found")
+
+    # Check permissions
+    if current_user.role not in [UserRole.ADMIN, UserRole.MANAGER]:
+        if lesson.teacher_id != current_user.id:
+            raise HTTPException(403, "Only lesson teacher can detach materials")
+
+    # Find and delete
+    stmt = select(LessonCourseMaterial).where(
+        LessonCourseMaterial.id == material_id,
+        LessonCourseMaterial.lesson_id == lesson_id,
+    )
+    result = await db.execute(stmt)
+    material = result.scalar_one_or_none()
+
+    if not material:
+        raise HTTPException(404, "Material not attached to this lesson")
+
+    await db.delete(material)
+    await db.commit()
+
+    return {"message": "Course material detached successfully"}

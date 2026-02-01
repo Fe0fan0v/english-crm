@@ -9,6 +9,7 @@ from app.database import Base
 
 if TYPE_CHECKING:
     from app.models.group import Group
+    from app.models.lesson_course_material import LessonCourseMaterial
     from app.models.lesson_material import LessonMaterial
     from app.models.lesson_type import LessonType
     from app.models.user import User
@@ -64,6 +65,9 @@ class Lesson(Base):
     )
     lesson_materials: Mapped[list["LessonMaterial"]] = relationship(
         "LessonMaterial", back_populates="lesson", cascade="all, delete-orphan"
+    )
+    course_materials: Mapped[list["LessonCourseMaterial"]] = relationship(
+        "LessonCourseMaterial", back_populates="lesson", cascade="all, delete-orphan"
     )
 
 
