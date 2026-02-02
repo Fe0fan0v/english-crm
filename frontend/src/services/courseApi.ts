@@ -165,3 +165,26 @@ export const blockApi = {
     await api.post(`/courses/lessons/${lessonId}/blocks/reorder`, { items });
   },
 };
+
+// ============== File Uploads ==============
+
+export interface UploadResponse {
+  file_url: string;
+  filename: string;
+  size: number;
+}
+
+export const courseUploadApi = {
+  // Upload file for course content (images, audio)
+  upload: async (file: File): Promise<UploadResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await api.post<UploadResponse>('/uploads/courses', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+};

@@ -27,6 +27,10 @@ MAX_PHOTO_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 ALLOWED_NEWS_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 MAX_NEWS_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
+# Allowed file extensions for course content (images and audio)
+ALLOWED_COURSE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".mp3", ".wav", ".ogg", ".m4a"}
+MAX_COURSE_FILE_SIZE = 50 * 1024 * 1024  # 50MB (audio files can be large)
+
 
 async def _upload_file_to_storage(
     content: bytes,
@@ -246,6 +250,49 @@ async def get_news_file(filename: str):
         return RedirectResponse(url=f"{s3_storage.public_url}/news/{filename}")
 
     file_path = Path(settings.storage_path) / "news" / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    from fastapi.responses import FileResponse
+    return FileResponse(file_path)
+
+
+@router.post("/courses")
+async def upload_course_file(
+    file: UploadFile,
+    db: DBSession,
+    current_user: CurrentUser,
+) -> dict:
+    """Upload a file for course content (images, audio)."""
+    if not file.filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No file provided",
+        )
+
+    content = await file.read()
+    file_url = await _upload_file_to_storage(
+        content=content,
+        filename=file.filename,
+        folder="courses",
+        allowed_extensions=ALLOWED_COURSE_EXTENSIONS,
+        max_size=MAX_COURSE_FILE_SIZE,
+    )
+
+    return {
+        "file_url": file_url,
+        "filename": file.filename,
+        "size": len(content),
+    }
+
+
+@router.get("/courses/{filename}")
+async def get_course_file(filename: str):
+    """Serve course file from local storage."""
+    if s3_storage.enabled:
+        return RedirectResponse(url=f"{s3_storage.public_url}/courses/{filename}")
+
+    file_path = Path(settings.storage_path) / "courses" / filename
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File not found")
 

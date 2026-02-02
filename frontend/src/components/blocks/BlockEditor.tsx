@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import type { ExerciseBlock } from '../../types/course';
+import { courseUploadApi } from '../../services/courseApi';
 
 interface BlockEditorProps {
   block: ExerciseBlock;
@@ -272,6 +273,80 @@ interface FlashcardItem {
   image_url?: string;
 }
 
+// File Upload Button Component
+function FileUploadButton({
+  onUpload,
+  accept,
+  label,
+}: {
+  onUpload: (url: string) => void;
+  accept: string;
+  label: string;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    setError(null);
+
+    try {
+      const result = await courseUploadApi.upload(file);
+      onUpload(result.file_url);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Ошибка загрузки';
+      setError(errorMessage);
+    } finally {
+      setUploading(false);
+      // Reset input
+      if (inputRef.current) {
+        inputRef.current.value = '';
+      }
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        ref={inputRef}
+        type="file"
+        accept={accept}
+        onChange={handleFileChange}
+        className="hidden"
+        id={`file-upload-${label}`}
+      />
+      <label
+        htmlFor={`file-upload-${label}`}
+        className={`inline-flex items-center gap-1 px-3 py-1.5 text-sm border border-purple-300 text-purple-600 rounded-lg cursor-pointer hover:bg-purple-50 ${
+          uploading ? 'opacity-50 cursor-wait' : ''
+        }`}
+      >
+        {uploading ? (
+          <>
+            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            Загрузка...
+          </>
+        ) : (
+          <>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            {label}
+          </>
+        )}
+      </label>
+      {error && <span className="text-sm text-red-500">{error}</span>}
+    </div>
+  );
+}
+
 // Individual Editors
 
 function TextEditor({ html, onChange }: { html: string; onChange: (html: string) => void }) {
@@ -340,7 +415,15 @@ function AudioEditor({
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">URL аудио</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Аудио файл</label>
+        <div className="flex items-center gap-3 mb-2">
+          <FileUploadButton
+            onUpload={onUrlChange}
+            accept="audio/*"
+            label="Загрузить"
+          />
+          <span className="text-sm text-gray-500">или укажите URL</span>
+        </div>
         <input
           type="url"
           value={url}
@@ -348,6 +431,12 @@ function AudioEditor({
           className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
           placeholder="https://..."
         />
+        {url && (
+          <audio controls className="w-full mt-2">
+            <source src={url} />
+            Ваш браузер не поддерживает аудио
+          </audio>
+        )}
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Название (необязательно)</label>
@@ -390,7 +479,15 @@ function ArticleEditor({
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">URL изображения</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Изображение</label>
+        <div className="flex items-center gap-3 mb-2">
+          <FileUploadButton
+            onUpload={onImageUrlChange}
+            accept="image/*"
+            label="Загрузить"
+          />
+          <span className="text-sm text-gray-500">или укажите URL</span>
+        </div>
         <input
           type="url"
           value={imageUrl}
@@ -398,6 +495,9 @@ function ArticleEditor({
           className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
           placeholder="https://..."
         />
+        {imageUrl && (
+          <img src={imageUrl} alt="Preview" className="mt-2 max-w-full h-auto rounded-lg max-h-32 object-contain" />
+        )}
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Позиция изображения</label>
@@ -913,7 +1013,15 @@ function ImageEditor({
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">URL изображения</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Изображение</label>
+        <div className="flex items-center gap-3 mb-2">
+          <FileUploadButton
+            onUpload={onUrlChange}
+            accept="image/*"
+            label="Загрузить"
+          />
+          <span className="text-sm text-gray-500">или укажите URL</span>
+        </div>
         <input
           type="url"
           value={url}
@@ -1193,12 +1301,19 @@ function ImageChoiceEditor({
         <div className="grid grid-cols-2 gap-3">
           {options.map((option) => (
             <div key={option.id} className={`p-3 border rounded-lg ${option.is_correct ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}>
+              <div className="mb-2">
+                <FileUploadButton
+                  onUpload={(url) => updateOption(option.id, 'url', url)}
+                  accept="image/*"
+                  label="Загрузить"
+                />
+              </div>
               <input
                 type="url"
                 value={option.url}
                 onChange={(e) => updateOption(option.id, 'url', e.target.value)}
                 className="w-full px-2 py-1 border border-gray-200 rounded text-sm mb-2"
-                placeholder="URL изображения"
+                placeholder="или URL изображения"
               />
               {option.url && (
                 <img src={option.url} alt="" className="w-full h-24 object-cover rounded mb-2" />
@@ -1348,14 +1463,24 @@ function FlashcardsEditor({
                 </div>
               </div>
               <div className="mt-2">
-                <label className="block text-xs text-gray-500 mb-1">URL изображения (необязательно)</label>
+                <label className="block text-xs text-gray-500 mb-1">Изображение (необязательно)</label>
+                <div className="flex items-center gap-2 mb-1">
+                  <FileUploadButton
+                    onUpload={(url) => updateCard(index, 'image_url', url)}
+                    accept="image/*"
+                    label="Загрузить"
+                  />
+                </div>
                 <input
                   type="url"
                   value={card.image_url || ''}
                   onChange={(e) => updateCard(index, 'image_url', e.target.value)}
                   className="w-full px-2 py-1 border border-gray-200 rounded text-sm"
-                  placeholder="https://..."
+                  placeholder="или URL изображения"
                 />
+                {card.image_url && (
+                  <img src={card.image_url} alt="" className="mt-1 max-w-full h-16 object-contain rounded" />
+                )}
               </div>
             </div>
           ))}
