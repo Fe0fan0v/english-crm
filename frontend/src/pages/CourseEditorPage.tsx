@@ -196,6 +196,35 @@ export default function CourseEditorPage() {
     }
   };
 
+  const handleMoveLesson = async (sectionId: number, lessonIndex: number, direction: 'up' | 'down') => {
+    if (!course) return;
+    const section = course.sections.find(s => s.id === sectionId);
+    if (!section) return;
+
+    const lessons = [...section.lessons];
+    if (direction === 'up' && lessonIndex === 0) return;
+    if (direction === 'down' && lessonIndex === lessons.length - 1) return;
+
+    const swapIndex = direction === 'up' ? lessonIndex - 1 : lessonIndex + 1;
+    [lessons[lessonIndex], lessons[swapIndex]] = [lessons[swapIndex], lessons[lessonIndex]];
+
+    // Update positions
+    const reorderItems = lessons.map((l, i) => ({ id: l.id, position: i }));
+    try {
+      await interactiveLessonApi.reorder(sectionId, reorderItems);
+      setCourse({
+        ...course,
+        sections: course.sections.map(s =>
+          s.id === sectionId
+            ? { ...s, lessons: lessons.map((l, i) => ({ ...l, position: i })) }
+            : s
+        ),
+      });
+    } catch (error) {
+      console.error('Failed to reorder lessons:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-12">
@@ -373,6 +402,28 @@ export default function CourseEditorPage() {
                         </span>
                       </div>
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {/* Move up/down buttons */}
+                        <button
+                          onClick={() => handleMoveLesson(section.id, lessonIndex, 'up')}
+                          disabled={lessonIndex === 0}
+                          className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                          title="Переместить вверх"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleMoveLesson(section.id, lessonIndex, 'down')}
+                          disabled={lessonIndex === section.lessons.length - 1}
+                          className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                          title="Переместить вниз"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        <div className="w-px h-4 bg-gray-200 mx-1" />
                         <button
                           onClick={() => handleToggleLessonPublished(lesson)}
                           className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded"
