@@ -85,7 +85,7 @@ export default function LessonPreviewPage() {
             <BlockRenderer
               key={block.id}
               block={block}
-              blockNumber={index + 1}
+              blockNumber={getBlockNumber(lesson.blocks, index)}
               answer={answers[block.id]}
               onAnswerChange={(answer) => handleAnswerChange(block.id, answer)}
               isChecked={checked[block.id] || false}
@@ -127,4 +127,25 @@ export default function LessonPreviewPage() {
 function getInteractiveBlocksCount(blocks: ExerciseBlock[]): number {
   const interactiveTypes = ['fill_gaps', 'test', 'true_false', 'word_order', 'matching', 'essay'];
   return blocks.filter(b => interactiveTypes.includes(b.block_type)).length;
+}
+
+// Block types that should not be numbered (informational/instructional blocks)
+const NON_NUMBERED_TYPES = ['teaching_guide', 'divider', 'remember'];
+
+function getBlockNumber(blocks: ExerciseBlock[], currentIndex: number): number | undefined {
+  const block = blocks[currentIndex];
+
+  // Non-numbered block types
+  if (NON_NUMBERED_TYPES.includes(block.block_type)) {
+    return undefined;
+  }
+
+  // Count numbered blocks before this one
+  let number = 0;
+  for (let i = 0; i <= currentIndex; i++) {
+    if (!NON_NUMBERED_TYPES.includes(blocks[i].block_type)) {
+      number++;
+    }
+  }
+  return number;
 }
