@@ -81,10 +81,11 @@ export default function LessonPreviewPage() {
             В этом уроке пока нет контента
           </div>
         ) : (
-          lesson.blocks.map((block) => (
+          lesson.blocks.map((block, index) => (
             <BlockRenderer
               key={block.id}
               block={block}
+              blockNumber={index + 1}
               answer={answers[block.id]}
               onAnswerChange={(answer) => handleAnswerChange(block.id, answer)}
               isChecked={checked[block.id] || false}

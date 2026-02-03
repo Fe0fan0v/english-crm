@@ -9,6 +9,7 @@ export type ExerciseBlockType =
   | 'teaching_guide'
   | 'remember'
   | 'table'
+  | 'vocabulary'
   | 'fill_gaps'
   | 'test'
   | 'true_false'
@@ -155,6 +156,17 @@ export interface FlashcardsBlockContent {
   shuffle?: boolean;
 }
 
+export interface VocabularyWord {
+  word: string;
+  translation: string;
+  transcription?: string | null;
+}
+
+export interface VocabularyBlockContent {
+  words: VocabularyWord[];
+  show_transcription?: boolean;
+}
+
 // Union type for all block content types
 export type BlockContent =
   | TextBlockContent
@@ -166,6 +178,7 @@ export type BlockContent =
   | TeachingGuideBlockContent
   | RememberBlockContent
   | TableBlockContent
+  | VocabularyBlockContent
   | FillGapsBlockContent
   | TestBlockContent
   | TrueFalseBlockContent
@@ -180,6 +193,7 @@ export interface ExerciseBlock {
   id: number;
   lesson_id: number;
   block_type: ExerciseBlockType;
+  title?: string | null;  // Optional block title (e.g., "Introduce yourself")
   content: Record<string, unknown>;
   position: number;
   created_at: string;
@@ -188,12 +202,14 @@ export interface ExerciseBlock {
 
 export interface ExerciseBlockCreate {
   block_type: ExerciseBlockType;
+  title?: string | null;
   content: Record<string, unknown>;
   position?: number;
 }
 
 export interface ExerciseBlockUpdate {
   block_type?: ExerciseBlockType;
+  title?: string | null;
   content?: Record<string, unknown>;
   position?: number;
 }
@@ -316,6 +332,7 @@ export const BLOCK_TYPE_LABELS: Record<ExerciseBlockType, string> = {
   teaching_guide: 'Заметка для учителя',
   remember: 'Запомни',
   table: 'Таблица',
+  vocabulary: 'Словарь',
   fill_gaps: 'Заполнить пропуски',
   test: 'Тест',
   true_false: 'Верно/Неверно',
@@ -327,7 +344,7 @@ export const BLOCK_TYPE_LABELS: Record<ExerciseBlockType, string> = {
 };
 
 export const CONTENT_BLOCK_TYPES: ExerciseBlockType[] = [
-  'text', 'video', 'audio', 'image', 'article', 'divider', 'teaching_guide', 'remember', 'table'
+  'text', 'video', 'audio', 'image', 'article', 'divider', 'teaching_guide', 'remember', 'table', 'vocabulary'
 ];
 export const INTERACTIVE_BLOCK_TYPES: ExerciseBlockType[] = [
   'fill_gaps', 'test', 'true_false', 'word_order', 'matching', 'image_choice', 'flashcards', 'essay'

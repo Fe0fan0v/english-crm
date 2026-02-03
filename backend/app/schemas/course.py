@@ -167,11 +167,25 @@ class FlashcardsBlockContent(BaseModel):
     shuffle: bool = True
 
 
+class VocabularyWord(BaseModel):
+    """Single word in vocabulary list."""
+    word: str = ""
+    translation: str = ""
+    transcription: str | None = None  # Optional phonetic transcription
+
+
+class VocabularyBlockContent(BaseModel):
+    """Content for vocabulary/word list block."""
+    words: list[VocabularyWord] = []
+    show_transcription: bool = False  # Whether to show transcription
+
+
 # ============== Exercise Block Schemas ==============
 
 class ExerciseBlockBase(BaseModel):
     """Base schema for exercise block."""
     block_type: ExerciseBlockType
+    title: str | None = None  # Optional block title (e.g., "1.1 Introduce yourself")
     content: dict[str, Any] = Field(default_factory=dict)
     position: int = 0
 
@@ -192,14 +206,19 @@ class ExerciseBlockCreate(ExerciseBlockBase):
 class ExerciseBlockUpdate(BaseModel):
     """Schema for updating an exercise block."""
     block_type: ExerciseBlockType | None = None
+    title: str | None = None
     content: dict[str, Any] | None = None
     position: int | None = None
 
 
-class ExerciseBlockResponse(ExerciseBlockBase):
+class ExerciseBlockResponse(BaseModel):
     """Schema for exercise block response."""
     id: int
     lesson_id: int
+    block_type: ExerciseBlockType
+    title: str | None = None
+    content: dict[str, Any] = Field(default_factory=dict)
+    position: int = 0
     created_at: datetime
     updated_at: datetime
 

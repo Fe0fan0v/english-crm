@@ -54,11 +54,11 @@ export default function LessonEditorPage() {
     }
   };
 
-  const handleUpdateBlock = async (block: ExerciseBlock, content: Record<string, unknown>) => {
+  const handleUpdateBlock = async (block: ExerciseBlock, content: Record<string, unknown>, title?: string | null) => {
     if (!lesson) return;
     try {
       setSaving(true);
-      const updated = await blockApi.update(block.id, { content });
+      const updated = await blockApi.update(block.id, { content, title });
       setLesson({
         ...lesson,
         blocks: lesson.blocks.map(b => (b.id === updated.id ? updated : b)),
@@ -198,10 +198,14 @@ export default function LessonEditorPage() {
               {/* Block Header */}
               <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-gray-400">#{index + 1}</span>
-                  <span className="text-sm font-medium text-gray-600">
-                    {BLOCK_TYPE_LABELS[block.block_type]}
-                  </span>
+                  <span className="text-xs font-medium text-cyan-600">1.{index + 1}</span>
+                  {block.title ? (
+                    <span className="text-sm font-medium text-gray-800">{block.title}</span>
+                  ) : (
+                    <span className="text-sm font-medium text-gray-400">
+                      {BLOCK_TYPE_LABELS[block.block_type]}
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-1">
                   <button
@@ -250,7 +254,7 @@ export default function LessonEditorPage() {
                 {editingBlock?.id === block.id ? (
                   <BlockEditor
                     block={block}
-                    onSave={(content) => handleUpdateBlock(block, content)}
+                    onSave={(content, title) => handleUpdateBlock(block, content, title)}
                     onCancel={() => setEditingBlock(null)}
                     saving={saving}
                   />
@@ -515,6 +519,17 @@ function BlockPreview({ block }: { block: ExerciseBlock }) {
         </div>
       );
 
+    case 'vocabulary':
+      return (
+        <div className="text-gray-600">
+          {Array.isArray(content.words) ? (
+            <span>{(content.words as unknown[]).length} слов</span>
+          ) : (
+            <em>Слова не добавлены</em>
+          )}
+        </div>
+      );
+
     default:
       return <div className="text-gray-500">Неизвестный тип блока</div>;
   }
@@ -557,6 +572,8 @@ function getDefaultContent(blockType: ExerciseBlockType): Record<string, unknown
       return { title: '', cards: [], shuffle: true };
     case 'essay':
       return { prompt: '', min_words: null, max_words: null, sample_answer: '' };
+    case 'vocabulary':
+      return { words: [], show_transcription: false };
     default:
       return {};
   }
@@ -582,6 +599,8 @@ function getBlockDescription(blockType: ExerciseBlockType): string {
       return 'Важная информация';
     case 'table':
       return 'Грамматическая таблица';
+    case 'vocabulary':
+      return 'Список слов с переводом';
     case 'fill_gaps':
       return 'Заполнить пропуски';
     case 'test':

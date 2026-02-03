@@ -4,16 +4,17 @@ import { courseUploadApi } from '../../services/courseApi';
 
 interface BlockEditorProps {
   block: ExerciseBlock;
-  onSave: (content: Record<string, unknown>) => void;
+  onSave: (content: Record<string, unknown>, title?: string | null) => void;
   onCancel: () => void;
   saving: boolean;
 }
 
 export default function BlockEditor({ block, onSave, onCancel, saving }: BlockEditorProps) {
   const [content, setContent] = useState<Record<string, unknown>>(block.content);
+  const [title, setTitle] = useState<string>(block.title || '');
 
   const handleSave = () => {
-    onSave(content);
+    onSave(content, title || null);
   };
 
   const updateField = (field: string, value: unknown) => {
@@ -203,6 +204,16 @@ export default function BlockEditor({ block, onSave, onCancel, saving }: BlockEd
           />
         );
 
+      case 'vocabulary':
+        return (
+          <VocabularyEditor
+            words={(content.words as VocabularyWord[]) || []}
+            showTranscription={(content.show_transcription as boolean) ?? false}
+            onWordsChange={(w) => updateField('words', w)}
+            onShowTranscriptionChange={(s) => updateField('show_transcription', s)}
+          />
+        );
+
       default:
         return <div className="text-gray-500">Редактор для этого типа блока не реализован</div>;
     }
@@ -210,6 +221,24 @@ export default function BlockEditor({ block, onSave, onCancel, saving }: BlockEd
 
   return (
     <div>
+      {/* Block Title Input */}
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Название блока <span className="text-gray-400 font-normal">(необязательно)</span>
+        </label>
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+          placeholder="Например: Introduce yourself"
+        />
+        <p className="text-xs text-gray-400 mt-1">
+          Название отображается над блоком (как на Edvibe: "1.1 Introduce yourself")
+        </p>
+      </div>
+
+      {/* Block Content Editor */}
       {renderEditor()}
       <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-gray-100">
         <button
@@ -271,6 +300,12 @@ interface FlashcardItem {
   front: string;
   back: string;
   image_url?: string;
+}
+
+interface VocabularyWord {
+  word: string;
+  translation: string;
+  transcription?: string;
 }
 
 // File Upload Button Component
@@ -1484,6 +1519,114 @@ function FlashcardsEditor({
               </div>
             </div>
           ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VocabularyEditor({
+  words,
+  showTranscription,
+  onWordsChange,
+  onShowTranscriptionChange,
+}: {
+  words: VocabularyWord[];
+  showTranscription: boolean;
+  onWordsChange: (words: VocabularyWord[]) => void;
+  onShowTranscriptionChange: (show: boolean) => void;
+}) {
+  const addWord = () => {
+    onWordsChange([...words, { word: '', translation: '', transcription: '' }]);
+  };
+
+  const updateWord = (index: number, field: keyof VocabularyWord, value: string) => {
+    const newWords = words.map((w, i) => (i === index ? { ...w, [field]: value } : w));
+    onWordsChange(newWords);
+  };
+
+  const removeWord = (index: number) => {
+    onWordsChange(words.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          id="showTranscription"
+          checked={showTranscription}
+          onChange={(e) => onShowTranscriptionChange(e.target.checked)}
+          className="w-4 h-4 rounded border-gray-300 text-purple-600"
+        />
+        <label htmlFor="showTranscription" className="text-sm text-gray-600">
+          Показывать транскрипцию
+        </label>
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-sm font-medium text-gray-700">Слова</label>
+          <button type="button" onClick={addWord} className="text-sm text-purple-600 hover:text-purple-700">
+            + Добавить слово
+          </button>
+        </div>
+        <div className="space-y-3">
+          {words.map((word, index) => (
+            <div key={index} className="p-3 border border-gray-200 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-500">Слово {index + 1}</span>
+                <button
+                  type="button"
+                  onClick={() => removeWord(index)}
+                  className="p-1 text-red-500 hover:bg-red-50 rounded"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Слово (англ.)</label>
+                  <input
+                    type="text"
+                    value={word.word}
+                    onChange={(e) => updateWord(index, 'word', e.target.value)}
+                    className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm"
+                    placeholder="manufacturing"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Перевод</label>
+                  <input
+                    type="text"
+                    value={word.translation}
+                    onChange={(e) => updateWord(index, 'translation', e.target.value)}
+                    className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm"
+                    placeholder="производство"
+                  />
+                </div>
+              </div>
+              {showTranscription && (
+                <div className="mt-2">
+                  <label className="block text-xs text-gray-500 mb-1">Транскрипция</label>
+                  <input
+                    type="text"
+                    value={word.transcription || ''}
+                    onChange={(e) => updateWord(index, 'transcription', e.target.value)}
+                    className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm"
+                    placeholder="[ˌmænjʊˈfæktʃərɪŋ]"
+                  />
+                </div>
+              )}
+            </div>
+          ))}
+          {words.length === 0 && (
+            <div className="text-center py-4 text-gray-400 text-sm">
+              Нажмите "Добавить слово" чтобы начать
+            </div>
+          )}
         </div>
       </div>
     </div>

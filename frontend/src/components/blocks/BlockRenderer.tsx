@@ -3,6 +3,8 @@ import type { ExerciseBlock } from '../../types/course';
 
 interface BlockRendererProps {
   block: ExerciseBlock;
+  blockNumber?: number;  // Optional block number for display (e.g., 1, 2, 3...)
+  lessonNumber?: number; // Optional lesson number within section (e.g., 1 for "1.1 Title")
   answer: unknown;
   onAnswerChange: (answer: unknown) => void;
   isChecked: boolean;
@@ -11,6 +13,8 @@ interface BlockRendererProps {
 
 export default function BlockRenderer({
   block,
+  blockNumber,
+  lessonNumber = 1,
   answer,
   onAnswerChange,
   isChecked,
@@ -18,164 +22,201 @@ export default function BlockRenderer({
 }: BlockRendererProps) {
   const content = block.content as Record<string, unknown>;
 
-  switch (block.block_type) {
-    case 'text':
-      return (
-        <div
-          className="prose prose-sm max-w-none"
-          dangerouslySetInnerHTML={{ __html: (content.html as string) || '' }}
-        />
-      );
+  // Render block content based on type
+  const renderBlockContent = () => {
+    switch (block.block_type) {
+      case 'text':
+        return (
+          <div
+            className="prose prose-sm max-w-none"
+            dangerouslySetInnerHTML={{ __html: (content.html as string) || '' }}
+          />
+        );
 
-    case 'video':
-      return <VideoRenderer url={(content.url as string) || ''} title={(content.title as string) || ''} />;
+      case 'video':
+        return <VideoRenderer url={(content.url as string) || ''} title={(content.title as string) || ''} />;
 
-    case 'audio':
-      return <AudioRenderer url={(content.url as string) || ''} title={(content.title as string) || ''} />;
+      case 'audio':
+        return <AudioRenderer url={(content.url as string) || ''} title={(content.title as string) || ''} />;
 
-    case 'article':
-      return (
-        <ArticleRenderer
-          html={(content.html as string) || ''}
-          imageUrl={(content.image_url as string) || ''}
-          imagePosition={(content.image_position as string) || 'right'}
-        />
-      );
+      case 'article':
+        return (
+          <ArticleRenderer
+            html={(content.html as string) || ''}
+            imageUrl={(content.image_url as string) || ''}
+            imagePosition={(content.image_position as string) || 'right'}
+          />
+        );
 
-    case 'divider':
-      return <DividerRenderer style={(content.style as string) || 'line'} />;
+      case 'divider':
+        // Dividers don't need headers
+        return <DividerRenderer style={(content.style as string) || 'line'} />;
 
-    case 'image':
-      return (
-        <ImageRenderer
-          url={(content.url as string) || ''}
-          caption={(content.caption as string) || ''}
-          alt={(content.alt as string) || ''}
-        />
-      );
+      case 'image':
+        return (
+          <ImageRenderer
+            url={(content.url as string) || ''}
+            caption={(content.caption as string) || ''}
+            alt={(content.alt as string) || ''}
+          />
+        );
 
-    case 'teaching_guide':
-      // Teaching guide is only visible in editor, not for students
-      return null;
+      case 'teaching_guide':
+        // Teaching guide is only visible in editor, not for students
+        return null;
 
-    case 'remember':
-      return (
-        <RememberRenderer
-          html={(content.html as string) || ''}
-          icon={(content.icon as string) || 'info'}
-        />
-      );
+      case 'remember':
+        return (
+          <RememberRenderer
+            html={(content.html as string) || ''}
+            icon={(content.icon as string) || 'info'}
+          />
+        );
 
-    case 'table':
-      return (
-        <TableRenderer
-          rows={(content.rows as TableRow[]) || []}
-          hasHeader={(content.has_header as boolean) ?? true}
-        />
-      );
+      case 'table':
+        return (
+          <TableRenderer
+            rows={(content.rows as TableRow[]) || []}
+            hasHeader={(content.has_header as boolean) ?? true}
+          />
+        );
 
-    case 'fill_gaps':
-      return (
-        <FillGapsRenderer
-          text={(content.text as string) || ''}
-          gaps={(content.gaps as GapItem[]) || []}
-          answer={answer as Record<number, string>}
-          onAnswerChange={onAnswerChange}
-          isChecked={isChecked}
-          onCheck={onCheck}
-        />
-      );
+      case 'fill_gaps':
+        return (
+          <FillGapsRenderer
+            text={(content.text as string) || ''}
+            gaps={(content.gaps as GapItem[]) || []}
+            answer={answer as Record<number, string>}
+            onAnswerChange={onAnswerChange}
+            isChecked={isChecked}
+            onCheck={onCheck}
+          />
+        );
 
-    case 'test':
-      return (
-        <TestRenderer
-          question={(content.question as string) || ''}
-          options={(content.options as TestOption[]) || []}
-          multipleAnswers={(content.multiple_answers as boolean) || false}
-          explanation={(content.explanation as string) || ''}
-          answer={answer as string[] | string}
-          onAnswerChange={onAnswerChange}
-          isChecked={isChecked}
-          onCheck={onCheck}
-        />
-      );
+      case 'test':
+        return (
+          <TestRenderer
+            question={(content.question as string) || ''}
+            options={(content.options as TestOption[]) || []}
+            multipleAnswers={(content.multiple_answers as boolean) || false}
+            explanation={(content.explanation as string) || ''}
+            answer={answer as string[] | string}
+            onAnswerChange={onAnswerChange}
+            isChecked={isChecked}
+            onCheck={onCheck}
+          />
+        );
 
-    case 'true_false':
-      return (
-        <TrueFalseRenderer
-          statement={(content.statement as string) || ''}
-          isTrue={(content.is_true as boolean) ?? true}
-          explanation={(content.explanation as string) || ''}
-          answer={answer as boolean | undefined}
-          onAnswerChange={onAnswerChange}
-          isChecked={isChecked}
-          onCheck={onCheck}
-        />
-      );
+      case 'true_false':
+        return (
+          <TrueFalseRenderer
+            statement={(content.statement as string) || ''}
+            isTrue={(content.is_true as boolean) ?? true}
+            explanation={(content.explanation as string) || ''}
+            answer={answer as boolean | undefined}
+            onAnswerChange={onAnswerChange}
+            isChecked={isChecked}
+            onCheck={onCheck}
+          />
+        );
 
-    case 'word_order':
-      return (
-        <WordOrderRenderer
-          correctSentence={(content.correct_sentence as string) || ''}
-          shuffledWords={(content.shuffled_words as string[]) || []}
-          hint={(content.hint as string) || ''}
-          answer={answer as string[]}
-          onAnswerChange={onAnswerChange}
-          isChecked={isChecked}
-          onCheck={onCheck}
-        />
-      );
+      case 'word_order':
+        return (
+          <WordOrderRenderer
+            correctSentence={(content.correct_sentence as string) || ''}
+            shuffledWords={(content.shuffled_words as string[]) || []}
+            hint={(content.hint as string) || ''}
+            answer={answer as string[]}
+            onAnswerChange={onAnswerChange}
+            isChecked={isChecked}
+            onCheck={onCheck}
+          />
+        );
 
-    case 'matching':
-      return (
-        <MatchingRenderer
-          pairs={(content.pairs as MatchingPair[]) || []}
-          shuffleRight={(content.shuffle_right as boolean) ?? true}
-          answer={answer as Record<string, string>}
-          onAnswerChange={onAnswerChange}
-          isChecked={isChecked}
-          onCheck={onCheck}
-        />
-      );
+      case 'matching':
+        return (
+          <MatchingRenderer
+            pairs={(content.pairs as MatchingPair[]) || []}
+            shuffleRight={(content.shuffle_right as boolean) ?? true}
+            answer={answer as Record<string, string>}
+            onAnswerChange={onAnswerChange}
+            isChecked={isChecked}
+            onCheck={onCheck}
+          />
+        );
 
-    case 'image_choice':
-      return (
-        <ImageChoiceRenderer
-          question={(content.question as string) || ''}
-          options={(content.options as ImageOption[]) || []}
-          explanation={(content.explanation as string) || ''}
-          answer={answer as string}
-          onAnswerChange={onAnswerChange}
-          isChecked={isChecked}
-          onCheck={onCheck}
-        />
-      );
+      case 'image_choice':
+        return (
+          <ImageChoiceRenderer
+            question={(content.question as string) || ''}
+            options={(content.options as ImageOption[]) || []}
+            explanation={(content.explanation as string) || ''}
+            answer={answer as string}
+            onAnswerChange={onAnswerChange}
+            isChecked={isChecked}
+            onCheck={onCheck}
+          />
+        );
 
-    case 'flashcards':
-      return (
-        <FlashcardsRenderer
-          title={(content.title as string) || ''}
-          cards={(content.cards as Flashcard[]) || []}
-          shuffle={(content.shuffle as boolean) ?? true}
-        />
-      );
+      case 'flashcards':
+        return (
+          <FlashcardsRenderer
+            title={(content.title as string) || ''}
+            cards={(content.cards as Flashcard[]) || []}
+            shuffle={(content.shuffle as boolean) ?? true}
+          />
+        );
 
-    case 'essay':
-      return (
-        <EssayRenderer
-          prompt={(content.prompt as string) || ''}
-          minWords={content.min_words as number | null}
-          maxWords={content.max_words as number | null}
-          answer={answer as string}
-          onAnswerChange={onAnswerChange}
-          isChecked={isChecked}
-          onCheck={onCheck}
-        />
-      );
+      case 'essay':
+        return (
+          <EssayRenderer
+            prompt={(content.prompt as string) || ''}
+            minWords={content.min_words as number | null}
+            maxWords={content.max_words as number | null}
+            answer={answer as string}
+            onAnswerChange={onAnswerChange}
+            isChecked={isChecked}
+            onCheck={onCheck}
+          />
+        );
 
-    default:
-      return <div className="text-gray-500">Неизвестный тип блока</div>;
+      case 'vocabulary':
+        return (
+          <VocabularyRenderer
+            words={(content.words as VocabularyWordItem[]) || []}
+            showTranscription={(content.show_transcription as boolean) ?? false}
+          />
+        );
+
+      default:
+        return <div className="text-gray-500">Неизвестный тип блока</div>;
+    }
+  };
+
+  // Render with header if title exists
+  const blockContent = renderBlockContent();
+
+  // For divider and teaching_guide, don't add header
+  if (block.block_type === 'divider' || block.block_type === 'teaching_guide' || !block.title) {
+    return <>{blockContent}</>;
   }
+
+  // Render with header
+  const numberPrefix = blockNumber !== undefined
+    ? `${lessonNumber}.${blockNumber}`
+    : null;
+
+  return (
+    <div>
+      <div className="flex items-baseline gap-2 mb-3">
+        {numberPrefix && (
+          <span className="text-sm font-semibold text-cyan-600">{numberPrefix}</span>
+        )}
+        <h3 className="text-lg font-medium text-gray-800">{block.title}</h3>
+      </div>
+      {blockContent}
+    </div>
+  );
 }
 
 // Types
@@ -219,6 +260,12 @@ interface Flashcard {
   front: string;
   back: string;
   image_url?: string | null;
+}
+
+interface VocabularyWordItem {
+  word: string;
+  translation: string;
+  transcription?: string | null;
 }
 
 // Video Renderer
@@ -1254,6 +1301,82 @@ function FlashcardsRenderer({
 
       <div className="mt-4 text-center text-sm text-gray-500">
         {currentIndex + 1} / {shuffledCards.length}
+      </div>
+    </div>
+  );
+}
+
+// Vocabulary Renderer
+function VocabularyRenderer({
+  words,
+  showTranscription,
+}: {
+  words: VocabularyWordItem[];
+  showTranscription: boolean;
+}) {
+  const [speaking, setSpeaking] = useState<number | null>(null);
+
+  const speak = (text: string, index: number) => {
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    utterance.rate = 0.9;
+
+    utterance.onstart = () => setSpeaking(index);
+    utterance.onend = () => setSpeaking(null);
+    utterance.onerror = () => setSpeaking(null);
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  if (words.length === 0) {
+    return <div className="text-gray-500">Список слов пуст</div>;
+  }
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-100">
+      <div className="divide-y divide-gray-100">
+        {words.map((word, index) => (
+          <div
+            key={index}
+            className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
+          >
+            {/* Speaker button */}
+            <button
+              onClick={() => speak(word.word, index)}
+              className={`p-2 rounded-full transition-colors ${
+                speaking === index
+                  ? 'bg-cyan-100 text-cyan-600'
+                  : 'hover:bg-gray-100 text-gray-400 hover:text-gray-600'
+              }`}
+              title="Прослушать произношение"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
+                />
+              </svg>
+            </button>
+
+            {/* Word and translation */}
+            <div className="flex-1">
+              <div className="font-medium text-gray-800">
+                {word.word}
+                {showTranscription && word.transcription && (
+                  <span className="ml-2 text-sm font-normal text-gray-400">
+                    {word.transcription}
+                  </span>
+                )}
+              </div>
+              <div className="text-sm text-gray-500">{word.translation}</div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

@@ -573,6 +573,7 @@ async def get_lesson(
             id=block.id,
             lesson_id=block.lesson_id,
             block_type=block.block_type,
+            title=block.title,
             content=block.content,
             position=block.position,
             created_at=block.created_at,
@@ -730,6 +731,7 @@ async def create_block(
     block = ExerciseBlock(
         lesson_id=lesson_id,
         block_type=block_data.block_type,
+        title=block_data.title,
         content=block_data.content,
         position=block_data.position if block_data.position > 0 else max_pos + 1,
     )
@@ -741,6 +743,7 @@ async def create_block(
         id=block.id,
         lesson_id=block.lesson_id,
         block_type=block.block_type,
+        title=block.title,
         content=block.content,
         position=block.position,
         created_at=block.created_at,
@@ -784,6 +787,7 @@ async def update_block(
         id=block.id,
         lesson_id=block.lesson_id,
         block_type=block.block_type,
+        title=block.title,
         content=block.content,
         position=block.position,
         created_at=block.created_at,

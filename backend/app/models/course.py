@@ -24,6 +24,7 @@ class ExerciseBlockType(str, PyEnum):
     TEACHING_GUIDE = "teaching_guide"  # Only visible to teacher
     REMEMBER = "remember"  # Highlighted important info
     TABLE = "table"  # Grammar tables
+    VOCABULARY = "vocabulary"  # Word list with translations and pronunciation
     # Interactive blocks
     FILL_GAPS = "fill_gaps"
     TEST = "test"
@@ -122,6 +123,7 @@ class ExerciseBlock(Base):
         Enum(ExerciseBlockType, values_callable=lambda x: [e.value for e in x]),
         nullable=False
     )
+    title: Mapped[str | None] = mapped_column(String(255), nullable=True)  # Optional block title
     content: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     position: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
