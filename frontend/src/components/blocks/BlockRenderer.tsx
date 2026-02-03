@@ -398,12 +398,23 @@ function FillGapsRenderer({
     return userAnswer === correct || alternatives.includes(userAnswer);
   };
 
+  // Helper to render text with line breaks
+  const renderTextWithLineBreaks = (textPart: string) => {
+    const lines = textPart.split('\n');
+    return lines.map((line, lineIndex) => (
+      <span key={lineIndex}>
+        {line}
+        {lineIndex < lines.length - 1 && <br />}
+      </span>
+    ));
+  };
+
   return (
     <div className="bg-white p-4 rounded-lg border border-gray-100">
       <div className="text-lg leading-relaxed">
         {parts.map((part, index) => {
           if (index % 2 === 0) {
-            return <span key={index}>{part}</span>;
+            return <span key={index}>{renderTextWithLineBreaks(part)}</span>;
           }
           const gapIndex = parseInt(part, 10);
           const gap = gaps.find((g) => g.index === gapIndex);

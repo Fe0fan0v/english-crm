@@ -603,9 +603,12 @@ function FillGapsEditor({
           value={text}
           onChange={(e) => onTextChange(e.target.value)}
           className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-          rows={3}
-          placeholder="The {0} is {1} today."
+          rows={6}
+          placeholder={"1. I'm not Tom. I'm Tony.\n2. {0} in class 5. You're in class 4.\n3. {1} in room 6. You're in room 7."}
         />
+        <p className="text-xs text-gray-400 mt-1">
+          Нажмите Enter для переноса на новую строку
+        </p>
       </div>
 
       <div>
