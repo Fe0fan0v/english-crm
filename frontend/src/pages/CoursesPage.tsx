@@ -14,7 +14,7 @@ export default function CoursesPage() {
   const [newCourse, setNewCourse] = useState({ title: '', description: '' });
   const [creating, setCreating] = useState(false);
 
-  const canCreate = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'teacher';
+  const canCreate = user?.role === 'admin';
 
   useEffect(() => {
     loadCourses();
@@ -68,10 +68,9 @@ export default function CoursesPage() {
     }
   };
 
-  const canEditCourse = (course: Course) => {
-    if (user?.role === 'admin' || user?.role === 'manager') return true;
-    if (user?.role === 'teacher' && course.created_by_id === user.id) return true;
-    return false;
+  const canEditCourse = (_course: Course) => {
+    // Only admin can edit courses
+    return user?.role === 'admin';
   };
 
   return (

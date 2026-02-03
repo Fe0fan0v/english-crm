@@ -1,11 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { courseApi, sectionApi, interactiveLessonApi } from '../services/courseApi';
+import { useAuthStore } from '../store/authStore';
 import type { CourseDetail, CourseSectionDetail, InteractiveLesson } from '../types/course';
 
 export default function CourseEditorPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuthStore();
+
+  // Only admin can edit courses
+  useEffect(() => {
+    if (user && user.role !== 'admin') {
+      navigate('/courses');
+    }
+  }, [user, navigate]);
   const [course, setCourse] = useState<CourseDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

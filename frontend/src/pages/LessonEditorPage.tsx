@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { interactiveLessonApi, blockApi } from '../services/courseApi';
+import { useAuthStore } from '../store/authStore';
 import type { InteractiveLessonDetail, ExerciseBlock, ExerciseBlockType } from '../types/course';
 import { BLOCK_TYPE_LABELS, CONTENT_BLOCK_TYPES, INTERACTIVE_BLOCK_TYPES } from '../types/course';
 import BlockEditor from '../components/blocks/BlockEditor';
@@ -8,11 +9,19 @@ import BlockEditor from '../components/blocks/BlockEditor';
 export default function LessonEditorPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuthStore();
   const [lesson, setLesson] = useState<InteractiveLessonDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showAddBlockModal, setShowAddBlockModal] = useState(false);
   const [editingBlock, setEditingBlock] = useState<ExerciseBlock | null>(null);
+
+  // Only admin can edit lessons
+  useEffect(() => {
+    if (user && user.role !== 'admin') {
+      navigate('/courses');
+    }
+  }, [user, navigate]);
 
   useEffect(() => {
     if (id) loadLesson();
