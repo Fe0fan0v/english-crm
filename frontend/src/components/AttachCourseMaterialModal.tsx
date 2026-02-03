@@ -116,20 +116,27 @@ export default function AttachCourseMaterialModal({ isOpen, onClose, lessonId, o
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[80vh] flex flex-col">
-        <div className="p-4 border-b">
-          <h2 className="text-lg font-semibold">Add Course Material</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            Select a course, section, or lesson to attach
-          </p>
+        <div className="p-4 border-b flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Прикрепить материал из курса</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Выберите курс, секцию или урок
+            </p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
         <div className="p-4 border-b">
           <input
             type="text"
-            placeholder="Search courses..."
+            placeholder="Поиск курсов..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
         </div>
 
@@ -142,11 +149,11 @@ export default function AttachCourseMaterialModal({ isOpen, onClose, lessonId, o
         <div className="flex-1 overflow-y-auto p-4">
           {loading ? (
             <div className="flex justify-center items-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
             </div>
           ) : filteredTree.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
-              {searchQuery ? 'No courses found matching your search' : 'No published courses available'}
+              {searchQuery ? 'Курсы не найдены' : 'Нет опубликованных курсов'}
             </div>
           ) : (
             <div className="space-y-2">
@@ -170,14 +177,14 @@ export default function AttachCourseMaterialModal({ isOpen, onClose, lessonId, o
                         )}
                       </button>
                       <span className="font-medium">{course.title}</span>
-                      <span className="text-xs text-gray-500 bg-gray-200 px-2 py-0.5 rounded">Course</span>
+                      <span className="text-xs text-gray-500 bg-gray-200 px-2 py-0.5 rounded">Курс</span>
                     </div>
                     <button
                       onClick={() => handleAttach('course', course.id)}
                       disabled={attaching}
-                      className="text-sm px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+                      className="text-sm px-3 py-1 bg-purple-500 text-white rounded hover:bg-purple-600 disabled:opacity-50"
                     >
-                      Add
+                      Добавить
                     </button>
                   </div>
 
@@ -204,14 +211,14 @@ export default function AttachCourseMaterialModal({ isOpen, onClose, lessonId, o
                                 )}
                               </button>
                               <span className="font-medium text-sm">{section.title}</span>
-                              <span className="text-xs text-gray-500 bg-purple-100 text-purple-700 px-2 py-0.5 rounded">Section</span>
+                              <span className="text-xs text-gray-500 bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded">Секция</span>
                             </div>
                             <button
                               onClick={() => handleAttach('section', section.id)}
                               disabled={attaching}
-                              className="text-sm px-3 py-1 bg-purple-500 text-white rounded hover:bg-purple-600 disabled:opacity-50"
+                              className="text-sm px-3 py-1 bg-cyan-500 text-white rounded hover:bg-cyan-600 disabled:opacity-50"
                             >
-                              Add
+                              Добавить
                             </button>
                           </div>
 
@@ -226,14 +233,14 @@ export default function AttachCourseMaterialModal({ isOpen, onClose, lessonId, o
                                   <div className="flex items-center gap-2">
                                     <span className="w-4"></span>
                                     <span className="text-sm">{lesson.title}</span>
-                                    <span className="text-xs text-gray-500 bg-green-100 text-green-700 px-2 py-0.5 rounded">Lesson</span>
+                                    <span className="text-xs text-gray-500 bg-green-100 text-green-700 px-2 py-0.5 rounded">Урок</span>
                                   </div>
                                   <button
                                     onClick={() => handleAttach('lesson', lesson.id)}
                                     disabled={attaching}
                                     className="text-sm px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
                                   >
-                                    Add
+                                    Добавить
                                   </button>
                                 </div>
                               ))}
@@ -252,9 +259,9 @@ export default function AttachCourseMaterialModal({ isOpen, onClose, lessonId, o
         <div className="p-4 border-t flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-gray-600 hover:text-gray-800"
+            className="px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg"
           >
-            Cancel
+            Закрыть
           </button>
         </div>
       </div>

@@ -10,6 +10,7 @@ import PhotoUpload from "../components/PhotoUpload";
 import LessonCreateModal, { type LessonFormData } from "../components/LessonCreateModal";
 import TeacherAvailabilityEditor from "../components/TeacherAvailabilityEditor";
 import AttachMaterialModal from "../components/AttachMaterialModal";
+import AttachCourseMaterialModal from "../components/AttachCourseMaterialModal";
 import type {
   TeacherDashboardResponse,
   TeacherLesson,
@@ -95,6 +96,7 @@ export default function TeacherDashboardPage() {
   const [availability, setAvailability] = useState<TeacherAvailability[]>([]);
   const [lessonsWithMaterials, setLessonsWithMaterials] = useState<LessonWithMaterials[]>([]);
   const [selectedLessonForMaterial, setSelectedLessonForMaterial] = useState<number | null>(null);
+  const [selectedLessonForCourseMaterial, setSelectedLessonForCourseMaterial] = useState<number | null>(null);
   const [lessonsFilter, setLessonsFilter] = useState<{ type: 'student' | 'group'; id: number; name: string } | null>(null);
   const [studentSearchFilter, setStudentSearchFilter] = useState("");
   const [groupFilter, setGroupFilter] = useState<number | null>(null);
@@ -832,15 +834,28 @@ export default function TeacherDashboardPage() {
                             <span>{lesson.students?.join(", ") || "Нет учеников"}</span>
                           </div>
                         </div>
-                        <button
-                          onClick={() => setSelectedLessonForMaterial(lesson.id)}
-                          className="btn btn-primary btn-sm flex items-center gap-1"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                          </svg>
-                          Добавить материал
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setSelectedLessonForMaterial(lesson.id)}
+                            className="btn btn-secondary btn-sm flex items-center gap-1"
+                            title="Прикрепить PDF материал"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                            </svg>
+                            PDF
+                          </button>
+                          <button
+                            onClick={() => setSelectedLessonForCourseMaterial(lesson.id)}
+                            className="btn btn-primary btn-sm flex items-center gap-1"
+                            title="Прикрепить материал из курса"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                            </svg>
+                            Курс
+                          </button>
+                        </div>
                       </div>
                     </div>
 
@@ -967,6 +982,24 @@ export default function TeacherDashboardPage() {
               body: JSON.stringify({ material_id: materialId }),
             });
             // Refresh lessons with materials
+            const response = await fetch("/api/teacher/lessons-with-materials", {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await response.json();
+            setLessonsWithMaterials(data);
+          }}
+        />
+      )}
+
+      {/* Attach Course Material Modal */}
+      {selectedLessonForCourseMaterial && (
+        <AttachCourseMaterialModal
+          isOpen={true}
+          lessonId={selectedLessonForCourseMaterial}
+          onClose={() => setSelectedLessonForCourseMaterial(null)}
+          onAttached={async () => {
+            // Refresh lessons with materials
+            const token = localStorage.getItem("token");
             const response = await fetch("/api/teacher/lessons-with-materials", {
               headers: { Authorization: `Bearer ${token}` },
             });
