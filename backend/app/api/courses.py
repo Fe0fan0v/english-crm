@@ -234,7 +234,8 @@ async def get_course(
         .options(
             selectinload(Course.created_by),
             selectinload(Course.sections)
-            .selectinload(CourseSection.lessons)
+            .selectinload(CourseSection.topics)
+            .selectinload(CourseTopic.lessons)
             .selectinload(InteractiveLesson.blocks)
         )
     )
@@ -250,6 +251,25 @@ async def get_course(
     sections = []
     for section in course.sections:
         lessons = []
+        # Collect lessons from topics (new structure)
+        for topic in section.topics:
+            for lesson in topic.lessons:
+                # Students can only see published lessons
+                if current_user.role == UserRole.STUDENT and not lesson.is_published:
+                    continue
+                lessons.append(InteractiveLessonResponse(
+                    id=lesson.id,
+                    section_id=lesson.section_id or section.id,  # Use section.id if section_id is None
+                    title=lesson.title,
+                    description=lesson.description,
+                    position=lesson.position,
+                    is_published=lesson.is_published,
+                    created_by_id=lesson.created_by_id,
+                    created_at=lesson.created_at,
+                    updated_at=lesson.updated_at,
+                    blocks_count=len(lesson.blocks),
+                ))
+        # Also include direct lessons (old structure for backward compatibility)
         for lesson in section.lessons:
             # Students can only see published lessons
             if current_user.role == UserRole.STUDENT and not lesson.is_published:
@@ -266,6 +286,9 @@ async def get_course(
                 updated_at=lesson.updated_at,
                 blocks_count=len(lesson.blocks),
             ))
+        # Sort lessons by position
+        lessons.sort(key=lambda l: l.position)
+
         sections.append(CourseSectionDetailResponse(
             id=section.id,
             course_id=section.course_id,
