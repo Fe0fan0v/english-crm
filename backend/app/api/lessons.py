@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, func, select
@@ -7,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import CurrentUser, ManagerUser, TeacherUser, get_db
+
+logger = logging.getLogger(__name__)
 from app.models.course import Course, CourseSection, InteractiveLesson
 from app.models.group import Group, GroupStudent
 from app.models.lesson import AttendanceStatus, Lesson, LessonStatus, LessonStudent
@@ -1048,9 +1051,12 @@ async def attach_course_material(
     - Section (material_type='section', section_id=X)
     - Interactive lesson (material_type='lesson', interactive_lesson_id=X)
     """
-    lesson = await db.get(Lesson, lesson_id)
-    if not lesson:
-        raise HTTPException(404, "Lesson not found")
+    try:
+        logger.info(f"Attaching material to lesson {lesson_id}: type={data.material_type}, course_id={data.course_id}, section_id={data.section_id}, interactive_lesson_id={data.interactive_lesson_id}")
+
+        lesson = await db.get(Lesson, lesson_id)
+        if not lesson:
+            raise HTTPException(404, "Lesson not found")
 
     # Check permissions - teacher can only attach to their own lessons
     if current_user.role not in [UserRole.ADMIN, UserRole.MANAGER]:
@@ -1121,32 +1127,40 @@ async def attach_course_material(
     await db.commit()
     await db.refresh(material)
 
-    # Load relationships for response
-    result = await db.execute(
-        select(LessonCourseMaterial)
-        .where(LessonCourseMaterial.id == material.id)
-        .options(
-            selectinload(LessonCourseMaterial.course),
-            selectinload(LessonCourseMaterial.section),
-            selectinload(LessonCourseMaterial.interactive_lesson),
-            selectinload(LessonCourseMaterial.attacher),
+        # Load relationships for response
+        result = await db.execute(
+            select(LessonCourseMaterial)
+            .where(LessonCourseMaterial.id == material.id)
+            .options(
+                selectinload(LessonCourseMaterial.course),
+                selectinload(LessonCourseMaterial.section),
+                selectinload(LessonCourseMaterial.interactive_lesson),
+                selectinload(LessonCourseMaterial.attacher),
+            )
         )
-    )
-    material = result.scalar_one()
+        material = result.scalar_one()
 
-    return LessonCourseMaterialResponse(
-        id=material.id,
-        material_type=material.material_type,
-        course_id=material.course_id,
-        course_title=material.course.title if material.course else None,
-        section_id=material.section_id,
-        section_title=material.section.title if material.section else None,
-        interactive_lesson_id=material.interactive_lesson_id,
-        interactive_lesson_title=material.interactive_lesson.title if material.interactive_lesson else None,
-        attached_at=material.attached_at,
-        attached_by=material.attached_by,
-        attacher_name=material.attacher.name if material.attacher else "",
-    )
+        logger.info(f"Successfully attached material {material.id} to lesson {lesson_id}")
+
+        return LessonCourseMaterialResponse(
+            id=material.id,
+            material_type=material.material_type,
+            course_id=material.course_id,
+            course_title=material.course.title if material.course else None,
+            section_id=material.section_id,
+            section_title=material.section.title if material.section else None,
+            interactive_lesson_id=material.interactive_lesson_id,
+            interactive_lesson_title=material.interactive_lesson.title if material.interactive_lesson else None,
+            attached_at=material.attached_at,
+            attached_by=material.attached_by,
+            attacher_name=material.attacher.name if material.attacher else "",
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Error attaching material to lesson {lesson_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.delete("/{lesson_id}/course-materials/{material_id}")

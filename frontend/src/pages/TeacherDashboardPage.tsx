@@ -69,6 +69,57 @@ function getWeekDates(baseDate: Date): Date[] {
 const dayNames = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 const timeSlots = Array.from({ length: 24 }, (_, i) => i); // 0:00 - 23:00
 
+type LessonVisualStatus =
+  | 'completed'    // Завершён (зелёный)
+  | 'cancelled'    // Отменён (красный)
+  | 'today'        // Сегодняшний (синий)
+  | 'past'         // Прошедший, требует отметки (оранжевый)
+  | 'upcoming';    // Будущий (жёлтый)
+
+function getLessonVisualStatus(lesson: TeacherLesson): LessonVisualStatus {
+  if (lesson.status === 'completed') return 'completed';
+  if (lesson.status === 'cancelled') return 'cancelled';
+
+  const now = new Date();
+  const lessonDate = new Date(lesson.scheduled_at);
+  const lessonEnd = new Date(lessonDate.getTime() + lesson.duration_minutes * 60 * 1000);
+
+  const isToday = lessonDate.toDateString() === now.toDateString();
+  const isPast = lessonEnd < now;
+
+  if (isPast) return 'past';
+  if (isToday) return 'today';
+  return 'upcoming';
+}
+
+function getLessonStyles(status: LessonVisualStatus): string {
+  const baseStyles = 'border-l-4 transition-all';
+
+  switch (status) {
+    case 'completed':
+      return `${baseStyles} bg-green-100 text-green-700 hover:bg-green-200 border-green-500`;
+    case 'cancelled':
+      return `${baseStyles} bg-red-100 text-red-700 hover:bg-red-200 border-red-500`;
+    case 'today':
+      return `${baseStyles} bg-blue-100 text-blue-700 hover:bg-blue-200 border-blue-500 ring-2 ring-blue-300`;
+    case 'past':
+      return `${baseStyles} bg-orange-100 text-orange-700 hover:bg-orange-200 border-orange-500`;
+    case 'upcoming':
+      return `${baseStyles} bg-yellow-100 text-yellow-700 hover:bg-yellow-200 border-yellow-500`;
+  }
+}
+
+function getLessonStatusLabel(status: LessonVisualStatus): string {
+  const labels = {
+    completed: 'Завершён',
+    cancelled: 'Отменён',
+    today: 'Сегодня',
+    past: 'Требует отметки',
+    upcoming: 'Предстоит'
+  };
+  return labels[status];
+}
+
 export default function TeacherDashboardPage() {
   const { id: teacherIdParam } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -100,6 +151,8 @@ export default function TeacherDashboardPage() {
   const [lessonsFilter, setLessonsFilter] = useState<{ type: 'student' | 'group'; id: number; name: string } | null>(null);
   const [studentSearchFilter, setStudentSearchFilter] = useState("");
   const [groupFilter, setGroupFilter] = useState<number | null>(null);
+  const [studentsLoading, setStudentsLoading] = useState(false);
+  const [studentsError, setStudentsError] = useState<string | null>(null);
 
   // Check if current user can create lessons
   // Teachers can create lessons in their own dashboard
@@ -173,12 +226,25 @@ export default function TeacherDashboardPage() {
     if (activeTab === "students") {
       const fetchStudents = async () => {
         try {
+          setStudentsLoading(true);
+          setStudentsError(null);
+
+          console.log('Fetching students...', { isManagerView, teacherId });
+
           const result = isManagerView && teacherId
             ? await teacherApi.getStudentsByTeacherId(teacherId)
             : await teacherApi.getStudents();
+
+          console.log('Students loaded:', result.length);
           setStudents(result);
         } catch (error) {
           console.error("Failed to fetch students:", error);
+          const errorMessage = error instanceof Error
+            ? error.message
+            : 'Не удалось загрузить список учеников';
+          setStudentsError(errorMessage);
+        } finally {
+          setStudentsLoading(false);
         }
       };
       fetchStudents();
@@ -537,32 +603,36 @@ export default function TeacherDashboardPage() {
                             } ${canCreateLesson ? "cursor-pointer hover:bg-gray-100" : ""}`}
                             onClick={() => handleCellClick(date, hour)}
                           >
-                            {lessons.map((lesson) => (
-                              <button
-                                key={lesson.id}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleLessonClick(lesson);
-                                }}
-                                className={`w-full p-2 mb-1 rounded-lg text-left text-xs transition-colors ${
-                                  lesson.status === "completed"
-                                    ? "bg-green-100 text-green-700 hover:bg-green-200"
-                                    : lesson.status === "cancelled"
-                                    ? "bg-red-100 text-red-700"
-                                    : "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
-                                }`}
-                              >
-                                <div className="font-medium truncate">{lesson.title}</div>
-                                <div className="text-[10px] opacity-75">
-                                  {lesson.students.length} уч.
-                                  {lesson.needs_attendance && (
-                                    <span className="text-orange-600 ml-1" title="Ожидается отметка">
-                                      !
-                                    </span>
-                                  )}
-                                </div>
-                              </button>
-                            ))}
+                            {lessons.map((lesson) => {
+                              const visualStatus = getLessonVisualStatus(lesson);
+                              const statusLabel = getLessonStatusLabel(visualStatus);
+
+                              return (
+                                <button
+                                  key={lesson.id}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleLessonClick(lesson);
+                                  }}
+                                  className={`w-full p-2 mb-1 rounded-lg text-left text-xs ${getLessonStyles(visualStatus)}`}
+                                  title={statusLabel}
+                                >
+                                  <div className="font-medium truncate flex items-center justify-between">
+                                    <span>{lesson.title}</span>
+                                    {visualStatus === 'past' && (
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                          d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                      </svg>
+                                    )}
+                                  </div>
+                                  <div className="text-[10px] opacity-75 flex justify-between">
+                                    <span>{lesson.students.length} уч.</span>
+                                    <span className="uppercase font-semibold">{statusLabel}</span>
+                                  </div>
+                                </button>
+                              );
+                            })}
                           </td>
                         );
                       })}
@@ -573,22 +643,82 @@ export default function TeacherDashboardPage() {
             </div>
 
             {/* Legend */}
-            {availability.length > 0 && (
-              <div className="flex items-center gap-4 text-xs text-gray-500 mt-4 pt-4 border-t border-gray-100">
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-green-50 rounded border border-green-200"></div>
-                  <span>Свободен для занятий</span>
-                </div>
+            <div className="flex flex-wrap gap-4 text-xs text-gray-600 mt-4 pt-4 border-t">
+              <span className="font-medium">Статусы:</span>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-green-100 rounded border-l-4 border-green-500"></div>
+                <span>Завершён</span>
               </div>
-            )}
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-blue-100 rounded border-l-4 border-blue-500"></div>
+                <span>Сегодня</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-orange-100 rounded border-l-4 border-orange-500"></div>
+                <span>Требует отметки</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-yellow-100 rounded border-l-4 border-yellow-500"></div>
+                <span>Предстоит</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-red-100 rounded border-l-4 border-red-500"></div>
+                <span>Отменён</span>
+              </div>
+              {availability.length > 0 && (
+                <>
+                  <span className="border-l pl-4 border-gray-300"></span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-green-50 rounded border border-green-200"></div>
+                    <span>Свободен для занятий</span>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
 
       {activeTab === "students" && (
         <div className="space-y-6">
-          {/* Groups Section */}
-          <div className="card">
+          {/* Error message */}
+          {studentsError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-3">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div className="flex-1">
+                <p className="font-medium">Ошибка загрузки</p>
+                <p className="text-sm mt-1">{studentsError}</p>
+              </div>
+              <button
+                onClick={() => {
+                  setActiveTab("info");
+                  setTimeout(() => setActiveTab("students"), 100);
+                }}
+                className="btn btn-secondary btn-sm"
+              >
+                Повторить
+              </button>
+            </div>
+          )}
+
+          {/* Loading */}
+          {studentsLoading && (
+            <div className="flex justify-center py-12">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500 mx-auto mb-4"></div>
+                <p className="text-gray-500">Загрузка учеников...</p>
+              </div>
+            </div>
+          )}
+
+          {/* Content */}
+          {!studentsLoading && !studentsError && (
+            <>
+              {/* Groups Section */}
+              <div className="card">
             <div className="flex items-center justify-between mb-4">
               <h2 className="section-title mb-0">Группы</h2>
               <select
@@ -738,6 +868,8 @@ export default function TeacherDashboardPage() {
             );
             })()}
           </div>
+            </>
+          )}
         </div>
       )}
 

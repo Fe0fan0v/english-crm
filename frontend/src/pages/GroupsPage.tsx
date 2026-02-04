@@ -13,6 +13,7 @@ export default function GroupsPage() {
   const [editingGroup, setEditingGroup] = useState<Group | null>(null);
   const [teachers, setTeachers] = useState<User[]>([]);
   const [selectedTeacherId, setSelectedTeacherId] = useState<number | undefined>();
+  const [teachersLoading, setTeachersLoading] = useState(true);
   const navigate = useNavigate();
 
   const fetchGroups = async () => {
@@ -29,10 +30,15 @@ export default function GroupsPage() {
 
   const fetchTeachers = async () => {
     try {
-      const response = await usersApi.list(1, 100);
-      setTeachers(response.items.filter((u) => u.role === "teacher"));
+      setTeachersLoading(true);
+      console.log('Fetching teachers...');
+      const response = await usersApi.list(1, 100, undefined, "teacher"); // Фильтр по роли
+      console.log('Teachers loaded:', response.items);
+      setTeachers(response.items);
     } catch (error) {
       console.error("Failed to fetch teachers:", error);
+    } finally {
+      setTeachersLoading(false);
     }
   };
 
@@ -109,8 +115,11 @@ export default function GroupsPage() {
             setPage(1);
           }}
           className="input max-w-xs"
+          disabled={teachersLoading}
         >
-          <option value="">Все преподаватели</option>
+          <option value="">
+            {teachersLoading ? "Загрузка..." : "Все преподаватели"}
+          </option>
           {teachers.map((teacher) => (
             <option key={teacher.id} value={teacher.id}>
               {teacher.name}

@@ -89,6 +89,7 @@ export default function LessonCreateModal({
   prefillDate,
   prefillTime,
 }: LessonCreateModalProps) {
+  const { user } = useAuthStore();
   const [selectedTeacherId, setSelectedTeacherId] = useState<number | undefined>(teacherId);
   const [lessonTypeId, setLessonTypeId] = useState<number | "">("");
   const [scheduledDate, setScheduledDate] = useState(prefillDate || "");
@@ -486,11 +487,23 @@ export default function LessonCreateModal({
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Группа (опционально)
               </label>
+
+              {/* Hint for admin/manager when no teacher selected */}
+              {!teacherId && !selectedTeacherId && user?.role !== 'teacher' && (
+                <div className="mb-2 text-sm text-amber-600 bg-amber-50 p-3 rounded-lg flex items-center gap-2">
+                  <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>Сначала выберите преподавателя, чтобы увидеть доступные группы</span>
+                </div>
+              )}
+
               <SearchableSelect
                 options={groupOptions}
                 value={groupId}
                 onChange={(val) => setGroupId(val as number | null)}
-                placeholder="Без группы (индивидуальный)"
+                placeholder={selectedTeacherId || teacherId ? "Без группы (индивидуальный)" : "Сначала выберите преподавателя"}
               />
             </div>
 

@@ -45,6 +45,16 @@ export default function AttachCourseMaterialModal({ isOpen, onClose, lessonId, o
       setAttaching(true);
       setError(null);
 
+      console.log(`Attaching: type=${type}, id=${id}, lessonId=${lessonId}`);
+
+      // Правильный вызов API
+      const payload: any = { material_type: type };
+      if (type === 'course') payload.course_id = id;
+      else if (type === 'section') payload.section_id = id;
+      else if (type === 'lesson') payload.interactive_lesson_id = id;
+
+      console.log('Payload:', payload);
+
       if (type === 'course') {
         await courseMaterialsApi.attachCourseMaterial(lessonId, type, id, undefined, undefined);
       } else if (type === 'section') {
@@ -56,13 +66,17 @@ export default function AttachCourseMaterialModal({ isOpen, onClose, lessonId, o
       onAttached();
       onClose();
     } catch (err: unknown) {
+      console.error('Error:', err);
+
+      let errorMessage = 'Не удалось прикрепить материал';
       if (err && typeof err === 'object' && 'response' in err) {
-        const axiosError = err as { response?: { data?: { detail?: string } } };
-        setError(axiosError.response?.data?.detail || 'Failed to attach material');
-      } else {
-        setError('Failed to attach material');
+        const axiosError = err as { response?: { data?: { detail?: string }, status?: number } };
+        errorMessage = axiosError.response?.data?.detail || errorMessage;
+        console.error('Server response:', axiosError.response?.data);
+        console.error('Status:', axiosError.response?.status);
       }
-      console.error(err);
+
+      setError(errorMessage);
     } finally {
       setAttaching(false);
     }
