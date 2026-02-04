@@ -857,6 +857,7 @@ async def get_lesson(
         .where(InteractiveLesson.id == lesson_id)
         .options(
             selectinload(InteractiveLesson.section).selectinload(CourseSection.course),
+            selectinload(InteractiveLesson.topic).selectinload(CourseTopic.section).selectinload(CourseSection.course),
             selectinload(InteractiveLesson.blocks)
         )
     )
@@ -865,7 +866,14 @@ async def get_lesson(
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
 
-    course = lesson.section.course
+    # Support both old structure (lesson.section) and new structure (lesson.topic.section)
+    if lesson.section:
+        course = lesson.section.course
+    elif lesson.topic:
+        course = lesson.topic.section.course
+    else:
+        raise HTTPException(status_code=404, detail="Lesson has no section or topic")
+
     if not can_view_course(current_user, course):
         raise HTTPException(status_code=403, detail="Access denied")
 
