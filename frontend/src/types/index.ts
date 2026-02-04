@@ -537,7 +537,7 @@ export interface ConversationListResponse {
 }
 
 // Course Materials for Lessons
-export type CourseMaterialType = 'course' | 'section' | 'lesson';
+export type CourseMaterialType = 'course' | 'section' | 'topic' | 'lesson';
 
 export interface LessonCourseMaterial {
   id: number;
@@ -546,6 +546,8 @@ export interface LessonCourseMaterial {
   course_title: string | null;
   section_id: number | null;
   section_title: string | null;
+  topic_id?: number | null;
+  topic_title?: string | null;
   interactive_lesson_id: number | null;
   interactive_lesson_title: string | null;
   attached_at: string;
@@ -556,6 +558,6 @@ export interface LessonCourseMaterial {
 export interface CourseTreeItem {
   id: number;
   title: string;
-  type: 'course' | 'section' | 'lesson';
+  type: 'course' | 'section' | 'topic' | 'lesson';
   children: CourseTreeItem[];
 }

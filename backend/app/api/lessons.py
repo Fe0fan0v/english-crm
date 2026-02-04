@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 from app.api.deps import CurrentUser, ManagerUser, TeacherUser, get_db
 
 logger = logging.getLogger(__name__)
-from app.models.course import Course, CourseSection, InteractiveLesson
+from app.models.course import Course, CourseSection, CourseTopic, InteractiveLesson
 from app.models.group import Group, GroupStudent
 from app.models.lesson import AttendanceStatus, Lesson, LessonStatus, LessonStudent
 from app.models.lesson_course_material import CourseMaterialType, LessonCourseMaterial
@@ -1011,6 +1011,7 @@ async def get_lesson_course_materials(
         .options(
             selectinload(LessonCourseMaterial.course),
             selectinload(LessonCourseMaterial.section),
+            selectinload(LessonCourseMaterial.topic),
             selectinload(LessonCourseMaterial.interactive_lesson),
             selectinload(LessonCourseMaterial.attacher),
         )
@@ -1027,6 +1028,8 @@ async def get_lesson_course_materials(
             course_title=m.course.title if m.course else None,
             section_id=m.section_id,
             section_title=m.section.title if m.section else None,
+            topic_id=m.topic_id,
+            topic_title=m.topic.title if m.topic else None,
             interactive_lesson_id=m.interactive_lesson_id,
             interactive_lesson_title=m.interactive_lesson.title if m.interactive_lesson else None,
             attached_at=m.attached_at,
@@ -1049,10 +1052,11 @@ async def attach_course_material(
     Can attach:
     - Whole course (material_type='course', course_id=X)
     - Section (material_type='section', section_id=X)
+    - Topic (material_type='topic', topic_id=X)
     - Interactive lesson (material_type='lesson', interactive_lesson_id=X)
     """
     try:
-        logger.info(f"Attaching material to lesson {lesson_id}: type={data.material_type}, course_id={data.course_id}, section_id={data.section_id}, interactive_lesson_id={data.interactive_lesson_id}")
+        logger.info(f"Attaching material to lesson {lesson_id}: type={data.material_type}, course_id={data.course_id}, section_id={data.section_id}, topic_id={data.topic_id}, interactive_lesson_id={data.interactive_lesson_id}")
 
         lesson = await db.get(Lesson, lesson_id)
         if not lesson:
@@ -1081,6 +1085,19 @@ async def attach_course_material(
             raise HTTPException(404, "Section not found")
         if not section.course.is_published:
             raise HTTPException(400, "Course is not published")
+    elif data.material_type == CourseMaterialType.TOPIC:
+        result = await db.execute(
+            select(CourseTopic)
+            .where(CourseTopic.id == data.topic_id)
+            .options(
+                selectinload(CourseTopic.section).selectinload(CourseSection.course)
+            )
+        )
+        topic = result.scalar_one_or_none()
+        if not topic:
+            raise HTTPException(404, "Topic not found")
+        if not topic.section.course.is_published:
+            raise HTTPException(400, "Course is not published")
     elif data.material_type == CourseMaterialType.LESSON:
         result = await db.execute(
             select(InteractiveLesson)
@@ -1107,6 +1124,8 @@ async def attach_course_material(
         stmt = stmt.where(LessonCourseMaterial.course_id == data.course_id)
     elif data.material_type == CourseMaterialType.SECTION:
         stmt = stmt.where(LessonCourseMaterial.section_id == data.section_id)
+    elif data.material_type == CourseMaterialType.TOPIC:
+        stmt = stmt.where(LessonCourseMaterial.topic_id == data.topic_id)
     elif data.material_type == CourseMaterialType.LESSON:
         stmt = stmt.where(LessonCourseMaterial.interactive_lesson_id == data.interactive_lesson_id)
 
@@ -1120,6 +1139,7 @@ async def attach_course_material(
         material_type=data.material_type,
         course_id=data.course_id if data.material_type == CourseMaterialType.COURSE else None,
         section_id=data.section_id if data.material_type == CourseMaterialType.SECTION else None,
+        topic_id=data.topic_id if data.material_type == CourseMaterialType.TOPIC else None,
         interactive_lesson_id=data.interactive_lesson_id if data.material_type == CourseMaterialType.LESSON else None,
         attached_by=current_user.id,
     )
@@ -1134,6 +1154,7 @@ async def attach_course_material(
             .options(
                 selectinload(LessonCourseMaterial.course),
                 selectinload(LessonCourseMaterial.section),
+                selectinload(LessonCourseMaterial.topic),
                 selectinload(LessonCourseMaterial.interactive_lesson),
                 selectinload(LessonCourseMaterial.attacher),
             )
@@ -1149,6 +1170,8 @@ async def attach_course_material(
             course_title=material.course.title if material.course else None,
             section_id=material.section_id,
             section_title=material.section.title if material.section else None,
+            topic_id=material.topic_id,
+            topic_title=material.topic.title if material.topic else None,
             interactive_lesson_id=material.interactive_lesson_id,
             interactive_lesson_title=material.interactive_lesson.title if material.interactive_lesson else None,
             attached_at=material.attached_at,

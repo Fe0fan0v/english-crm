@@ -62,7 +62,7 @@ class Course(Base):
 
 
 class CourseSection(Base):
-    """Section within a course - second level of hierarchy."""
+    """Section within a course - second level of hierarchy (Level)."""
     __tablename__ = "course_sections"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -77,20 +77,55 @@ class CourseSection(Base):
 
     # Relationships
     course: Mapped["Course"] = relationship("Course", back_populates="sections")
+    topics: Mapped[list["CourseTopic"]] = relationship(
+        "CourseTopic",
+        back_populates="section",
+        cascade="all, delete-orphan",
+        order_by="CourseTopic.position"
+    )
+    # Deprecated: old relationship for backward compatibility during migration
     lessons: Mapped[list["InteractiveLesson"]] = relationship(
         "InteractiveLesson",
         back_populates="section",
+        foreign_keys="[InteractiveLesson.section_id]",
+        order_by="InteractiveLesson.position"
+    )
+
+
+class CourseTopic(Base):
+    """Topic within a section - third level of hierarchy."""
+    __tablename__ = "course_topics"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    section_id: Mapped[int] = mapped_column(ForeignKey("course_sections.id", ondelete="CASCADE"), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    # Relationships
+    section: Mapped["CourseSection"] = relationship("CourseSection", back_populates="topics")
+    lessons: Mapped[list["InteractiveLesson"]] = relationship(
+        "InteractiveLesson",
+        back_populates="topic",
         cascade="all, delete-orphan",
         order_by="InteractiveLesson.position"
     )
 
 
 class InteractiveLesson(Base):
-    """Interactive lesson within a section - third level of hierarchy."""
+    """Interactive lesson within a topic - fourth level of hierarchy."""
     __tablename__ = "interactive_lessons"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    section_id: Mapped[int] = mapped_column(ForeignKey("course_sections.id", ondelete="CASCADE"), nullable=False)
+    # New structure: belongs to topic
+    topic_id: Mapped[int | None] = mapped_column(ForeignKey("course_topics.id", ondelete="CASCADE"), nullable=True)
+    # Old structure: belongs to section (for backward compatibility during migration)
+    section_id: Mapped[int | None] = mapped_column(ForeignKey("course_sections.id", ondelete="CASCADE"), nullable=True)
+
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     position: Mapped[int] = mapped_column(Integer, default=0)
@@ -103,7 +138,12 @@ class InteractiveLesson(Base):
     )
 
     # Relationships
-    section: Mapped["CourseSection"] = relationship("CourseSection", back_populates="lessons")
+    topic: Mapped["CourseTopic | None"] = relationship("CourseTopic", back_populates="lessons")
+    section: Mapped["CourseSection | None"] = relationship(
+        "CourseSection",
+        back_populates="lessons",
+        foreign_keys=[section_id]
+    )
     created_by: Mapped["User"] = relationship("User", foreign_keys=[created_by_id])
     blocks: Mapped[list["ExerciseBlock"]] = relationship(
         "ExerciseBlock",

@@ -254,7 +254,8 @@ class InteractiveLessonUpdate(BaseModel):
 class InteractiveLessonResponse(InteractiveLessonBase):
     """Schema for interactive lesson response (without blocks)."""
     id: int
-    section_id: int
+    topic_id: int | None = None  # New structure
+    section_id: int | None = None  # Old structure (for backward compatibility)
     created_by_id: int
     created_at: datetime
     updated_at: datetime
@@ -267,7 +268,8 @@ class InteractiveLessonResponse(InteractiveLessonBase):
 class InteractiveLessonDetailResponse(InteractiveLessonBase):
     """Schema for interactive lesson response with blocks."""
     id: int
-    section_id: int
+    topic_id: int | None = None  # New structure
+    section_id: int | None = None  # Old structure (for backward compatibility)
     created_by_id: int
     created_at: datetime
     updated_at: datetime
@@ -314,6 +316,51 @@ class CourseSectionDetailResponse(CourseSectionBase):
     """Schema for course section response with lessons."""
     id: int
     course_id: int
+    created_at: datetime
+    updated_at: datetime
+    lessons: list[InteractiveLessonResponse] = []
+
+    class Config:
+        from_attributes = True
+
+
+# ============== Course Topic Schemas ==============
+
+class CourseTopicBase(BaseModel):
+    """Base schema for course topic."""
+    title: str = Field(..., min_length=1, max_length=255)
+    description: str | None = None
+    position: int = 0
+
+
+class CourseTopicCreate(CourseTopicBase):
+    """Schema for creating a course topic."""
+    pass
+
+
+class CourseTopicUpdate(BaseModel):
+    """Schema for updating a course topic."""
+    title: str | None = Field(None, min_length=1, max_length=255)
+    description: str | None = None
+    position: int | None = None
+
+
+class CourseTopicResponse(CourseTopicBase):
+    """Schema for course topic response (without lessons)."""
+    id: int
+    section_id: int
+    created_at: datetime
+    updated_at: datetime
+    lessons_count: int = 0
+
+    class Config:
+        from_attributes = True
+
+
+class CourseTopicDetailResponse(CourseTopicBase):
+    """Schema for course topic response with lessons."""
+    id: int
+    section_id: int
     created_at: datetime
     updated_at: datetime
     lessons: list[InteractiveLessonResponse] = []

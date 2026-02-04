@@ -16,6 +16,7 @@ export default function AttachCourseMaterialModal({ isOpen, onClose, lessonId, o
   const [error, setError] = useState<string | null>(null);
   const [expandedCourses, setExpandedCourses] = useState<Set<number>>(new Set());
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set());
+  const [expandedTopics, setExpandedTopics] = useState<Set<number>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
@@ -51,16 +52,19 @@ export default function AttachCourseMaterialModal({ isOpen, onClose, lessonId, o
       const payload: any = { material_type: type };
       if (type === 'course') payload.course_id = id;
       else if (type === 'section') payload.section_id = id;
+      else if (type === 'topic') payload.topic_id = id;
       else if (type === 'lesson') payload.interactive_lesson_id = id;
 
       console.log('Payload:', payload);
 
       if (type === 'course') {
-        await courseMaterialsApi.attachCourseMaterial(lessonId, type, id, undefined, undefined);
+        await courseMaterialsApi.attachCourseMaterial(lessonId, type, id, undefined, undefined, undefined);
       } else if (type === 'section') {
-        await courseMaterialsApi.attachCourseMaterial(lessonId, type, undefined, id, undefined);
+        await courseMaterialsApi.attachCourseMaterial(lessonId, type, undefined, id, undefined, undefined);
+      } else if (type === 'topic') {
+        await courseMaterialsApi.attachCourseMaterial(lessonId, type, undefined, undefined, id, undefined);
       } else if (type === 'lesson') {
-        await courseMaterialsApi.attachCourseMaterial(lessonId, type, undefined, undefined, id);
+        await courseMaterialsApi.attachCourseMaterial(lessonId, type, undefined, undefined, undefined, id);
       }
 
       onAttached();
@@ -100,6 +104,16 @@ export default function AttachCourseMaterialModal({ isOpen, onClose, lessonId, o
       newExpanded.add(sectionId);
     }
     setExpandedSections(newExpanded);
+  };
+
+  const toggleTopic = (topicId: number) => {
+    const newExpanded = new Set(expandedTopics);
+    if (newExpanded.has(topicId)) {
+      newExpanded.delete(topicId);
+    } else {
+      newExpanded.add(topicId);
+    }
+    setExpandedTopics(newExpanded);
   };
 
   // Filter tree based on search query
@@ -236,26 +250,64 @@ export default function AttachCourseMaterialModal({ isOpen, onClose, lessonId, o
                             </button>
                           </div>
 
-                          {/* Lessons */}
+                          {/* Topics */}
                           {expandedSections.has(section.id) && section.children.length > 0 && (
                             <div className="ml-4 border-l">
-                              {section.children.map((lesson) => (
-                                <div
-                                  key={lesson.id}
-                                  className="flex items-center justify-between p-2 hover:bg-gray-50"
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <span className="w-4"></span>
-                                    <span className="text-sm">{lesson.title}</span>
-                                    <span className="text-xs text-gray-500 bg-green-100 text-green-700 px-2 py-0.5 rounded">Урок</span>
+                              {section.children.map((topic) => (
+                                <div key={topic.id}>
+                                  {/* Topic level */}
+                                  <div className="flex items-center justify-between p-2 hover:bg-gray-50">
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        onClick={() => toggleTopic(topic.id)}
+                                        className="text-gray-500 hover:text-gray-700"
+                                      >
+                                        {expandedTopics.has(topic.id) ? (
+                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                          </svg>
+                                        ) : (
+                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                          </svg>
+                                        )}
+                                      </button>
+                                      <span className="font-medium text-sm">{topic.title}</span>
+                                      <span className="text-xs text-gray-500 bg-orange-100 text-orange-700 px-2 py-0.5 rounded">Топик</span>
+                                    </div>
+                                    <button
+                                      onClick={() => handleAttach('topic', topic.id)}
+                                      disabled={attaching}
+                                      className="text-sm px-3 py-1 bg-orange-500 text-white rounded hover:bg-orange-600 disabled:opacity-50"
+                                    >
+                                      Добавить
+                                    </button>
                                   </div>
-                                  <button
-                                    onClick={() => handleAttach('lesson', lesson.id)}
-                                    disabled={attaching}
-                                    className="text-sm px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
-                                  >
-                                    Добавить
-                                  </button>
+
+                                  {/* Lessons */}
+                                  {expandedTopics.has(topic.id) && topic.children.length > 0 && (
+                                    <div className="ml-4 border-l">
+                                      {topic.children.map((lesson) => (
+                                        <div
+                                          key={lesson.id}
+                                          className="flex items-center justify-between p-2 hover:bg-gray-50"
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <span className="w-4"></span>
+                                            <span className="text-sm">{lesson.title}</span>
+                                            <span className="text-xs text-gray-500 bg-green-100 text-green-700 px-2 py-0.5 rounded">Урок</span>
+                                          </div>
+                                          <button
+                                            onClick={() => handleAttach('lesson', lesson.id)}
+                                            disabled={attaching}
+                                            className="text-sm px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
+                                          >
+                                            Добавить
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
                               ))}
                             </div>

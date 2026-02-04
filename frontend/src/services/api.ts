@@ -867,12 +867,14 @@ export const courseMaterialsApi = {
     materialType: CourseMaterialType,
     courseId?: number,
     sectionId?: number,
+    topicId?: number,
     interactiveLessonId?: number
   ): Promise<LessonCourseMaterial> => {
     const response = await api.post<LessonCourseMaterial>(`/lessons/${lessonId}/course-materials`, {
       material_type: materialType,
       course_id: courseId,
       section_id: sectionId,
+      topic_id: topicId,
       interactive_lesson_id: interactiveLessonId,
     });
     return response.data;

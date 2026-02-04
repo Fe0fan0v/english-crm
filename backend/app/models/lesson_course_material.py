@@ -8,15 +8,16 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 if TYPE_CHECKING:
-    from app.models.course import Course, CourseSection, InteractiveLesson
+    from app.models.course import Course, CourseSection, CourseTopic, InteractiveLesson
     from app.models.lesson import Lesson
     from app.models.user import User
 
 
 class CourseMaterialType(str, PyEnum):
     """Type of course material attached to a lesson."""
-    COURSE = "course"      # Whole course (e.g., "Beginner")
-    SECTION = "section"    # Section (e.g., "A-1")
+    COURSE = "course"      # Whole course (e.g., "English File 4th")
+    SECTION = "section"    # Section/Level (e.g., "Beginner")
+    TOPIC = "topic"        # Topic (e.g., "1A Hello")
     LESSON = "lesson"      # Interactive lesson (e.g., "Warm Up")
 
 
@@ -43,6 +44,9 @@ class LessonCourseMaterial(Base):
     section_id: Mapped[int | None] = mapped_column(
         ForeignKey("course_sections.id", ondelete="CASCADE"), nullable=True
     )
+    topic_id: Mapped[int | None] = mapped_column(
+        ForeignKey("course_topics.id", ondelete="CASCADE"), nullable=True
+    )
     interactive_lesson_id: Mapped[int | None] = mapped_column(
         ForeignKey("interactive_lessons.id", ondelete="CASCADE"), nullable=True
     )
@@ -58,6 +62,7 @@ class LessonCourseMaterial(Base):
     lesson: Mapped["Lesson"] = relationship("Lesson", back_populates="course_materials")
     course: Mapped["Course | None"] = relationship("Course", foreign_keys=[course_id])
     section: Mapped["CourseSection | None"] = relationship("CourseSection", foreign_keys=[section_id])
+    topic: Mapped["CourseTopic | None"] = relationship("CourseTopic", foreign_keys=[topic_id])
     interactive_lesson: Mapped["InteractiveLesson | None"] = relationship(
         "InteractiveLesson", foreign_keys=[interactive_lesson_id]
     )

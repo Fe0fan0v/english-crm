@@ -8,6 +8,7 @@ class CourseMaterialType(str, Enum):
     """Type of course material attached to a lesson."""
     COURSE = "course"
     SECTION = "section"
+    TOPIC = "topic"
     LESSON = "lesson"
 
 
@@ -16,6 +17,7 @@ class LessonCourseMaterialAttach(BaseModel):
     material_type: CourseMaterialType
     course_id: int | None = None
     section_id: int | None = None
+    topic_id: int | None = None
     interactive_lesson_id: int | None = None
 
     @model_validator(mode='after')
@@ -27,6 +29,9 @@ class LessonCourseMaterialAttach(BaseModel):
         elif self.material_type == CourseMaterialType.SECTION:
             if not self.section_id:
                 raise ValueError("section_id is required when material_type is 'section'")
+        elif self.material_type == CourseMaterialType.TOPIC:
+            if not self.topic_id:
+                raise ValueError("topic_id is required when material_type is 'topic'")
         elif self.material_type == CourseMaterialType.LESSON:
             if not self.interactive_lesson_id:
                 raise ValueError("interactive_lesson_id is required when material_type is 'lesson'")
@@ -41,6 +46,8 @@ class LessonCourseMaterialResponse(BaseModel):
     course_title: str | None = None
     section_id: int | None = None
     section_title: str | None = None
+    topic_id: int | None = None
+    topic_title: str | None = None
     interactive_lesson_id: int | None = None
     interactive_lesson_title: str | None = None
     attached_at: datetime
@@ -55,7 +62,7 @@ class CourseTreeItem(BaseModel):
     """Item in the course tree for material selection."""
     id: int
     title: str
-    type: str  # "course", "section", "lesson"
+    type: str  # "course", "section", "topic", "lesson"
     children: list["CourseTreeItem"] = []
 
     class Config:
