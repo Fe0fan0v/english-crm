@@ -969,14 +969,14 @@ function ImageRenderer({
   }
 
   return (
-    <figure className="text-center">
+    <figure className="text-center my-6">
       <img
         src={url}
         alt={alt || caption || 'Изображение'}
-        className="max-w-full h-auto rounded-lg mx-auto"
+        className="w-full max-w-4xl h-auto rounded-lg mx-auto shadow-md"
       />
       {caption && (
-        <figcaption className="mt-2 text-sm text-gray-600 italic">{caption}</figcaption>
+        <figcaption className="mt-3 text-base text-gray-700 italic max-w-4xl mx-auto">{caption}</figcaption>
       )}
     </figure>
   );
