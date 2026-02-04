@@ -1062,90 +1062,90 @@ async def attach_course_material(
         if not lesson:
             raise HTTPException(404, "Lesson not found")
 
-    # Check permissions - teacher can only attach to their own lessons
-    if current_user.role not in [UserRole.ADMIN, UserRole.MANAGER]:
-        if lesson.teacher_id != current_user.id:
-            raise HTTPException(403, "Only lesson teacher can attach materials")
+        # Check permissions - teacher can only attach to their own lessons
+        if current_user.role not in [UserRole.ADMIN, UserRole.MANAGER]:
+            if lesson.teacher_id != current_user.id:
+                raise HTTPException(403, "Only lesson teacher can attach materials")
 
-    # Validate that the referenced material exists and is published
-    if data.material_type == CourseMaterialType.COURSE:
-        course = await db.get(Course, data.course_id)
-        if not course:
-            raise HTTPException(404, "Course not found")
-        if not course.is_published:
-            raise HTTPException(400, "Course is not published")
-    elif data.material_type == CourseMaterialType.SECTION:
-        result = await db.execute(
-            select(CourseSection)
-            .where(CourseSection.id == data.section_id)
-            .options(selectinload(CourseSection.course))
-        )
-        section = result.scalar_one_or_none()
-        if not section:
-            raise HTTPException(404, "Section not found")
-        if not section.course.is_published:
-            raise HTTPException(400, "Course is not published")
-    elif data.material_type == CourseMaterialType.TOPIC:
-        result = await db.execute(
-            select(CourseTopic)
-            .where(CourseTopic.id == data.topic_id)
-            .options(
-                selectinload(CourseTopic.section).selectinload(CourseSection.course)
+        # Validate that the referenced material exists and is published
+        if data.material_type == CourseMaterialType.COURSE:
+            course = await db.get(Course, data.course_id)
+            if not course:
+                raise HTTPException(404, "Course not found")
+            if not course.is_published:
+                raise HTTPException(400, "Course is not published")
+        elif data.material_type == CourseMaterialType.SECTION:
+            result = await db.execute(
+                select(CourseSection)
+                .where(CourseSection.id == data.section_id)
+                .options(selectinload(CourseSection.course))
             )
-        )
-        topic = result.scalar_one_or_none()
-        if not topic:
-            raise HTTPException(404, "Topic not found")
-        if not topic.section.course.is_published:
-            raise HTTPException(400, "Course is not published")
-    elif data.material_type == CourseMaterialType.LESSON:
-        result = await db.execute(
-            select(InteractiveLesson)
-            .where(InteractiveLesson.id == data.interactive_lesson_id)
-            .options(
-                selectinload(InteractiveLesson.section)
-                .selectinload(CourseSection.course)
+            section = result.scalar_one_or_none()
+            if not section:
+                raise HTTPException(404, "Section not found")
+            if not section.course.is_published:
+                raise HTTPException(400, "Course is not published")
+        elif data.material_type == CourseMaterialType.TOPIC:
+            result = await db.execute(
+                select(CourseTopic)
+                .where(CourseTopic.id == data.topic_id)
+                .options(
+                    selectinload(CourseTopic.section).selectinload(CourseSection.course)
+                )
             )
+            topic = result.scalar_one_or_none()
+            if not topic:
+                raise HTTPException(404, "Topic not found")
+            if not topic.section.course.is_published:
+                raise HTTPException(400, "Course is not published")
+        elif data.material_type == CourseMaterialType.LESSON:
+            result = await db.execute(
+                select(InteractiveLesson)
+                .where(InteractiveLesson.id == data.interactive_lesson_id)
+                .options(
+                    selectinload(InteractiveLesson.section)
+                    .selectinload(CourseSection.course)
+                )
+            )
+            interactive_lesson = result.scalar_one_or_none()
+            if not interactive_lesson:
+                raise HTTPException(404, "Interactive lesson not found")
+            if not interactive_lesson.is_published:
+                raise HTTPException(400, "Interactive lesson is not published")
+            if not interactive_lesson.section.course.is_published:
+                raise HTTPException(400, "Course is not published")
+
+        # Check for duplicates
+        stmt = select(LessonCourseMaterial).where(
+            LessonCourseMaterial.lesson_id == lesson_id,
+            LessonCourseMaterial.material_type == data.material_type,
         )
-        interactive_lesson = result.scalar_one_or_none()
-        if not interactive_lesson:
-            raise HTTPException(404, "Interactive lesson not found")
-        if not interactive_lesson.is_published:
-            raise HTTPException(400, "Interactive lesson is not published")
-        if not interactive_lesson.section.course.is_published:
-            raise HTTPException(400, "Course is not published")
+        if data.material_type == CourseMaterialType.COURSE:
+            stmt = stmt.where(LessonCourseMaterial.course_id == data.course_id)
+        elif data.material_type == CourseMaterialType.SECTION:
+            stmt = stmt.where(LessonCourseMaterial.section_id == data.section_id)
+        elif data.material_type == CourseMaterialType.TOPIC:
+            stmt = stmt.where(LessonCourseMaterial.topic_id == data.topic_id)
+        elif data.material_type == CourseMaterialType.LESSON:
+            stmt = stmt.where(LessonCourseMaterial.interactive_lesson_id == data.interactive_lesson_id)
 
-    # Check for duplicates
-    stmt = select(LessonCourseMaterial).where(
-        LessonCourseMaterial.lesson_id == lesson_id,
-        LessonCourseMaterial.material_type == data.material_type,
-    )
-    if data.material_type == CourseMaterialType.COURSE:
-        stmt = stmt.where(LessonCourseMaterial.course_id == data.course_id)
-    elif data.material_type == CourseMaterialType.SECTION:
-        stmt = stmt.where(LessonCourseMaterial.section_id == data.section_id)
-    elif data.material_type == CourseMaterialType.TOPIC:
-        stmt = stmt.where(LessonCourseMaterial.topic_id == data.topic_id)
-    elif data.material_type == CourseMaterialType.LESSON:
-        stmt = stmt.where(LessonCourseMaterial.interactive_lesson_id == data.interactive_lesson_id)
+        result = await db.execute(stmt)
+        if result.scalar_one_or_none():
+            raise HTTPException(400, "This material is already attached to the lesson")
 
-    result = await db.execute(stmt)
-    if result.scalar_one_or_none():
-        raise HTTPException(400, "This material is already attached to the lesson")
-
-    # Create the attachment
-    material = LessonCourseMaterial(
-        lesson_id=lesson_id,
-        material_type=data.material_type,
-        course_id=data.course_id if data.material_type == CourseMaterialType.COURSE else None,
-        section_id=data.section_id if data.material_type == CourseMaterialType.SECTION else None,
-        topic_id=data.topic_id if data.material_type == CourseMaterialType.TOPIC else None,
-        interactive_lesson_id=data.interactive_lesson_id if data.material_type == CourseMaterialType.LESSON else None,
-        attached_by=current_user.id,
-    )
-    db.add(material)
-    await db.commit()
-    await db.refresh(material)
+        # Create the attachment
+        material = LessonCourseMaterial(
+            lesson_id=lesson_id,
+            material_type=data.material_type,
+            course_id=data.course_id if data.material_type == CourseMaterialType.COURSE else None,
+            section_id=data.section_id if data.material_type == CourseMaterialType.SECTION else None,
+            topic_id=data.topic_id if data.material_type == CourseMaterialType.TOPIC else None,
+            interactive_lesson_id=data.interactive_lesson_id if data.material_type == CourseMaterialType.LESSON else None,
+            attached_by=current_user.id,
+        )
+        db.add(material)
+        await db.commit()
+        await db.refresh(material)
 
         # Load relationships for response
         result = await db.execute(
