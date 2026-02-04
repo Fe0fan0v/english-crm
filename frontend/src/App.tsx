@@ -298,14 +298,6 @@ export default function App() {
         path="/courses/:id"
         element={
           <ProtectedRoute>
-            <LessonPreviewPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/courses/:id/edit"
-        element={
-          <ProtectedRoute>
             <CourseEditorPage />
           </ProtectedRoute>
         }
