@@ -28,7 +28,7 @@ export default function BlockRenderer({
       case 'text':
         return (
           <div
-            className="prose prose-sm max-w-none"
+            className="prose prose-sm max-w-none [&_iframe]:w-full [&_iframe]:min-h-[500px] [&_iframe]:rounded-lg"
             dangerouslySetInnerHTML={{ __html: (content.html as string) || '' }}
           />
         );
