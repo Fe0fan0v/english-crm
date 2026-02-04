@@ -30,8 +30,8 @@ export default function GroupDetailPage() {
 
   const fetchTeachers = async () => {
     try {
-      const response = await usersApi.list(1, 100);
-      setTeachers(response.items.filter((u) => u.role === "teacher"));
+      const response = await usersApi.list(1, 100, undefined, "teacher");
+      setTeachers(response.items);
     } catch (error) {
       console.error("Failed to fetch teachers:", error);
     }

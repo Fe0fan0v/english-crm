@@ -469,8 +469,8 @@ export const lessonsApi = {
   },
 
   getTeachers: async (): Promise<User[]> => {
-    const response = await api.get<UserListResponse>("/users?size=100");
-    return response.data.items.filter((u) => u.role === "teacher");
+    const response = await api.get<UserListResponse>("/users?size=100&role=teacher");
+    return response.data.items;
   },
 
   createLesson: async (data: {
