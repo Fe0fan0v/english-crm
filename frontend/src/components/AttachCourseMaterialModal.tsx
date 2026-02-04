@@ -48,15 +48,6 @@ export default function AttachCourseMaterialModal({ isOpen, onClose, lessonId, o
 
       console.log(`Attaching: type=${type}, id=${id}, lessonId=${lessonId}`);
 
-      // Правильный вызов API
-      const payload: any = { material_type: type };
-      if (type === 'course') payload.course_id = id;
-      else if (type === 'section') payload.section_id = id;
-      else if (type === 'topic') payload.topic_id = id;
-      else if (type === 'lesson') payload.interactive_lesson_id = id;
-
-      console.log('Payload:', payload);
-
       if (type === 'course') {
         await courseMaterialsApi.attachCourseMaterial(lessonId, type, id, undefined, undefined, undefined);
       } else if (type === 'section') {
