@@ -109,7 +109,6 @@ export default function LessonCreateModal({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [batchResult, setBatchResult] = useState<LessonBatchResponse | null>(null);
-  const { user } = useAuthStore();
 
   // Load lesson types, groups, and students
   useEffect(() => {
