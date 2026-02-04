@@ -303,6 +303,14 @@ export default function App() {
         }
       />
       <Route
+        path="/courses/:id/edit"
+        element={
+          <ProtectedRoute>
+            <CourseEditorPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/courses/lessons/:id"
         element={
           <ProtectedRoute>
