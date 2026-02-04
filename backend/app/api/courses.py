@@ -233,10 +233,8 @@ async def get_course(
         .where(Course.id == course_id)
         .options(
             selectinload(Course.created_by),
-            selectinload(Course.sections)
-            .selectinload(CourseSection.topics)
-            .selectinload(CourseTopic.lessons)
-            .selectinload(InteractiveLesson.blocks)
+            selectinload(Course.sections).selectinload(CourseSection.topics).selectinload(CourseTopic.lessons).selectinload(InteractiveLesson.blocks),
+            selectinload(Course.sections).selectinload(CourseSection.lessons).selectinload(InteractiveLesson.blocks),
         )
     )
     course = result.scalar_one_or_none()
