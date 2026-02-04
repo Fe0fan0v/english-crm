@@ -22,17 +22,6 @@ export default function BlockRenderer({
 }: BlockRendererProps) {
   const content = block.content as Record<string, unknown>;
 
-  // Debug logging
-  if (block.block_type === 'audio' || (block.content as any)?.url?.includes('mp3')) {
-    console.log('[BlockRenderer] Audio block:', {
-      id: block.id,
-      type: block.block_type,
-      typeOf: typeof block.block_type,
-      title: block.title,
-      content: block.content
-    });
-  }
-
   // Render block content based on type
   const renderBlockContent = () => {
     switch (block.block_type) {
