@@ -376,14 +376,14 @@ scripts/edvibe_parser/
 - `scripts/check_*.py` — различные проверочные скрипты
 
 **Импортированные курсы:**
-- English File 4th (ID: 10) — 7 уровней, 292 урока, 10,641 блок:
-  - Beginner — 31 урок, 1316 блоков
-  - Elementary — 49 уроков, 1659 блоков
-  - Pre-Intermediate — 49 уроков, 1484 блока
-  - Intermediate — 32 урока, 981 блок
-  - Intermediate Plus — 49 уроков, 1457 блоков
-  - Upper-Intermediate — 42 урока, 1295 блоков
-  - Advanced — 40 уроков, 1429 блоков
+- English File 4th (ID: 10) — 7 уровней, 292 урока, 10,168 блоков:
+  - Beginner — 31 урок, 1429 блоков
+  - Elementary — 49 уроков, 1763 блока
+  - Pre-Intermediate — 49 уроков, 1541 блок
+  - Intermediate — 32 урока, 996 блоков
+  - Intermediate Plus — 49 уроков, 1532 блока
+  - Upper-Intermediate — 42 урока, 1389 блоков
+  - Advanced — 40 уроков, 1518 блоков
 
 **Использование:**
 ```bash
@@ -629,10 +629,56 @@ ssh jsi "cd ~/english-crm && sudo docker compose exec -T backend python /app/bat
 - Новая структура: `{"text": "...", "gaps": [{"index": 0, "answer": "..."}, ...]}`
 - Блоки теперь отображаются как интерактивные упражнения с полями ввода
 
-**Статистика типов блоков после исправления:**
-- TEXT: 4206 | IMAGE: 1888 | REMEMBER: 1301 | TEACHING_GUIDE: 1146
-- **FILL_GAPS: 836 ✅** | AUDIO: 719 | MATCHING: 338 | TEST: 202
-- VIDEO: 144 | WORD_ORDER: 83 | ESSAY: 74 | TRUE_FALSE: 42
+**Статистика типов блоков (после всех исправлений):**
+- TEXT: 4528 | IMAGE: 1904 | REMEMBER: 1301 | TEACHING_GUIDE: 1146
+- **FILL_GAPS: 836 ✅** | AUDIO: 719 | **TEST: 609 ✅** | **TRUE_FALSE: 263 ✅**
+- VIDEO: 154 | **MATCHING: 97 ✅** | **ESSAY: 74 ✅** | WORD_ORDER: 0
+
+### Test блоки (202 → 609) - ИСПРАВЛЕНО ✅
+**Проблема:** Test блоки содержали сырой текст вместо структурированных вопросов с вариантами ответов.
+
+**Решение:**
+- Скрипт `scripts/fix_test_blocks.py` парсит текст в `{question, options[], multiple_answers, explanation}`
+- Мультивопросные блоки разбиваются на отдельные блоки
+- Мусорные блоки (только цифры) конвертируются в text
+- Результат: 202 → 609 блоков, 6 garbage→text, 0 ошибок
+
+### True/False блоки (42 → 263) - ИСПРАВЛЕНО ✅
+**Проблема:** True/False блоки содержали неструктурированный текст с маркерами Верно/Неверно.
+
+**Решение:**
+- Скрипт `scripts/fix_true_false_blocks.py` парсит в `{statement, is_true, explanation}`
+- Поддержка русского (Верно/Неверно) и английского (True/False) формата
+- Мультиутверждения разбиваются на отдельные блоки
+- Результат: 42 → 263 блока, 0 ошибок
+
+### Essay блоки (74 шт) - ИСПРАВЛЕНО ✅
+**Проблема:** Essay блоки содержали сырой HTML Edvibe вместо `{prompt, min_words, max_words}`.
+
+**Решение:**
+- Скрипт `scripts/fix_essay_blocks.py` извлекает prompt из title или HTML текста
+- Для блоков с background-image создаются отдельные image блоки (+16)
+- Автоматическое определение min/max words из текста промпта
+- Результат: 74 блока обновлены, 16 image блоков создано, 0 ошибок
+
+### Matching блоки (338 → 97) - ИСПРАВЛЕНО ✅
+**Проблема:** 338 блоков были ошибочно классифицированы как matching, из них только 97 настоящие.
+
+**Решение:**
+- Скрипт `scripts/fix_matching_blocks.py`:
+  - 97 matching (с картинками) → парсинг в `{pairs: [{left, right}], shuffle_right}`
+  - 234 fill_gaps_draggable → конвертация в text (нет правильных ответов в HTML)
+  - 7 word_order → конвертация в text
+- MatchingRenderer обновлён для отображения image URL как картинок
+- MatchingEditor показывает превью картинок рядом с полем ввода
+
+### Word_order блоки (83 → 0) - ПЕРЕКЛАССИФИЦИРОВАНЫ ✅
+**Проблема:** Все 83 блока были ошибочно классифицированы как word_order.
+
+**Решение:**
+- Скрипт `scripts/fix_word_order_blocks.py`:
+  - 8 sentence_order → text (предложения в правильном порядке)
+  - 75 fill_gaps_draggable → text (word bank + текст с пропусками)
 
 ### Wordwall блоки (iframe игры) - ЧАСТИЧНО ⚠️
 **Проблема:** Wordwall игры (интерактивные карточки) не отображались - были сохранены только ссылки вместо iframe.
