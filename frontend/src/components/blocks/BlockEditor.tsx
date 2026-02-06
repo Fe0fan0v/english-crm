@@ -934,34 +934,42 @@ function MatchingEditor({
           </button>
         </div>
         <div className="space-y-2">
-          {pairs.map((pair, index) => (
-            <div key={index} className="flex items-center gap-2">
-              <input
-                type="text"
-                value={pair.left}
-                onChange={(e) => updatePair(index, 'left', e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                placeholder="Левая часть"
-              />
-              <span className="text-gray-400">↔</span>
-              <input
-                type="text"
-                value={pair.right}
-                onChange={(e) => updatePair(index, 'right', e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                placeholder="Правая часть"
-              />
-              <button
-                type="button"
-                onClick={() => removePair(index)}
-                className="p-1 text-red-500 hover:bg-red-50 rounded"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          ))}
+          {pairs.map((pair, index) => {
+            const rightIsImage = /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(pair.right);
+            return (
+              <div key={index} className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={pair.left}
+                  onChange={(e) => updatePair(index, 'left', e.target.value)}
+                  className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                  placeholder="Левая часть"
+                />
+                <span className="text-gray-400">↔</span>
+                <div className="flex-1 flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={pair.right}
+                    onChange={(e) => updatePair(index, 'right', e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                    placeholder="Правая часть (текст или URL картинки)"
+                  />
+                  {rightIsImage && (
+                    <img src={pair.right} alt="" className="h-10 w-10 object-contain rounded border border-gray-200" />
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removePair(index)}
+                  className="p-1 text-red-500 hover:bg-red-50 rounded"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
