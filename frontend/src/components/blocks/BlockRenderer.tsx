@@ -845,6 +845,7 @@ function MatchingRenderer({
         <div className="flex-1 space-y-2">
           {rightItems.map((right) => {
             const isMatched = Object.values(matches).includes(right);
+            const isImage = /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(right);
             return (
               <button
                 key={right}
@@ -856,7 +857,11 @@ function MatchingRenderer({
                     : 'border-gray-200 hover:border-gray-300'
                 } ${!isChecked && selectedLeft ? 'hover:border-purple-300' : ''}`}
               >
-                {right}
+                {isImage ? (
+                  <img src={right} alt="" className="w-full h-24 object-contain rounded" />
+                ) : (
+                  right
+                )}
               </button>
             );
           })}
@@ -866,8 +871,21 @@ function MatchingRenderer({
       {isChecked && !allCorrect && (
         <div className="mt-4 p-3 rounded-lg bg-yellow-50">
           <div className="text-sm font-medium mb-1">Правильные пары:</div>
-          <div className="text-sm text-gray-600">
-            {pairs.map((p) => `${p.left} ↔ ${p.right}`).join(', ')}
+          <div className="text-sm text-gray-600 space-y-1">
+            {pairs.map((p) => {
+              const isImage = /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(p.right);
+              return (
+                <div key={p.left} className="flex items-center gap-2">
+                  <span>{p.left}</span>
+                  <span>↔</span>
+                  {isImage ? (
+                    <img src={p.right} alt="" className="h-8 object-contain rounded" />
+                  ) : (
+                    <span>{p.right}</span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
