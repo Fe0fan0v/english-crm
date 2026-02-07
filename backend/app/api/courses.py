@@ -36,6 +36,15 @@ from app.schemas.lesson_course_material import CourseTreeItem
 router = APIRouter()
 
 
+def get_course_for_lesson(lesson: InteractiveLesson) -> Course:
+    """Get the course for an interactive lesson, supporting both section and topic paths."""
+    if lesson.section:
+        return lesson.section.course
+    elif lesson.topic:
+        return lesson.topic.section.course
+    raise HTTPException(status_code=404, detail="Lesson has no section or topic")
+
+
 def can_edit_course(user: User, course: Course) -> bool:
     """Check if user can edit the course. Only admin can edit courses."""
     return user.role == UserRole.ADMIN
@@ -922,6 +931,7 @@ async def update_lesson(
         .where(InteractiveLesson.id == lesson_id)
         .options(
             selectinload(InteractiveLesson.section).selectinload(CourseSection.course),
+            selectinload(InteractiveLesson.topic).selectinload(CourseTopic.section).selectinload(CourseSection.course),
             selectinload(InteractiveLesson.blocks)
         )
     )
@@ -930,7 +940,7 @@ async def update_lesson(
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
 
-    if not can_edit_course(current_user, lesson.section.course):
+    if not can_edit_course(current_user, get_course_for_lesson(lesson)):
         raise HTTPException(status_code=403, detail="Access denied")
 
     update_data = lesson_data.model_dump(exclude_unset=True)
@@ -964,14 +974,17 @@ async def delete_lesson(
     result = await db.execute(
         select(InteractiveLesson)
         .where(InteractiveLesson.id == lesson_id)
-        .options(selectinload(InteractiveLesson.section).selectinload(CourseSection.course))
+        .options(
+            selectinload(InteractiveLesson.section).selectinload(CourseSection.course),
+            selectinload(InteractiveLesson.topic).selectinload(CourseTopic.section).selectinload(CourseSection.course),
+        )
     )
     lesson = result.scalar_one_or_none()
 
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
 
-    if not can_edit_course(current_user, lesson.section.course):
+    if not can_edit_course(current_user, get_course_for_lesson(lesson)):
         raise HTTPException(status_code=403, detail="Access denied")
 
     await db.delete(lesson)
@@ -1059,14 +1072,17 @@ async def create_block(
     result = await db.execute(
         select(InteractiveLesson)
         .where(InteractiveLesson.id == lesson_id)
-        .options(selectinload(InteractiveLesson.section).selectinload(CourseSection.course))
+        .options(
+            selectinload(InteractiveLesson.section).selectinload(CourseSection.course),
+            selectinload(InteractiveLesson.topic).selectinload(CourseTopic.section).selectinload(CourseSection.course),
+        )
     )
     lesson = result.scalar_one_or_none()
 
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
 
-    if not can_edit_course(current_user, lesson.section.course):
+    if not can_edit_course(current_user, get_course_for_lesson(lesson)):
         raise HTTPException(status_code=403, detail="Access denied")
 
     # Get max position
@@ -1113,7 +1129,11 @@ async def update_block(
         .options(
             selectinload(ExerciseBlock.lesson)
             .selectinload(InteractiveLesson.section)
-            .selectinload(CourseSection.course)
+            .selectinload(CourseSection.course),
+            selectinload(ExerciseBlock.lesson)
+            .selectinload(InteractiveLesson.topic)
+            .selectinload(CourseTopic.section)
+            .selectinload(CourseSection.course),
         )
     )
     block = result.scalar_one_or_none()
@@ -1121,7 +1141,7 @@ async def update_block(
     if not block:
         raise HTTPException(status_code=404, detail="Block not found")
 
-    if not can_edit_course(current_user, block.lesson.section.course):
+    if not can_edit_course(current_user, get_course_for_lesson(block.lesson)):
         raise HTTPException(status_code=403, detail="Access denied")
 
     update_data = block_data.model_dump(exclude_unset=True)
@@ -1156,7 +1176,11 @@ async def delete_block(
         .options(
             selectinload(ExerciseBlock.lesson)
             .selectinload(InteractiveLesson.section)
-            .selectinload(CourseSection.course)
+            .selectinload(CourseSection.course),
+            selectinload(ExerciseBlock.lesson)
+            .selectinload(InteractiveLesson.topic)
+            .selectinload(CourseTopic.section)
+            .selectinload(CourseSection.course),
         )
     )
     block = result.scalar_one_or_none()
@@ -1164,7 +1188,7 @@ async def delete_block(
     if not block:
         raise HTTPException(status_code=404, detail="Block not found")
 
-    if not can_edit_course(current_user, block.lesson.section.course):
+    if not can_edit_course(current_user, get_course_for_lesson(block.lesson)):
         raise HTTPException(status_code=403, detail="Access denied")
 
     await db.delete(block)
@@ -1182,14 +1206,17 @@ async def reorder_blocks(
     result = await db.execute(
         select(InteractiveLesson)
         .where(InteractiveLesson.id == lesson_id)
-        .options(selectinload(InteractiveLesson.section).selectinload(CourseSection.course))
+        .options(
+            selectinload(InteractiveLesson.section).selectinload(CourseSection.course),
+            selectinload(InteractiveLesson.topic).selectinload(CourseTopic.section).selectinload(CourseSection.course),
+        )
     )
     lesson = result.scalar_one_or_none()
 
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
 
-    if not can_edit_course(current_user, lesson.section.course):
+    if not can_edit_course(current_user, get_course_for_lesson(lesson)):
         raise HTTPException(status_code=403, detail="Access denied")
 
     for item in reorder_data.items:

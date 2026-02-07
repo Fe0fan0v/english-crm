@@ -6,6 +6,7 @@ interface CreateUserModalProps {
   onClose: () => void;
   onSubmit: (data: CreateUserData) => Promise<void>;
   defaultRole?: UserRole;
+  currentUserRole?: UserRole;
 }
 
 export interface CreateUserData {
@@ -28,7 +29,15 @@ export default function CreateUserModal({
   onClose,
   onSubmit,
   defaultRole = "student",
+  currentUserRole,
 }: CreateUserModalProps) {
+  // Filter available roles based on current user's role
+  const availableRoles = Object.entries(roleLabels).filter(([role]) => {
+    if (currentUserRole === 'manager') {
+      return role === 'teacher' || role === 'student';
+    }
+    return true; // admin sees all roles
+  });
   const [formData, setFormData] = useState<CreateUserData>({
     name: "",
     email: "",
@@ -207,7 +216,7 @@ export default function CreateUserModal({
               onChange={handleChange}
               className="input w-full"
             >
-              {Object.entries(roleLabels).map(([value, label]) => (
+              {availableRoles.map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>

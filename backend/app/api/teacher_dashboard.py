@@ -1466,6 +1466,7 @@ async def get_teacher_lessons_with_materials(
                 "id": lesson.id,
                 "title": lesson.title,
                 "scheduled_at": lesson.scheduled_at.isoformat(),
+                "duration_minutes": lesson.duration_minutes,
                 "lesson_type_name": lesson.lesson_type.name,
                 "meeting_url": lesson.meeting_url,
                 "status": lesson.status.value,

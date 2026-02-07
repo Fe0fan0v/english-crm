@@ -1104,7 +1104,10 @@ async def attach_course_material(
                 .where(InteractiveLesson.id == data.interactive_lesson_id)
                 .options(
                     selectinload(InteractiveLesson.section)
-                    .selectinload(CourseSection.course)
+                    .selectinload(CourseSection.course),
+                    selectinload(InteractiveLesson.topic)
+                    .selectinload(CourseTopic.section)
+                    .selectinload(CourseSection.course),
                 )
             )
             interactive_lesson = result.scalar_one_or_none()
@@ -1112,7 +1115,14 @@ async def attach_course_material(
                 raise HTTPException(404, "Interactive lesson not found")
             if not interactive_lesson.is_published:
                 raise HTTPException(400, "Interactive lesson is not published")
-            if not interactive_lesson.section.course.is_published:
+            # Get course via section or topic path
+            if interactive_lesson.section:
+                course_obj = interactive_lesson.section.course
+            elif interactive_lesson.topic:
+                course_obj = interactive_lesson.topic.section.course
+            else:
+                raise HTTPException(404, "Interactive lesson has no section or topic")
+            if not course_obj.is_published:
                 raise HTTPException(400, "Course is not published")
 
         # Check for duplicates

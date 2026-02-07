@@ -9,12 +9,14 @@ export default function CourseEditorPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
 
-  // Only admin can edit courses
+  // Only admin and teacher can view courses; students are redirected
   useEffect(() => {
-    if (user && user.role !== 'admin') {
+    if (user && user.role === 'student') {
       navigate('/courses');
     }
   }, [user, navigate]);
+
+  const isReadOnly = user?.role !== 'admin';
   const [course, setCourse] = useState<CourseDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -261,7 +263,7 @@ export default function CourseEditorPage() {
         </button>
 
         {/* Title */}
-        {editingTitle ? (
+        {!isReadOnly && editingTitle ? (
           <div className="flex items-center gap-2 mb-2">
             <input
               type="text"
@@ -289,15 +291,15 @@ export default function CourseEditorPage() {
           </div>
         ) : (
           <h1
-            onClick={() => setEditingTitle(true)}
-            className="text-2xl font-bold text-gray-800 cursor-pointer hover:text-purple-600 mb-2"
+            onClick={() => !isReadOnly && setEditingTitle(true)}
+            className={`text-2xl font-bold text-gray-800 mb-2 ${!isReadOnly ? 'cursor-pointer hover:text-purple-600' : ''}`}
           >
             {course.title}
           </h1>
         )}
 
         {/* Description */}
-        {editingDescription ? (
+        {!isReadOnly && editingDescription ? (
           <div className="flex items-start gap-2 mb-4">
             <textarea
               value={newDescription}
@@ -324,24 +326,30 @@ export default function CourseEditorPage() {
           </div>
         ) : (
           <p
-            onClick={() => setEditingDescription(true)}
-            className="text-gray-600 cursor-pointer hover:text-purple-600 mb-4"
+            onClick={() => !isReadOnly && setEditingDescription(true)}
+            className={`text-gray-600 mb-4 ${!isReadOnly ? 'cursor-pointer hover:text-purple-600' : ''}`}
           >
-            {course.description || 'Нажмите, чтобы добавить описание...'}
+            {course.description || (isReadOnly ? 'Нет описания' : 'Нажмите, чтобы добавить описание...')}
           </p>
         )}
 
         {/* Status */}
         <div className="flex items-center gap-4">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={course.is_published}
-              onChange={handleTogglePublished}
-              className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-            />
-            <span className="text-sm text-gray-600">Опубликован</span>
-          </label>
+          {!isReadOnly ? (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={course.is_published}
+                onChange={handleTogglePublished}
+                className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+              />
+              <span className="text-sm text-gray-600">Опубликован</span>
+            </label>
+          ) : (
+            <span className={`text-sm px-2 py-0.5 rounded ${course.is_published ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+              {course.is_published ? 'Опубликован' : 'Черновик'}
+            </span>
+          )}
           <span className="text-sm text-gray-400">
             Автор: {course.created_by_name}
           </span>
@@ -361,6 +369,7 @@ export default function CourseEditorPage() {
                   <span className="text-sm text-gray-500">- {section.description}</span>
                 )}
               </div>
+              {!isReadOnly && (
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
@@ -383,6 +392,7 @@ export default function CourseEditorPage() {
                   </svg>
                 </button>
               </div>
+              )}
             </div>
 
             {/* Lessons */}
@@ -411,38 +421,42 @@ export default function CourseEditorPage() {
                         </span>
                       </div>
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {/* Move up/down buttons */}
-                        <button
-                          onClick={() => handleMoveLesson(section.id, lessonIndex, 'up')}
-                          disabled={lessonIndex === 0}
-                          className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
-                          title="Переместить вверх"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => handleMoveLesson(section.id, lessonIndex, 'down')}
-                          disabled={lessonIndex === section.lessons.length - 1}
-                          className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
-                          title="Переместить вниз"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </button>
-                        <div className="w-px h-4 bg-gray-200 mx-1" />
-                        <button
-                          onClick={() => handleToggleLessonPublished(lesson)}
-                          className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded"
-                          title={lesson.is_published ? 'Снять с публикации' : 'Опубликовать'}
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                          </svg>
-                        </button>
+                        {!isReadOnly && (
+                          <>
+                            {/* Move up/down buttons */}
+                            <button
+                              onClick={() => handleMoveLesson(section.id, lessonIndex, 'up')}
+                              disabled={lessonIndex === 0}
+                              className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                              title="Переместить вверх"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => handleMoveLesson(section.id, lessonIndex, 'down')}
+                              disabled={lessonIndex === section.lessons.length - 1}
+                              className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                              title="Переместить вниз"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </button>
+                            <div className="w-px h-4 bg-gray-200 mx-1" />
+                            <button
+                              onClick={() => handleToggleLessonPublished(lesson)}
+                              className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded"
+                              title={lesson.is_published ? 'Снять с публикации' : 'Опубликовать'}
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                            </button>
+                          </>
+                        )}
                         <button
                           onClick={() => navigate(`/courses/lessons/${lesson.id}`)}
                           className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
@@ -453,24 +467,28 @@ export default function CourseEditorPage() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                           </svg>
                         </button>
-                        <button
-                          onClick={() => navigate(`/courses/lessons/${lesson.id}/edit`)}
-                          className="p-1 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded"
-                          title="Редактировать урок"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => handleDeleteLesson(section.id, lesson.id)}
-                          className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
-                          title="Удалить урок"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
+                        {!isReadOnly && (
+                          <>
+                            <button
+                              onClick={() => navigate(`/courses/lessons/${lesson.id}/edit`)}
+                              className="p-1 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded"
+                              title="Редактировать урок"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteLesson(section.id, lesson.id)}
+                              className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                              title="Удалить урок"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -478,6 +496,7 @@ export default function CourseEditorPage() {
               )}
 
               {/* Add Lesson Button */}
+              {!isReadOnly && (
               <button
                 onClick={() => {
                   setLessonSectionId(section.id);
@@ -491,11 +510,13 @@ export default function CourseEditorPage() {
                 </svg>
                 Добавить урок
               </button>
+              )}
             </div>
           </div>
         ))}
 
         {/* Add Section Button */}
+        {!isReadOnly && (
         <button
           onClick={() => {
             setEditingSection(null);
@@ -509,6 +530,7 @@ export default function CourseEditorPage() {
           </svg>
           Добавить секцию
         </button>
+        )}
       </div>
 
       {/* Section Modal */}

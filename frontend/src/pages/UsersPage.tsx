@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { usersApi } from "../services/api";
+import { useAuthStore } from "../store/authStore";
 import type { User, UserListResponse } from "../types";
 import Avatar from "../components/Avatar";
 import CreateUserModal, { type CreateUserData } from "../components/CreateUserModal";
@@ -16,6 +17,7 @@ export default function UsersPage() {
   const [activeTab, setActiveTab] = useState<TabType>("students");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const navigate = useNavigate();
+  const { user: currentUser } = useAuthStore();
 
   const fetchUsers = async () => {
     setIsLoading(true);
@@ -194,6 +196,7 @@ export default function UsersPage() {
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleCreateUser}
         defaultRole={activeTab === "students" ? "student" : "teacher"}
+        currentUserRole={currentUser?.role}
       />
     </div>
   );

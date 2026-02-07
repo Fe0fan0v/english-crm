@@ -109,6 +109,7 @@ export interface LessonWithMaterials {
   id: number;
   title: string;
   scheduled_at: string;
+  duration_minutes?: number;
   teacher_name?: string;
   lesson_type_name: string;
   meeting_url?: string;

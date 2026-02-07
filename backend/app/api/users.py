@@ -1,5 +1,4 @@
 import os
-import uuid
 from decimal import Decimal
 from pathlib import Path
 
@@ -7,6 +6,11 @@ from fastapi import APIRouter, HTTPException, Query, UploadFile, status
 from sqlalchemy import func, or_, select
 
 from app.api.deps import CurrentUser, DBSession, ManagerUser, TeacherUser
+from app.api.uploads import (
+    ALLOWED_PHOTO_EXTENSIONS,
+    MAX_PHOTO_FILE_SIZE,
+    _upload_file_to_storage,
+)
 from app.config import settings
 from app.models.group import Group, GroupStudent
 from app.models.transaction import Transaction, TransactionType
@@ -21,6 +25,7 @@ from app.schemas.user import (
     UserResponse,
     UserUpdate,
 )
+from app.services.s3_storage import s3_storage
 from app.utils.security import get_password_hash
 
 router = APIRouter()
@@ -100,6 +105,16 @@ async def create_user(
     current_user: ManagerUser,
 ) -> User:
     """Create a new user."""
+    # Manager can only create teacher and student users
+    if current_user.role == UserRole.MANAGER and user_data.role in (
+        UserRole.ADMIN,
+        UserRole.MANAGER,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Менеджер может создавать только учителей и учеников",
+        )
+
     # Check if email already exists
     result = await db.execute(select(User).where(User.email == user_data.email))
     if result.scalar_one_or_none():
@@ -415,11 +430,6 @@ async def reset_teachers_balances(
     }
 
 
-# Allowed image extensions
-ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
-MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
-
-
 @router.post("/{user_id}/photo", response_model=UserResponse)
 async def upload_user_photo(
     user_id: int,
@@ -452,45 +462,29 @@ async def upload_user_photo(
             detail="No file provided",
         )
 
-    # Check extension
-    file_ext = Path(file.filename).suffix.lower()
-    if file_ext not in ALLOWED_EXTENSIONS:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"File type not allowed. Allowed types: {', '.join(ALLOWED_EXTENSIONS)}",
-        )
-
     # Read file content
     content = await file.read()
 
-    # Check file size
-    if len(content) > MAX_FILE_SIZE:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"File too large. Maximum size: {MAX_FILE_SIZE // (1024 * 1024)}MB",
-        )
-
-    # Create uploads directory if not exists
-    uploads_dir = Path(settings.storage_path) / "photos"
-    uploads_dir.mkdir(parents=True, exist_ok=True)
-
-    # Generate unique filename
-    unique_filename = f"{uuid.uuid4()}{file_ext}"
-    file_path = uploads_dir / unique_filename
-
     # Delete old photo if exists
     if user.photo_url:
-        old_filename = user.photo_url.split("/")[-1]
-        old_file_path = uploads_dir / old_filename
-        if old_file_path.exists():
-            os.remove(old_file_path)
+        if s3_storage.enabled and user.photo_url.startswith("http"):
+            try:
+                s3_storage.delete_file(user.photo_url)
+            except Exception:
+                pass  # Ignore deletion errors for old photos
+        else:
+            old_filename = user.photo_url.split("/")[-1]
+            old_file_path = Path(settings.storage_path) / "photos" / old_filename
+            if old_file_path.exists():
+                os.remove(old_file_path)
 
-    # Save new file
-    with open(file_path, "wb") as f:
-        f.write(content)
+    # Upload via shared helper (S3 or local)
+    file_url = await _upload_file_to_storage(
+        content, file.filename, "photos", ALLOWED_PHOTO_EXTENSIONS, MAX_PHOTO_FILE_SIZE
+    )
 
     # Update user photo_url
-    user.photo_url = f"/api/uploads/photos/{unique_filename}"
+    user.photo_url = file_url
 
     await db.flush()
     await db.refresh(user)
@@ -528,12 +522,18 @@ async def delete_user_photo(
             detail="User has no photo",
         )
 
-    # Delete the file
-    uploads_dir = Path(settings.storage_path) / "photos"
-    filename = user.photo_url.split("/")[-1]
-    file_path = uploads_dir / filename
-    if file_path.exists():
-        os.remove(file_path)
+    # Delete the file from S3 or local storage
+    if s3_storage.enabled and user.photo_url.startswith("http"):
+        try:
+            s3_storage.delete_file(user.photo_url)
+        except Exception:
+            pass  # Ignore deletion errors
+    else:
+        uploads_dir = Path(settings.storage_path) / "photos"
+        filename = user.photo_url.split("/")[-1]
+        file_path = uploads_dir / filename
+        if file_path.exists():
+            os.remove(file_path)
 
     # Clear photo_url
     user.photo_url = None

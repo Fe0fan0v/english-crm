@@ -2,12 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { teacherApi, usersApi, lessonsApi } from "../services/api";
 import { useAuthStore } from "../store/authStore";
-import AttendanceModal from "../components/AttendanceModal";
 import Avatar from "../components/Avatar";
 import DirectChat, { ConversationList } from "../components/DirectChat";
 import GroupChat from "../components/GroupChat";
 import PhotoUpload from "../components/PhotoUpload";
 import LessonCreateModal, { type LessonFormData } from "../components/LessonCreateModal";
+import LessonDetailModal from "../components/LessonDetailModal";
 import TeacherAvailabilityEditor from "../components/TeacherAvailabilityEditor";
 import AttachMaterialModal from "../components/AttachMaterialModal";
 import AttachCourseMaterialModal from "../components/AttachCourseMaterialModal";
@@ -136,8 +136,7 @@ export default function TeacherDashboardPage() {
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [schedule, setSchedule] = useState<TeacherLesson[]>([]);
   const [students, setStudents] = useState<TeacherStudentInfo[]>([]);
-  const [selectedLesson, setSelectedLesson] = useState<TeacherLesson | null>(null);
-  const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+  const [selectedLessonId, setSelectedLessonId] = useState<number | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [showCreateLessonModal, setShowCreateLessonModal] = useState(false);
   const [chatPartner, setChatPartner] = useState<{ id: number; name: string } | null>(null);
@@ -286,8 +285,7 @@ export default function TeacherDashboardPage() {
   }, [activeTab]);
 
   const handleLessonClick = (lesson: TeacherLesson) => {
-    setSelectedLesson(lesson);
-    setShowAttendanceModal(true);
+    setSelectedLessonId(lesson.id);
   };
 
   // Refresh schedule helper
@@ -301,7 +299,7 @@ export default function TeacherDashboardPage() {
   };
 
   const handleAttendanceSave = async () => {
-    setShowAttendanceModal(false);
+    setSelectedLessonId(null);
     await refreshSchedule();
     // Refresh dashboard
     const response = isManagerView && teacherId
@@ -935,15 +933,46 @@ export default function TeacherDashboardPage() {
                   hour: "2-digit",
                   minute: "2-digit",
                 });
-                const isToday = lessonDate.toDateString() === new Date().toDateString();
+                const lessonAsTeacherLesson = {
+                  ...lesson,
+                  scheduled_at: lesson.scheduled_at,
+                  duration_minutes: lesson.duration_minutes || 60,
+                  status: lesson.status || 'scheduled',
+                } as unknown as TeacherLesson;
+                const visualStatus = getLessonVisualStatus(lessonAsTeacherLesson);
+                const statusLabel = getLessonStatusLabel(visualStatus);
+
+                const statusBorderColor: Record<LessonVisualStatus, string> = {
+                  completed: 'border-green-400',
+                  cancelled: 'border-red-400',
+                  today: 'border-cyan-400 border-2 shadow-lg',
+                  past: 'border-orange-400',
+                  upcoming: 'border-yellow-400',
+                };
+
+                const statusBgColor: Record<LessonVisualStatus, string> = {
+                  completed: 'bg-gradient-to-r from-green-50 to-emerald-50',
+                  cancelled: 'bg-gradient-to-r from-red-50 to-pink-50',
+                  today: 'bg-gradient-to-r from-cyan-50 to-blue-50',
+                  past: 'bg-gradient-to-r from-orange-50 to-amber-50',
+                  upcoming: 'bg-gradient-to-r from-purple-50 to-pink-50',
+                };
+
+                const statusBadgeColor: Record<LessonVisualStatus, string> = {
+                  completed: 'bg-green-100 text-green-700',
+                  cancelled: 'bg-red-100 text-red-700',
+                  today: 'bg-blue-100 text-blue-700',
+                  past: 'bg-orange-100 text-orange-700',
+                  upcoming: 'bg-yellow-100 text-yellow-700',
+                };
 
                 return (
                   <div key={lesson.id} className={`border rounded-xl overflow-hidden ${
-                    isToday ? "border-cyan-400 border-2 shadow-lg" : "border-gray-200"
+                    statusBorderColor[visualStatus] || "border-gray-200"
                   }`}>
                     {/* Lesson Header */}
                     <div className={`p-4 border-b border-gray-200 ${
-                      isToday ? "bg-gradient-to-r from-cyan-50 to-blue-50" : "bg-gradient-to-r from-purple-50 to-pink-50"
+                      statusBgColor[visualStatus] || "bg-gradient-to-r from-purple-50 to-pink-50"
                     }`}>
                       <div className="flex items-center gap-3">
                         <div className="w-12 h-12 rounded-xl bg-purple-500 text-white flex items-center justify-center flex-shrink-0">
@@ -952,7 +981,12 @@ export default function TeacherDashboardPage() {
                           </svg>
                         </div>
                         <div className="flex-1">
-                          <h3 className="font-semibold text-gray-800 text-lg">{lesson.title}</h3>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-gray-800 text-lg">{lesson.title}</h3>
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusBadgeColor[visualStatus]}`}>
+                              {statusLabel}
+                            </span>
+                          </div>
                           <div className="flex flex-wrap gap-2 mt-1 text-sm text-gray-600">
                             <span className="flex items-center gap-1">
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1073,13 +1107,12 @@ export default function TeacherDashboardPage() {
         />
       )}
 
-      {/* Attendance Modal */}
-      {selectedLesson && (
-        <AttendanceModal
-          isOpen={showAttendanceModal}
-          onClose={() => setShowAttendanceModal(false)}
-          lesson={selectedLesson}
-          onSave={handleAttendanceSave}
+      {/* Lesson Detail Modal (with attendance, PDF materials, course materials) */}
+      {selectedLessonId && (
+        <LessonDetailModal
+          lessonId={selectedLessonId}
+          onClose={() => setSelectedLessonId(null)}
+          onUpdate={handleAttendanceSave}
         />
       )}
 
