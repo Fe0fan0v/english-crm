@@ -41,6 +41,8 @@ export default function LessonDetailModal({
   const [courseMaterials, setCourseMaterials] = useState<LessonCourseMaterial[]>([]);
   const [isAttachModalOpen, setIsAttachModalOpen] = useState(false);
   const [isAttachCourseMaterialModalOpen, setIsAttachCourseMaterialModalOpen] = useState(false);
+  const [meetingUrl, setMeetingUrl] = useState("");
+  const [isUpdatingMeetingUrl, setIsUpdatingMeetingUrl] = useState(false);
   const { user: currentUser } = useAuthStore();
 
   useEffect(() => {
@@ -63,6 +65,7 @@ export default function LessonDetailModal({
       setError("");
       const data = await lessonsApi.getLesson(lessonId);
       setLesson(data);
+      setMeetingUrl(data.meeting_url || "");
     } catch (err) {
       console.error("Failed to load lesson:", err);
       setError("Не удалось загрузить урок");
@@ -187,6 +190,22 @@ export default function LessonDetailModal({
       setError("Не удалось обновить посещаемость");
     } finally {
       setUpdatingStudentId(null);
+    }
+  };
+
+  const handleUpdateMeetingUrl = async () => {
+    if (!lesson) return;
+    try {
+      setIsUpdatingMeetingUrl(true);
+      setError("");
+      const trimmedUrl = meetingUrl.trim();
+      await lessonsApi.updateLesson(lessonId, { meeting_url: trimmedUrl || undefined });
+      await loadLesson();
+    } catch (err) {
+      console.error("Failed to update meeting URL:", err);
+      setError("Не удалось обновить ссылку на урок");
+    } finally {
+      setIsUpdatingMeetingUrl(false);
     }
   };
 
@@ -346,7 +365,33 @@ export default function LessonDetailModal({
           )}
 
           {activeTab === "attendance" && (
-            <div className="space-y-3">
+            <div className="space-y-4">
+              {/* Meeting URL Editor (only for teacher/admin/manager) */}
+              {currentUser?.role !== "student" && (
+                <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Ссылка на урок
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="url"
+                      value={meetingUrl}
+                      onChange={(e) => setMeetingUrl(e.target.value)}
+                      className="input flex-1"
+                      placeholder="https://telemost.yandex.ru/..."
+                      disabled={isUpdatingMeetingUrl}
+                    />
+                    <button
+                      onClick={handleUpdateMeetingUrl}
+                      disabled={isUpdatingMeetingUrl || meetingUrl.trim() === (lesson?.meeting_url || "")}
+                      className="btn btn-primary whitespace-nowrap"
+                    >
+                      {isUpdatingMeetingUrl ? "..." : "Сохранить"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {lesson.students.length === 0 ? (
                 <p className="text-gray-500 text-center py-8">Нет учеников на этом уроке</p>
               ) : (
