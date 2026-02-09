@@ -546,7 +546,7 @@ async def get_schedule(
 async def get_lesson(
     lesson_id: int,
     db: AsyncSession = Depends(get_db),
-    _: ManagerUser = None,
+    _: TeacherUser = None,
 ):
     """Get a specific lesson."""
     result = await db.execute(

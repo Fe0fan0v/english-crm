@@ -345,7 +345,7 @@ export default function LessonCreateModal({
                 <option value="">Выберите тип урока</option>
                 {lessonTypes.map((type) => (
                   <option key={type.id} value={type.id}>
-                    {type.name} ({type.price} тг)
+                    {type.name}
                   </option>
                 ))}
               </select>
