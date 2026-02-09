@@ -1020,25 +1020,44 @@ async def get_lesson_course_materials(
     result = await db.execute(stmt)
     materials = result.scalars().all()
 
-    return [
-        LessonCourseMaterialResponse(
-            id=m.id,
-            material_type=m.material_type,
-            # Get course_id from direct link or through section/topic relationship
-            course_id=m.course_id or (m.section.course_id if m.section else None) or (m.topic.section.course_id if m.topic else None),
-            course_title=m.course.title if m.course else (m.section.course.title if m.section else (m.topic.section.course.title if m.topic else None)),
-            section_id=m.section_id,
-            section_title=m.section.title if m.section else None,
-            topic_id=m.topic_id,
-            topic_title=m.topic.title if m.topic else None,
-            interactive_lesson_id=m.interactive_lesson_id,
-            interactive_lesson_title=m.interactive_lesson.title if m.interactive_lesson else None,
-            attached_at=m.attached_at,
-            attached_by=m.attached_by,
-            attacher_name=m.attacher.name if m.attacher else "",
+    # Build response list
+    response_list = []
+    for m in materials:
+        # Get course_id - prioritize direct link, then through relationships
+        course_id = m.course_id
+        if not course_id and m.section and hasattr(m.section, 'course_id'):
+            course_id = m.section.course_id
+        elif not course_id and m.topic and hasattr(m.topic, 'section') and hasattr(m.topic.section, 'course_id'):
+            course_id = m.topic.section.course_id
+
+        # Get course_title
+        course_title = None
+        if m.course:
+            course_title = m.course.title
+        elif m.section and hasattr(m.section, 'course'):
+            course_title = m.section.course.title if m.section.course else None
+        elif m.topic and hasattr(m.topic, 'section') and hasattr(m.topic.section, 'course'):
+            course_title = m.topic.section.course.title if m.topic.section.course else None
+
+        response_list.append(
+            LessonCourseMaterialResponse(
+                id=m.id,
+                material_type=m.material_type,
+                course_id=course_id,
+                course_title=course_title,
+                section_id=m.section_id,
+                section_title=m.section.title if m.section else None,
+                topic_id=m.topic_id,
+                topic_title=m.topic.title if m.topic else None,
+                interactive_lesson_id=m.interactive_lesson_id,
+                interactive_lesson_title=m.interactive_lesson.title if m.interactive_lesson else None,
+                attached_at=m.attached_at,
+                attached_by=m.attached_by,
+                attacher_name=m.attacher.name if m.attacher else "",
+            )
         )
-        for m in materials
-    ]
+
+    return response_list
 
 
 @router.post("/{lesson_id}/course-materials", response_model=LessonCourseMaterialResponse)
@@ -1164,8 +1183,8 @@ async def attach_course_material(
             .where(LessonCourseMaterial.id == material.id)
             .options(
                 selectinload(LessonCourseMaterial.course),
-                selectinload(LessonCourseMaterial.section),
-                selectinload(LessonCourseMaterial.topic),
+                selectinload(LessonCourseMaterial.section).selectinload(CourseSection.course),
+                selectinload(LessonCourseMaterial.topic).selectinload(CourseTopic.section).selectinload(CourseSection.course),
                 selectinload(LessonCourseMaterial.interactive_lesson),
                 selectinload(LessonCourseMaterial.attacher),
             )
@@ -1174,11 +1193,27 @@ async def attach_course_material(
 
         logger.info(f"Successfully attached material {material.id} to lesson {lesson_id}")
 
+        # Get course_id - prioritize direct link, then through relationships
+        course_id = material.course_id
+        if not course_id and material.section and hasattr(material.section, 'course_id'):
+            course_id = material.section.course_id
+        elif not course_id and material.topic and hasattr(material.topic, 'section') and hasattr(material.topic.section, 'course_id'):
+            course_id = material.topic.section.course_id
+
+        # Get course_title
+        course_title = None
+        if material.course:
+            course_title = material.course.title
+        elif material.section and hasattr(material.section, 'course'):
+            course_title = material.section.course.title if material.section.course else None
+        elif material.topic and hasattr(material.topic, 'section') and hasattr(material.topic.section, 'course'):
+            course_title = material.topic.section.course.title if material.topic.section.course else None
+
         return LessonCourseMaterialResponse(
             id=material.id,
             material_type=material.material_type,
-            course_id=material.course_id,
-            course_title=material.course.title if material.course else None,
+            course_id=course_id,
+            course_title=course_title,
             section_id=material.section_id,
             section_title=material.section.title if material.section else None,
             topic_id=material.topic_id,

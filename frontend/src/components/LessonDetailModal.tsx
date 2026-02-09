@@ -123,10 +123,13 @@ export default function LessonDetailModal({
   };
 
   const getCourseMaterialLink = (material: LessonCourseMaterial): string => {
+    console.log("Getting link for material:", material);
+
     if (material.material_type === "course" && material.course_id) {
       return `/courses/${material.course_id}/edit`;
     } else if (material.material_type === "section" && material.course_id) {
       // Navigate to course editor (section is visible there)
+      console.log("Section with course_id:", material.course_id);
       return `/courses/${material.course_id}/edit`;
     } else if (material.material_type === "topic" && material.course_id) {
       // Navigate to course editor (topic is visible there)
@@ -134,6 +137,8 @@ export default function LessonDetailModal({
     } else if (material.material_type === "lesson" && material.interactive_lesson_id) {
       return `/courses/lessons/${material.interactive_lesson_id}`;
     }
+
+    console.warn("No valid link found for material:", material);
     return "#";
   };
 
