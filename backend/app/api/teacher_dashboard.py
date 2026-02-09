@@ -23,6 +23,8 @@ from app.models import (
     Transaction,
     User,
 )
+from app.models.course import CourseSection, CourseTopic
+from app.models.lesson_course_material import LessonCourseMaterial
 from app.models.lesson import LessonStatus
 from app.models.transaction import TransactionType
 from app.schemas.dashboard import (
@@ -1441,7 +1443,7 @@ async def get_teacher_lessons_with_materials(
     # Get materials for each lesson
     lessons_with_materials = []
     for lesson in lessons:
-        # Get materials for this lesson
+        # Get PDF materials for this lesson
         materials_result = await db.execute(
             select(LessonMaterial)
             .where(LessonMaterial.lesson_id == lesson.id)
@@ -1456,6 +1458,34 @@ async def get_teacher_lessons_with_materials(
                 "file_url": lm.material.file_url,
             }
             for lm in lesson_materials
+        ]
+
+        # Get course materials for this lesson
+        course_materials_result = await db.execute(
+            select(LessonCourseMaterial)
+            .where(LessonCourseMaterial.lesson_id == lesson.id)
+            .options(
+                selectinload(LessonCourseMaterial.course),
+                selectinload(LessonCourseMaterial.section).selectinload(CourseSection.course),
+                selectinload(LessonCourseMaterial.topic).selectinload(CourseTopic.section).selectinload(CourseSection.course),
+                selectinload(LessonCourseMaterial.interactive_lesson),
+            )
+        )
+        course_materials = course_materials_result.scalars().all()
+
+        course_materials_list = [
+            {
+                "id": cm.id,
+                "material_type": cm.material_type.value,
+                "title": (
+                    cm.course.title if cm.course else
+                    cm.section.title if cm.section else
+                    cm.topic.title if cm.topic else
+                    cm.interactive_lesson.title if cm.interactive_lesson else
+                    "Unknown"
+                ),
+            }
+            for cm in course_materials
         ]
 
         # Get student names
@@ -1473,6 +1503,7 @@ async def get_teacher_lessons_with_materials(
                 "group_id": lesson.group_id,
                 "students": student_names,
                 "materials": materials_list,
+                "course_materials": course_materials_list,
             }
         )
 

@@ -1027,11 +1027,12 @@ export default function TeacherDashboardPage() {
 
                     {/* Materials List */}
                     <div className="p-4 bg-white">
-                      {lesson.materials.length > 0 ? (
+                      {lesson.materials.length > 0 || (lesson.course_materials && lesson.course_materials.length > 0) ? (
                         <div className="space-y-2">
+                          {/* PDF Materials */}
                           {lesson.materials.map((material) => (
                             <div
-                              key={material.id}
+                              key={`pdf-${material.id}`}
                               className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
                             >
                               <div className="w-10 h-10 rounded-lg bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0">
@@ -1056,6 +1057,25 @@ export default function TeacherDashboardPage() {
                                 </svg>
                                 Открыть
                               </a>
+                            </div>
+                          ))}
+                          {/* Course Materials */}
+                          {lesson.course_materials?.map((courseMaterial) => (
+                            <div
+                              key={`course-${courseMaterial.id}`}
+                              className="flex items-center gap-3 p-3 bg-cyan-50 rounded-lg"
+                            >
+                              <div className="w-10 h-10 rounded-lg bg-cyan-100 text-cyan-600 flex items-center justify-center flex-shrink-0">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                </svg>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-gray-800 truncate">
+                                  {courseMaterial.title}
+                                </p>
+                                <p className="text-xs text-gray-500 capitalize">{courseMaterial.material_type}</p>
+                              </div>
                             </div>
                           ))}
                         </div>

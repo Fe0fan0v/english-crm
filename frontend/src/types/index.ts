@@ -117,6 +117,7 @@ export interface LessonWithMaterials {
   group_id?: number | null;
   students?: string[];
   materials: LessonMaterial[];
+  course_materials?: { id: number; material_type: string; title: string }[];
 }
 
 export interface MaterialListResponse {

@@ -1010,8 +1010,8 @@ async def get_lesson_course_materials(
         .where(LessonCourseMaterial.lesson_id == lesson_id)
         .options(
             selectinload(LessonCourseMaterial.course),
-            selectinload(LessonCourseMaterial.section),
-            selectinload(LessonCourseMaterial.topic),
+            selectinload(LessonCourseMaterial.section).selectinload(CourseSection.course),
+            selectinload(LessonCourseMaterial.topic).selectinload(CourseTopic.section).selectinload(CourseSection.course),
             selectinload(LessonCourseMaterial.interactive_lesson),
             selectinload(LessonCourseMaterial.attacher),
         )
@@ -1024,8 +1024,9 @@ async def get_lesson_course_materials(
         LessonCourseMaterialResponse(
             id=m.id,
             material_type=m.material_type,
-            course_id=m.course_id,
-            course_title=m.course.title if m.course else None,
+            # Get course_id from direct link or through section/topic relationship
+            course_id=m.course_id or (m.section.course_id if m.section else None) or (m.topic.section.course_id if m.topic else None),
+            course_title=m.course.title if m.course else (m.section.course.title if m.section else (m.topic.section.course.title if m.topic else None)),
             section_id=m.section_id,
             section_title=m.section.title if m.section else None,
             topic_id=m.topic_id,
