@@ -4,6 +4,93 @@
 
 ## Февраль 2026
 
+### 99. Исправления прав доступа и UI для преподавателей (9 февраля 2026)
+- **Fix 1: Права доступа к просмотру уроков** — `lessons.py`
+  - Изменена зависимость endpoint `GET /api/lessons/{id}` с `ManagerUser` на `TeacherUser`
+  - Преподаватели теперь могут просматривать детали своих уроков без ошибки "Не удалось загрузить урок"
+- **Fix 2: UI модалки создания урока** — `LessonCreateModal.tsx`
+  - Убраны цены из выпадающего списка типов уроков
+  - Показывается только название типа урока (например, "Indiv" вместо "Indiv (5000.00 тг)")
+- **Fix 3: Редактирование ссылки на урок** — `LessonDetailModal.tsx`
+  - Добавлено поле для редактирования meeting_url прямо в модалке урока
+  - Отображается во вкладке "Посещаемость" с голубым фоном
+  - Доступно только для teacher/admin/manager (студенты видят готовую ссылку)
+  - Кнопка "Сохранить" активна только при изменении ссылки
+- **Fix 4: Ссылки на курсы** — `LessonDetailModal.tsx`, `lessons.py`
+  - Исправлена проблема: клик "Открыть" на секции курса перекидывал на расписание
+  - Backend теперь возвращает `course_id` для секций и топиков через связи (`section.course_id`, `topic.section.course_id`)
+  - Frontend открывает `/courses/{course_id}/edit` для всех типов материалов (курс, секция, топик)
+- **Fix 5: Отображение курсовых материалов** — `teacher_dashboard.py`, `TeacherDashboardPage.tsx`
+  - В разделе "Уроки с материалами" теперь отображаются прикреплённые курсы/секции/топики
+  - Backend endpoint `/api/teacher/lessons-with-materials` возвращает поле `course_materials[]`
+  - Курсовые материалы отображаются с голубым фоном и иконкой книги
+  - Показывается тип материала (course/section/topic/lesson)
+- **Fix 6: Загрузка course_id через связи** — `lessons.py`
+  - Добавлена безопасная логика извлечения `course_id` из связей с `hasattr()` проверками
+  - Применено для `get_lesson_course_materials` и `attach_course_material`
+  - Добавлены логи для отладки
+- Коммиты: `0f52f1b`, `2dcbb14`, `98dea39`, `c4fef7f`
+
+### 98. Парсинг и импорт курса Business English Market Leader (3 уровня)
+- **Парсинг всех 3 уровней** курса Business English Market Leader (Edvibe)
+  - Pre-Intermediate: 9 уроков, 100 блоков
+  - Intermediate: 14 уроков, 396 блоков
+  - Upper-Intermediate: 16 уроков, 484 блока
+  - **Итого**: 39 уроков, 980 блоков
+- **Особенности парсинга**:
+  - Курс имеет accordion/collapsible структуру секций (отличается от EF4 и FF)
+  - Батч-парсинг по 4 секции за раз для стабильности (избежание stale elements)
+  - Скрипт `parse_ml_by_sections.py` с параметрами `--level`, `--start`, `--end`
+- **Статистика типов блоков** (топ-5):
+  - text: 267 | remember: 201 | essay: 133 | image: 127 | audio: 102
+- **Импорт на production**:
+  - Курс ID=15 успешно импортирован на https://lms.jsi.kz
+  - Скрипт `import_ml_to_production.py` с автоматическим обрезанием длинных title до 255 символов
+  - Скрипт объединения всех уровней: `merge_all_ml_levels.py`
+- Файлы: `parse_ml_by_sections.py`, `merge_ml_jsons.py`, `merge_all_ml_levels.py`, `import_ml_to_production.py`, `deploy_ml_to_production.sh`
+
+### 97. Переимпорт курса Family and Friends (6 уровней)
+- **Перепарсинг всех 6 уровней** курса Family and Friends с обновлённым парсером (Playwright)
+  - Новый парсер извлекает HTML интерактивных блоков (fill_gaps, test, matching и др.)
+  - Level 1: 21 урок, 618 блоков
+  - Level 2: 18 уроков, 547 блоков (3 урока восстановлены из предыдущего парсинга)
+  - Level 3: 28 уроков, 824 блока
+  - Level 4: 28 уроков, 661 блок
+  - Level 5: 36 уроков, 1108 блоков
+  - Level 6: 34 урока, 508 блоков
+  - **Итого**: 166 уроков, 4294 блока
+- **Исправление интерактивных блоков** через `fix_ff_blocks.py`:
+  - fill_gaps: 211 рабочих + 79 конвертированы в text (нет данных для парсинга)
+  - matching: 60 блоков
+  - true_false: 55 блоков
+  - test: 97 → конвертированы в text (формат FF не позволяет извлечь варианты ответов)
+  - essay: 24 блока
+  - image_choice: 14 блоков
+- **Обновлён курс ID=12** на production сервере через `update_ff_docker.py`
+- Скрипты: `parse_family_friends.py`, `fix_ff_blocks.py`, `update_ff_docker.py`
+
+### 96. 7 исправлений по обратной связи от клиента
+- **Fix 1: Удаление блоков в курсах с топиками** — `courses.py`
+  - Добавлена функция `get_course_for_lesson()` для корректного получения курса через `lesson.section.course` или `lesson.topic.section.course`
+  - Исправлены 6 эндпоинтов: update_lesson, delete_lesson, create_block, update_block, delete_block, reorder_blocks
+- **Fix 2: Прикрепление материала курса к уроку** — `lessons.py`
+  - Исправлен `attach_course_material()`: добавлена загрузка связи `topic.section.course` для уроков с topic_id
+- **Fix 3: Просмотр курсов преподавателем** — `CourseEditorPage.tsx`
+  - Преподаватели могут просматривать структуру курсов в режиме read-only
+  - Скрыты кнопки создания/редактирования/удаления для не-админов
+- **Fix 4: Статусы уроков преподавателя на вкладке "Уроки"** — `TeacherDashboardPage.tsx`
+  - Добавлены цветные badge статусов (completed/today/past/upcoming) на вкладке "Уроки"
+  - Поле `duration_minutes` добавлено в API `lessons-with-materials`
+- **Fix 5: Загрузка фото профиля в S3** — `users.py`
+  - Фото профиля теперь загружается в S3 через `_upload_file_to_storage()` вместо локального сохранения
+  - Удаление старого фото из S3 при замене
+- **Fix 6: Ограничение ролей для менеджера** — `users.py`, `CreateUserModal.tsx`
+  - Менеджер может создавать только учеников и преподавателей (не админов и менеджеров)
+  - Frontend фильтрует выпадающий список ролей на основе роли текущего пользователя
+- **Fix 7: Прикрепление материалов преподавателем из расписания** — `TeacherDashboardPage.tsx`
+  - При клике на урок в расписании открывается `LessonDetailModal` вместо `AttendanceModal`
+  - Преподаватель видит вкладки: посещаемость, PDF материалы, материалы курсов
+
 ### 95. Добавление уровня Topic в иерархию курсов и UX улучшения
 - **Реструктуризация курсов (Миграции 023-024)**:
   - Добавлен новый уровень **Topic** между Section и Lesson
