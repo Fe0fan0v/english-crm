@@ -793,6 +793,8 @@ function MatchingRenderer({
   isChecked: boolean;
   onCheck: () => void;
 }) {
+  const { user } = useAuthStore();
+  const canSeeAnswers = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'teacher';
   const [selectedLeft, setSelectedLeft] = useState<string | null>(null);
   const matches = answer || {};
 
@@ -836,6 +838,7 @@ function MatchingRenderer({
                 key={pair.left}
                 onClick={() => handleLeftClick(pair.left)}
                 disabled={isChecked}
+                title={canSeeAnswers ? `✓ ${pair.right}` : undefined}
                 className={`w-full px-4 py-3 rounded-lg border-2 text-left transition-colors ${
                   result === true
                     ? 'border-green-500 bg-green-50'
