@@ -363,6 +363,11 @@ scripts/edvibe_parser/
 - Пакеты: `@tiptap/react`, `@tiptap/starter-kit`, `@tiptap/pm`, `@tiptap/extension-underline`, `@tiptap/extension-link`
 - Enter — новый абзац, Shift+Enter — `<br>`
 
+**Смена типа блока с сохранением контента:**
+- При смене между text, teaching_guide, remember, article HTML-содержимое сохраняется автоматически
+- Диалог подтверждения появляется только при переключении на несовместимый тип (например, text → fill_gaps)
+- Реализовано в `handleChangeBlockType` в `LessonEditorPage.tsx`
+
 **Подсказки правильных ответов (для учителей/менеджеров/админов):**
 - При наведении курсора на интерактивные элементы показывается правильный ответ (HTML `title`)
 - fill_gaps — правильное слово при наведении на пропуск
