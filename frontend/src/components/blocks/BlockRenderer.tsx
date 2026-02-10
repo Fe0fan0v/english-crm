@@ -386,7 +386,9 @@ function FillGapsRenderer({
 }) {
   const answers = answer || {};
 
-  const parts = text.split(/\{(\d+)\}/);
+  // Auto-detect numbered items and add line breaks (e.g., "... 2. Text" → "...\n2. Text")
+  const processedText = text.replace(/ (\d+)\. /g, '\n$1. ').trimStart();
+  const parts = processedText.split(/\{(\d+)\}/);
 
   const checkAnswer = (gapIndex: number): boolean | null => {
     if (!isChecked) return null;
