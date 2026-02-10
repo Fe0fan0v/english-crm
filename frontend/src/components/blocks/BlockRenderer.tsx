@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import type { ExerciseBlock } from '../../types/course';
+import { useAuthStore } from '../../store/authStore';
 
 interface BlockRendererProps {
   block: ExerciseBlock;
@@ -385,6 +386,8 @@ function FillGapsRenderer({
   onCheck: () => void;
 }) {
   const answers = answer || {};
+  const { user } = useAuthStore();
+  const canSeeAnswers = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'teacher';
 
   // Auto-detect numbered items and add line breaks (e.g., "... 2. Text" → "...\n2. Text")
   const processedText = text.replace(/ (\d+)\. /g, '\n$1. ').trimStart();
@@ -437,6 +440,7 @@ function FillGapsRenderer({
                     : 'border-red-500 bg-red-50'
                 }`}
                 placeholder={gap?.hint || '...'}
+                title={canSeeAnswers && gap ? gap.answer : undefined}
               />
               {isChecked && result === false && gap && (
                 <span className="text-xs text-red-500 ml-1">({gap.answer})</span>
