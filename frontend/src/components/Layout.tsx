@@ -416,12 +416,6 @@ const navItems: NavItem[] = [
     icon: icons.chart,
     roles: ["student"],
   },
-  {
-    path: "/courses",
-    label: "Курсы",
-    icon: icons.book,
-    roles: ["student"],
-  },
 ];
 
 interface LayoutProps {

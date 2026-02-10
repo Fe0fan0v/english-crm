@@ -17,6 +17,10 @@ export default function CoursesPage() {
   const canCreate = user?.role === 'admin';
 
   useEffect(() => {
+    if (user?.role === 'student') {
+      navigate('/student');
+      return;
+    }
     loadCourses();
   }, []);
 
