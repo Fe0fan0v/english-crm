@@ -1,9 +1,86 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { irregularVerbs } from "../data/irregularVerbs";
+
+// Cache for dictionary API audio URLs
+const audioCache = new Map<string, string | null>();
+
+async function fetchDictionaryAudio(word: string): Promise<string | null> {
+  if (audioCache.has(word)) return audioCache.get(word)!;
+  try {
+    const res = await fetch(
+      `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`
+    );
+    if (!res.ok) {
+      audioCache.set(word, null);
+      return null;
+    }
+    const data = await res.json();
+    const phonetics = data[0]?.phonetics as { audio?: string }[] | undefined;
+    const audioUrl =
+      phonetics?.find((p) => p.audio && p.audio.includes("us"))?.audio ||
+      phonetics?.find((p) => p.audio)?.audio ||
+      null;
+    audioCache.set(word, audioUrl);
+    return audioUrl;
+  } catch {
+    audioCache.set(word, null);
+    return null;
+  }
+}
+
+function getEnglishVoice(): SpeechSynthesisVoice | null {
+  const voices = window.speechSynthesis.getVoices();
+  return (
+    voices.find((v) => v.name.includes("Google US English")) ||
+    voices.find((v) => v.name.includes("Google") && v.lang.startsWith("en")) ||
+    voices.find(
+      (v) => v.name.includes("Microsoft") && v.lang.startsWith("en-US")
+    ) ||
+    voices.find((v) => v.lang.startsWith("en-US")) ||
+    voices.find((v) => v.lang.startsWith("en")) ||
+    null
+  );
+}
+
+function speakWithSpeechAPI(text: string): Promise<void> {
+  return new Promise((resolve) => {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "en-US";
+    utterance.rate = 0.85;
+    const voice = getEnglishVoice();
+    if (voice) utterance.voice = voice;
+    utterance.onend = () => resolve();
+    utterance.onerror = () => resolve();
+    window.speechSynthesis.speak(utterance);
+  });
+}
+
+function playAudioUrl(url: string): Promise<void> {
+  return new Promise((resolve) => {
+    const audio = new Audio(url);
+    audio.onended = () => resolve();
+    audio.onerror = () => resolve();
+    audio.play().catch(() => resolve());
+  });
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
 
 export default function IrregularVerbsPage() {
   const [search, setSearch] = useState("");
   const [speakingIndex, setSpeakingIndex] = useState<number | null>(null);
+  const abortRef = useRef(false);
+
+  // Preload voices (Chrome loads them async)
+  useEffect(() => {
+    window.speechSynthesis.getVoices();
+    const handler = () => window.speechSynthesis.getVoices();
+    window.speechSynthesis.addEventListener("voiceschanged", handler);
+    return () =>
+      window.speechSynthesis.removeEventListener("voiceschanged", handler);
+  }, []);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return irregularVerbs;
@@ -18,19 +95,79 @@ export default function IrregularVerbsPage() {
   }, [search]);
 
   const speakAllForms = useCallback(
-    (v1: string, v2: string, v3: string, index: number) => {
+    async (v1: string, v2: string, v3: string, index: number) => {
       window.speechSynthesis.cancel();
-      const text = `${v1} ... ${v2} ... ${v3}`;
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "en-US";
-      utterance.rate = 0.8;
-      utterance.onstart = () => setSpeakingIndex(index);
-      utterance.onend = () => setSpeakingIndex(null);
-      utterance.onerror = () => setSpeakingIndex(null);
-      window.speechSynthesis.speak(utterance);
+      abortRef.current = true;
+      await delay(50);
+      abortRef.current = false;
+
+      setSpeakingIndex(index);
+      try {
+        // V1: try dictionary audio, fallback to Speech API
+        const v1Audio = await fetchDictionaryAudio(v1);
+        if (abortRef.current) return;
+        if (v1Audio) {
+          await playAudioUrl(v1Audio);
+        } else {
+          await speakWithSpeechAPI(v1);
+        }
+        if (abortRef.current) return;
+
+        await delay(400);
+        if (abortRef.current) return;
+
+        // V2: try dictionary audio, fallback to Speech API
+        const v2First = v2.split("/")[0].trim();
+        const v2Audio = await fetchDictionaryAudio(v2First);
+        if (abortRef.current) return;
+        if (v2Audio) {
+          await playAudioUrl(v2Audio);
+        } else {
+          await speakWithSpeechAPI(v2First);
+        }
+        if (abortRef.current) return;
+
+        await delay(400);
+        if (abortRef.current) return;
+
+        // V3: try dictionary audio, fallback to Speech API
+        const v3First = v3.split("/")[0].trim();
+        const v3Audio = await fetchDictionaryAudio(v3First);
+        if (abortRef.current) return;
+        if (v3Audio) {
+          await playAudioUrl(v3Audio);
+        } else {
+          await speakWithSpeechAPI(v3First);
+        }
+      } finally {
+        if (!abortRef.current) setSpeakingIndex(null);
+      }
     },
     []
   );
+
+  const speakerIcon = (size: string) => (
+    <svg
+      className={size}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
+      />
+    </svg>
+  );
+
+  const speakerBtnClass = (idx: number) =>
+    `p-2 rounded-full transition-colors ${
+      speakingIndex === idx
+        ? "bg-cyan-100 text-cyan-600"
+        : "hover:bg-gray-100 text-gray-400 hover:text-gray-600"
+    }`;
 
   return (
     <div>
@@ -104,7 +241,9 @@ export default function IrregularVerbsPage() {
                   </td>
                   <td className="px-4 py-3 text-gray-700">{verb.v2}</td>
                   <td className="px-4 py-3 text-gray-700">{verb.v3}</td>
-                  <td className="px-4 py-3 text-gray-600">{verb.translation}</td>
+                  <td className="px-4 py-3 text-gray-600">
+                    {verb.translation}
+                  </td>
                   <td className="px-4 py-3 text-gray-500 font-mono text-sm">
                     {verb.transcription}
                   </td>
@@ -114,25 +253,9 @@ export default function IrregularVerbsPage() {
                         speakAllForms(verb.v1, verb.v2, verb.v3, index)
                       }
                       title="Прослушать произношение"
-                      className={`p-2 rounded-full transition-colors ${
-                        speakingIndex === index
-                          ? "bg-cyan-100 text-cyan-600"
-                          : "hover:bg-gray-100 text-gray-400 hover:text-gray-600"
-                      }`}
+                      className={speakerBtnClass(index)}
                     >
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
-                        />
-                      </svg>
+                      {speakerIcon("w-5 h-5")}
                     </button>
                   </td>
                 </tr>
@@ -173,25 +296,9 @@ export default function IrregularVerbsPage() {
                   speakAllForms(verb.v1, verb.v2, verb.v3, index)
                 }
                 title="Прослушать произношение"
-                className={`p-2 rounded-full transition-colors flex-shrink-0 ml-2 ${
-                  speakingIndex === index
-                    ? "bg-cyan-100 text-cyan-600"
-                    : "hover:bg-gray-100 text-gray-400 hover:text-gray-600"
-                }`}
+                className={`${speakerBtnClass(index)} flex-shrink-0 ml-2`}
               >
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
-                  />
-                </svg>
+                {speakerIcon("w-6 h-6")}
               </button>
             </div>
           </div>
