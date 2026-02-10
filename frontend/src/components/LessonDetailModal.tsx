@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { lessonsApi, courseMaterialsApi } from "../services/api";
+import { lessonsApi, teacherApi, courseMaterialsApi } from "../services/api";
 import { useAuthStore } from "../store/authStore";
 import type { LessonDetail, AttendanceStatus, LessonMaterial, LessonCourseMaterial } from "../types";
 import AttachMaterialModal from "./AttachMaterialModal";
@@ -160,7 +160,11 @@ export default function LessonDetailModal({
 
     try {
       setIsCancelling(true);
-      await lessonsApi.updateLesson(lessonId, { status: "cancelled" });
+      if (currentUser?.role === "teacher") {
+        await teacherApi.cancelLesson(lessonId);
+      } else {
+        await lessonsApi.updateLesson(lessonId, { status: "cancelled" });
+      }
       onUpdate();
       onClose();
     } catch (err) {
@@ -191,7 +195,11 @@ export default function LessonDetailModal({
   const handleAttendanceChange = async (studentId: number, status: AttendanceStatus) => {
     try {
       setUpdatingStudentId(studentId);
-      await lessonsApi.updateAttendance(lessonId, studentId, status);
+      if (currentUser?.role === "teacher") {
+        await teacherApi.markAttendance(lessonId, [{ student_id: studentId, status }]);
+      } else {
+        await lessonsApi.updateAttendance(lessonId, studentId, status);
+      }
       await loadLesson();
     } catch (err) {
       console.error("Failed to update attendance:", err);
@@ -207,7 +215,11 @@ export default function LessonDetailModal({
       setIsUpdatingMeetingUrl(true);
       setError("");
       const trimmedUrl = meetingUrl.trim();
-      await lessonsApi.updateLesson(lessonId, { meeting_url: trimmedUrl || undefined });
+      if (currentUser?.role === "teacher") {
+        await teacherApi.updateLesson(lessonId, { meeting_url: trimmedUrl || undefined });
+      } else {
+        await lessonsApi.updateLesson(lessonId, { meeting_url: trimmedUrl || undefined });
+      }
       await loadLesson();
     } catch (err) {
       console.error("Failed to update meeting URL:", err);
@@ -587,13 +599,15 @@ export default function LessonDetailModal({
                 {isCancelling ? "Отмена..." : "Отменить урок"}
               </button>
             )}
-            <button
-              onClick={handleDeleteLesson}
-              disabled={isDeleting}
-              className="btn bg-red-500 text-white hover:bg-red-600 flex-1"
-            >
-              {isDeleting ? "Удаление..." : "Удалить"}
-            </button>
+            {currentUser?.role !== "teacher" && (
+              <button
+                onClick={handleDeleteLesson}
+                disabled={isDeleting}
+                className="btn bg-red-500 text-white hover:bg-red-600 flex-1"
+              >
+                {isDeleting ? "Удаление..." : "Удалить"}
+              </button>
+            )}
           </div>
         </div>
       </div>

@@ -48,6 +48,7 @@ export default function StudentDashboardPage() {
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [chatPartner, setChatPartner] = useState<{ id: number; name: string } | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(user?.photo_url || null);
+  const [selectedLesson, setSelectedLesson] = useState<StudentLessonInfo | null>(null);
   const [selectedDayIndex, setSelectedDayIndex] = useState(() => {
     // Find today's index in the week (0=Mon, 6=Sun)
     const today = new Date();
@@ -470,7 +471,8 @@ export default function StudentDashboardPage() {
                   return (
                     <div
                       key={lesson.id}
-                      className={`p-4 rounded-xl ${
+                      onClick={() => setSelectedLesson(lesson)}
+                      className={`p-4 rounded-xl cursor-pointer transition-shadow hover:shadow-md ${
                         lesson.status === "completed"
                           ? "bg-green-50 border border-green-200"
                           : lesson.status === "cancelled"
@@ -565,7 +567,8 @@ export default function StudentDashboardPage() {
                               return (
                                 <div
                                   key={lesson.id}
-                                  className={`w-full p-2 mb-1 rounded-lg text-left text-xs ${
+                                  onClick={() => setSelectedLesson(lesson)}
+                                  className={`w-full p-2 mb-1 rounded-lg text-left text-xs cursor-pointer transition-shadow hover:shadow-md ${
                                     lesson.status === "completed"
                                       ? "bg-green-100 text-green-700"
                                       : lesson.status === "cancelled"
@@ -815,6 +818,89 @@ export default function StudentDashboardPage() {
           partnerName={chatPartner.name}
           onClose={() => setChatPartner(null)}
         />
+      )}
+
+      {/* Student Lesson Detail Modal */}
+      {selectedLesson && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setSelectedLesson(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-800">{selectedLesson.title}</h2>
+                  <span className={`inline-block mt-1 px-2 py-0.5 rounded-lg text-xs font-medium ${
+                    selectedLesson.status === "completed" ? "bg-green-100 text-green-700" :
+                    selectedLesson.status === "cancelled" ? "bg-red-100 text-red-700" :
+                    "bg-cyan-100 text-cyan-700"
+                  }`}>
+                    {selectedLesson.status === "completed" ? "Завершён" :
+                     selectedLesson.status === "cancelled" ? "Отменён" : "Запланирован"}
+                  </span>
+                </div>
+                <button onClick={() => setSelectedLesson(null)} className="p-2 hover:bg-gray-100 rounded-lg">
+                  <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="space-y-3 text-sm text-gray-600">
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {new Date(selectedLesson.scheduled_at).toLocaleString("ru-RU", {
+                    day: "numeric", month: "long", year: "numeric",
+                    hour: "2-digit", minute: "2-digit",
+                  })}
+                </div>
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  {selectedLesson.teacher_name}
+                </div>
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                  </svg>
+                  {selectedLesson.lesson_type_name}
+                </div>
+                {selectedLesson.group_name && (
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    Группа: {selectedLesson.group_name}
+                  </div>
+                )}
+              </div>
+
+              {/* Meeting URL */}
+              {selectedLesson.meeting_url && selectedLesson.status !== "cancelled" && (
+                <div className="mt-4">
+                  <a
+                    href={selectedLesson.meeting_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-cyan-500 text-white rounded-xl font-medium hover:bg-cyan-600 transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Подключиться к уроку
+                  </a>
+                </div>
+              )}
+
+              <div className="mt-4">
+                <button onClick={() => setSelectedLesson(null)} className="btn btn-secondary w-full">
+                  Закрыть
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
