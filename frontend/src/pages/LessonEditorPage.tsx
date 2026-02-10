@@ -96,11 +96,17 @@ export default function LessonEditorPage() {
 
   const handleChangeBlockType = async (block: ExerciseBlock, newType: ExerciseBlockType) => {
     if (!lesson || newType === block.block_type) return;
-    if (!confirm('Содержимое блока будет сброшено. Продолжить?')) return;
+    const htmlTypes = ['text', 'teaching_guide', 'remember', 'article'];
+    const canPreserveHtml = htmlTypes.includes(block.block_type) && htmlTypes.includes(newType);
+    if (!canPreserveHtml && !confirm('Содержимое блока будет сброшено. Продолжить?')) return;
     try {
       setSaving(true);
       const defaultContent = getDefaultContent(newType);
-      const updated = await blockApi.update(block.id, { block_type: newType, content: defaultContent });
+      const oldContent = block.content as Record<string, unknown>;
+      const newContent = canPreserveHtml && oldContent.html
+        ? { ...defaultContent, html: oldContent.html }
+        : defaultContent;
+      const updated = await blockApi.update(block.id, { block_type: newType, content: newContent });
       setLesson({
         ...lesson,
         blocks: lesson.blocks.map(b => (b.id === updated.id ? updated : b)),
