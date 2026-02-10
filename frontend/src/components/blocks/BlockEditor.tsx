@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import type { ExerciseBlock } from '../../types/course';
 import { courseUploadApi } from '../../services/courseApi';
+import HtmlEditor from '../HtmlEditor';
 
 interface BlockEditorProps {
   block: ExerciseBlock;
@@ -387,14 +388,8 @@ function FileUploadButton({
 function TextEditor({ html, onChange }: { html: string; onChange: (html: string) => void }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">HTML контент</label>
-      <textarea
-        value={html}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono text-sm"
-        rows={6}
-        placeholder="<p>Введите HTML-текст...</p>"
-      />
+      <label className="block text-sm font-medium text-gray-700 mb-1">Текст</label>
+      <HtmlEditor html={html} onChange={onChange} placeholder="Введите текст..." />
     </div>
   );
 }
@@ -505,13 +500,8 @@ function ArticleEditor({
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">HTML контент</label>
-        <textarea
-          value={html}
-          onChange={(e) => onHtmlChange(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono text-sm"
-          rows={4}
-        />
+        <label className="block text-sm font-medium text-gray-700 mb-1">Текст</label>
+        <HtmlEditor html={html} onChange={onHtmlChange} />
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Изображение</label>
@@ -1108,13 +1098,7 @@ function TeachingGuideEditor({
         Этот блок виден только преподавателю
       </div>
       <label className="block text-sm font-medium text-gray-700 mb-1">Заметка для учителя</label>
-      <textarea
-        value={html}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full px-3 py-2 border border-red-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 bg-red-50"
-        rows={4}
-        placeholder="Инструкции для проведения урока..."
-      />
+      <HtmlEditor html={html} onChange={onChange} placeholder="Инструкции для проведения урока..." />
     </div>
   );
 }
@@ -1148,13 +1132,7 @@ function RememberEditor({
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Текст</label>
-        <textarea
-          value={html}
-          onChange={(e) => onHtmlChange(e.target.value)}
-          className="w-full px-3 py-2 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-blue-50"
-          rows={3}
-          placeholder="Важная информация для запоминания..."
-        />
+        <HtmlEditor html={html} onChange={onHtmlChange} placeholder="Важная информация для запоминания..." />
       </div>
     </div>
   );
