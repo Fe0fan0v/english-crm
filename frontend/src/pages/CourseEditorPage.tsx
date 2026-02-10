@@ -25,6 +25,28 @@ export default function CourseEditorPage() {
   const [editingDescription, setEditingDescription] = useState(false);
   const [newDescription, setNewDescription] = useState('');
 
+  // Collapsible sections
+  const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set());
+
+  const toggleSection = (sectionId: number) => {
+    setExpandedSections(prev => {
+      const next = new Set(prev);
+      if (next.has(sectionId)) next.delete(sectionId);
+      else next.add(sectionId);
+      return next;
+    });
+  };
+
+  const expandAll = () => {
+    if (course) {
+      setExpandedSections(new Set(course.sections.map(s => s.id)));
+    }
+  };
+
+  const collapseAll = () => {
+    setExpandedSections(new Set());
+  };
+
   // Section modal
   const [showSectionModal, setShowSectionModal] = useState(false);
   const [editingSection, setEditingSection] = useState<CourseSectionDetail | null>(null);
@@ -357,20 +379,51 @@ export default function CourseEditorPage() {
       </div>
 
       {/* Sections */}
+      {course.sections.length > 1 && (
+        <div className="flex items-center gap-2 mb-2">
+          <button
+            onClick={expandAll}
+            className="text-sm text-purple-600 hover:text-purple-800 hover:underline"
+          >
+            Развернуть всё
+          </button>
+          <span className="text-gray-300">|</span>
+          <button
+            onClick={collapseAll}
+            className="text-sm text-purple-600 hover:text-purple-800 hover:underline"
+          >
+            Свернуть всё
+          </button>
+        </div>
+      )}
       <div className="space-y-4">
         {course.sections.map((section, sectionIndex) => (
           <div key={section.id} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
             {/* Section Header */}
-            <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+            <div
+              className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between cursor-pointer select-none hover:bg-gray-100 transition-colors"
+              onClick={() => toggleSection(section.id)}
+            >
               <div className="flex items-center gap-2">
+                <svg
+                  className={`w-4 h-4 text-gray-400 transition-transform ${expandedSections.has(section.id) ? 'rotate-90' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
                 <span className="text-gray-400 font-medium">{sectionIndex + 1}.</span>
                 <h3 className="font-semibold text-gray-800">{section.title}</h3>
                 {section.description && (
                   <span className="text-sm text-gray-500">- {section.description}</span>
                 )}
+                <span className="text-xs text-gray-400 bg-gray-200 px-2 py-0.5 rounded-full">
+                  {section.lessons.length} {section.lessons.length === 1 ? 'урок' : section.lessons.length >= 2 && section.lessons.length <= 4 ? 'урока' : 'уроков'}
+                </span>
               </div>
               {!isReadOnly && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                 <button
                   onClick={() => {
                     setEditingSection(section);
@@ -396,6 +449,7 @@ export default function CourseEditorPage() {
             </div>
 
             {/* Lessons */}
+            {expandedSections.has(section.id) && (
             <div className="p-2">
               {section.lessons.length === 0 ? (
                 <p className="text-sm text-gray-400 text-center py-4">
@@ -512,6 +566,7 @@ export default function CourseEditorPage() {
               </button>
               )}
             </div>
+            )}
           </div>
         ))}
 
