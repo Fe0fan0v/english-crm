@@ -207,6 +207,14 @@ export default function App() {
         }
       />
       <Route
+        path="/teacher/irregular-verbs"
+        element={
+          <ProtectedRoute>
+            <IrregularVerbsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/teacher/knowledge-base"
         element={
           <ProtectedRoute>

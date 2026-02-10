@@ -374,6 +374,12 @@ const navItems: NavItem[] = [
     roles: ["teacher"],
   },
   {
+    path: "/teacher/irregular-verbs",
+    label: "Неправильные глаголы",
+    icon: icons2.irregularVerbs,
+    roles: ["teacher"],
+  },
+  {
     path: "/teacher/knowledge-base",
     label: "База знаний",
     icon: icons.book,
