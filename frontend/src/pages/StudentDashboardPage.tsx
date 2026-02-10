@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { studentApi, settingsApi } from "../services/api";
+import { studentApi, settingsApi, lessonsApi, courseMaterialsApi } from "../services/api";
 import { useAuthStore } from "../store/authStore";
 import DirectChat, { ConversationList } from "../components/DirectChat";
 import GroupChat from "../components/GroupChat";
@@ -9,6 +9,8 @@ import type {
   StudentLessonInfo,
   StudentTestInfo,
   LessonWithMaterials,
+  LessonMaterial,
+  LessonCourseMaterial,
 } from "../types";
 
 type TabType = "info" | "lessons" | "tests" | "messages";
@@ -49,6 +51,9 @@ export default function StudentDashboardPage() {
   const [chatPartner, setChatPartner] = useState<{ id: number; name: string } | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(user?.photo_url || null);
   const [selectedLesson, setSelectedLesson] = useState<StudentLessonInfo | null>(null);
+  const [selectedLessonMaterials, setSelectedLessonMaterials] = useState<LessonMaterial[]>([]);
+  const [selectedLessonCourseMaterials, setSelectedLessonCourseMaterials] = useState<LessonCourseMaterial[]>([]);
+  const [isMaterialsLoading, setIsMaterialsLoading] = useState(false);
   const [selectedDayIndex, setSelectedDayIndex] = useState(() => {
     // Find today's index in the week (0=Mon, 6=Sun)
     const today = new Date();
@@ -130,6 +135,21 @@ export default function StudentDashboardPage() {
       fetchTests();
     }
   }, [activeTab]);
+
+  const openLessonModal = (lesson: StudentLessonInfo) => {
+    setSelectedLesson(lesson);
+    setSelectedLessonMaterials([]);
+    setSelectedLessonCourseMaterials([]);
+    setIsMaterialsLoading(true);
+    Promise.all([
+      lessonsApi.getLessonMaterials(lesson.id).catch(() => []),
+      courseMaterialsApi.getLessonCourseMaterials(lesson.id).catch(() => []),
+    ]).then(([mats, courseMats]) => {
+      setSelectedLessonMaterials(mats);
+      setSelectedLessonCourseMaterials(courseMats);
+      setIsMaterialsLoading(false);
+    });
+  };
 
   const getLessonsForSlot = (date: Date, hour: number): StudentLessonInfo[] => {
     return schedule.filter((lesson) => {
@@ -471,7 +491,7 @@ export default function StudentDashboardPage() {
                   return (
                     <div
                       key={lesson.id}
-                      onClick={() => setSelectedLesson(lesson)}
+                      onClick={() => openLessonModal(lesson)}
                       className={`p-4 rounded-xl cursor-pointer transition-shadow hover:shadow-md ${
                         lesson.status === "completed"
                           ? "bg-green-50 border border-green-200"
@@ -567,7 +587,7 @@ export default function StudentDashboardPage() {
                               return (
                                 <div
                                   key={lesson.id}
-                                  onClick={() => setSelectedLesson(lesson)}
+                                  onClick={() => openLessonModal(lesson)}
                                   className={`w-full p-2 mb-1 rounded-lg text-left text-xs cursor-pointer transition-shadow hover:shadow-md ${
                                     lesson.status === "completed"
                                       ? "bg-green-100 text-green-700"
@@ -890,6 +910,67 @@ export default function StudentDashboardPage() {
                     </svg>
                     Подключиться к уроку
                   </a>
+                </div>
+              )}
+
+              {/* Materials */}
+              {isMaterialsLoading ? (
+                <div className="mt-4 text-center text-sm text-gray-400">Загрузка материалов...</div>
+              ) : (selectedLessonMaterials.length > 0 || selectedLessonCourseMaterials.length > 0) && (
+                <div className="mt-4 space-y-2">
+                  <h3 className="text-sm font-medium text-gray-700">Материалы к уроку</h3>
+                  {selectedLessonMaterials.map((m) => (
+                    <a
+                      key={`pdf-${m.id}`}
+                      href={m.file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate">{m.title}</p>
+                        <p className="text-xs text-gray-500">PDF</p>
+                      </div>
+                      <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
+                  ))}
+                  {selectedLessonCourseMaterials.map((m) => (
+                    <a
+                      key={`course-${m.id}`}
+                      href={
+                        m.material_type === "lesson" && m.interactive_lesson_id
+                          ? `/courses/lessons/${m.interactive_lesson_id}`
+                          : m.course_id
+                          ? `/courses/${m.course_id}/edit`
+                          : "#"
+                      }
+                      className="flex items-center gap-3 p-3 bg-cyan-50 rounded-lg hover:bg-cyan-100 transition-colors"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-cyan-100 text-cyan-600 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                        </svg>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate">
+                          {m.course_title || m.section_title || m.topic_title || m.interactive_lesson_title || "Материал курса"}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {m.material_type === "course" ? "Курс" : m.material_type === "section" ? "Секция" : m.material_type === "topic" ? "Топик" : "Урок"}
+                        </p>
+                      </div>
+                      <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
+                  ))}
                 </div>
               )}
 
