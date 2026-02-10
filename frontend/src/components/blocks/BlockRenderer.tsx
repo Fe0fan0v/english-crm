@@ -482,6 +482,9 @@ function TestRenderer({
   isChecked: boolean;
   onCheck: () => void;
 }) {
+  const { user } = useAuthStore();
+  const canSeeAnswers = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'teacher';
+
   const selectedIds = multipleAnswers
     ? (answer as string[]) || []
     : answer
@@ -529,6 +532,7 @@ function TestRenderer({
               key={option.id}
               onClick={() => handleSelect(option.id)}
               disabled={isChecked}
+              title={canSeeAnswers && option.is_correct ? '✓ Правильный ответ' : undefined}
               className={`w-full text-left px-4 py-3 rounded-lg border-2 transition-colors ${
                 state === 'selected'
                   ? 'border-purple-500 bg-purple-50'
@@ -606,6 +610,8 @@ function TrueFalseRenderer({
   isChecked: boolean;
   onCheck: () => void;
 }) {
+  const { user } = useAuthStore();
+  const canSeeAnswers = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'teacher';
   const isCorrect = isChecked && answer === isTrue;
 
   return (
@@ -626,6 +632,7 @@ function TrueFalseRenderer({
               key={String(value)}
               onClick={() => !isChecked && onAnswerChange(value)}
               disabled={isChecked}
+              title={canSeeAnswers && value === isTrue ? '✓ Правильный ответ' : undefined}
               className={`flex-1 px-4 py-3 rounded-lg border-2 transition-colors ${
                 isCorrectAnswer
                   ? 'border-green-500 bg-green-50'
