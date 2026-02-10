@@ -357,9 +357,24 @@ scripts/edvibe_parser/
   - Полноценный audio/video player для медиа блоков
   - Интерактивные упражнения (fill_gaps, test, matching и т.д.)
 
+**WYSIWYG-редактор (TipTap):**
+- HTML-блоки (text, teaching_guide, remember, article) редактируются через визуальный редактор TipTap
+- Компонент `HtmlEditor.tsx` — toolbar с B/I/U/S, H1-H3, списки, ссылки, undo/redo
+- Пакеты: `@tiptap/react`, `@tiptap/starter-kit`, `@tiptap/pm`, `@tiptap/extension-underline`, `@tiptap/extension-link`
+- Enter — новый абзац, Shift+Enter — `<br>`
+
+**Подсказки правильных ответов (для учителей/менеджеров/админов):**
+- При наведении курсора на интерактивные элементы показывается правильный ответ (HTML `title`)
+- fill_gaps — правильное слово при наведении на пропуск
+- test — "✓ Правильный ответ" при наведении на правильный вариант
+- true_false — "✓ Правильный ответ" при наведении на правильную кнопку
+- matching — правильная пара при наведении на элемент левого столбца
+- Студенты подсказок не видят (проверка роли через `useAuthStore`)
+
 **Компоненты:**
 - `BlockEditor.tsx` — редакторы для всех типов блоков с поддержкой загрузки файлов
 - `BlockRenderer.tsx` — рендереры для просмотра блоков с интерактивной проверкой ответов
+- `HtmlEditor.tsx` — универсальный WYSIWYG-редактор на TipTap для HTML-контента
 - `AttachCourseMaterialModal.tsx` — выбор курса/секции/топика/урока для прикрепления (teacher)
 - `FileUploadButton` — компонент загрузки файлов в S3 (встроен в BlockEditor)
 
