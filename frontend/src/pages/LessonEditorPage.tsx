@@ -15,6 +15,7 @@ export default function LessonEditorPage() {
   const [saving, setSaving] = useState(false);
   const [showAddBlockModal, setShowAddBlockModal] = useState(false);
   const [editingBlock, setEditingBlock] = useState<ExerciseBlock | null>(null);
+  const [insertPosition, setInsertPosition] = useState<number | null>(null);
 
   // Only admin can edit lessons
   useEffect(() => {
@@ -46,15 +47,28 @@ export default function LessonEditorPage() {
     try {
       setSaving(true);
       const defaultContent = getDefaultContent(blockType);
+      const pos = insertPosition;
       const block = await blockApi.create(lesson.id, {
         block_type: blockType,
         content: defaultContent,
+        ...(pos !== null ? { position: pos } : {}),
       });
-      setLesson({
-        ...lesson,
-        blocks: [...lesson.blocks, block],
-      });
+
+      let newBlocks: ExerciseBlock[];
+      if (pos !== null) {
+        // Insert at position and reorder
+        newBlocks = [...lesson.blocks];
+        newBlocks.splice(pos, 0, block);
+        const reorderItems = newBlocks.map((b, i) => ({ id: b.id, position: i }));
+        await blockApi.reorder(lesson.id, reorderItems);
+        newBlocks = newBlocks.map((b, i) => ({ ...b, position: i }));
+      } else {
+        newBlocks = [...lesson.blocks, block];
+      }
+
+      setLesson({ ...lesson, blocks: newBlocks });
       setShowAddBlockModal(false);
+      setInsertPosition(null);
       setEditingBlock(block);
     } catch (error) {
       console.error('Failed to create block:', error);
@@ -75,6 +89,27 @@ export default function LessonEditorPage() {
       setEditingBlock(null);
     } catch (error) {
       console.error('Failed to update block:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleChangeBlockType = async (block: ExerciseBlock, newType: ExerciseBlockType) => {
+    if (!lesson || newType === block.block_type) return;
+    if (!confirm('Содержимое блока будет сброшено. Продолжить?')) return;
+    try {
+      setSaving(true);
+      const defaultContent = getDefaultContent(newType);
+      const updated = await blockApi.update(block.id, { block_type: newType, content: defaultContent });
+      setLesson({
+        ...lesson,
+        blocks: lesson.blocks.map(b => (b.id === updated.id ? updated : b)),
+      });
+      if (editingBlock?.id === block.id) {
+        setEditingBlock(updated);
+      }
+    } catch (error) {
+      console.error('Failed to change block type:', error);
     } finally {
       setSaving(false);
     }
@@ -198,78 +233,106 @@ export default function LessonEditorPage() {
           </div>
         ) : (
           lesson.blocks.map((block, index) => (
-            <div
-              key={block.id}
-              className={`bg-white rounded-xl border ${
-                editingBlock?.id === block.id ? 'border-purple-300 ring-2 ring-purple-100' : 'border-gray-100'
-              }`}
-            >
-              {/* Block Header */}
-              <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-cyan-600">1.{index + 1}</span>
-                  {block.title ? (
-                    <span className="text-sm font-medium text-gray-800">{block.title}</span>
-                  ) : (
-                    <span className="text-sm font-medium text-gray-400">
-                      {BLOCK_TYPE_LABELS[block.block_type]}
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => handleMoveBlock(block.id, 'up')}
-                    disabled={index === 0}
-                    className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30"
-                    title="Вверх"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => handleMoveBlock(block.id, 'down')}
-                    disabled={index === lesson.blocks.length - 1}
-                    className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30"
-                    title="Вниз"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => setEditingBlock(editingBlock?.id === block.id ? null : block)}
-                    className={`p-1 ${editingBlock?.id === block.id ? 'text-purple-600' : 'text-gray-400 hover:text-purple-600'}`}
-                    title="Редактировать"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => handleDeleteBlock(block.id)}
-                    className="p-1 text-gray-400 hover:text-red-600"
-                    title="Удалить"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </div>
+            <div key={block.id}>
+              {/* Insert button before block */}
+              <div className="group flex items-center gap-2 py-1 -my-1">
+                <div className="flex-1 h-px bg-transparent group-hover:bg-purple-200 transition-colors" />
+                <button
+                  onClick={() => { setInsertPosition(index); setShowAddBlockModal(true); }}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-purple-400 hover:text-purple-600 hover:bg-purple-50 rounded-full"
+                  title="Вставить блок здесь"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+                <div className="flex-1 h-px bg-transparent group-hover:bg-purple-200 transition-colors" />
               </div>
 
-              {/* Block Content / Editor */}
-              <div className="p-4">
-                {editingBlock?.id === block.id ? (
-                  <BlockEditor
-                    block={block}
-                    onSave={(content, title) => handleUpdateBlock(block, content, title)}
-                    onCancel={() => setEditingBlock(null)}
-                    saving={saving}
-                  />
-                ) : (
-                  <BlockPreview block={block} />
-                )}
+              <div
+                className={`bg-white rounded-xl border ${
+                  editingBlock?.id === block.id ? 'border-purple-300 ring-2 ring-purple-100' : 'border-gray-100'
+                }`}
+              >
+                {/* Block Header */}
+                <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-cyan-600">1.{index + 1}</span>
+                    {block.title && (
+                      <span className="text-sm font-medium text-gray-800">{block.title}</span>
+                    )}
+                    <select
+                      value={block.block_type}
+                      onChange={(e) => handleChangeBlockType(block, e.target.value as ExerciseBlockType)}
+                      className="text-xs bg-transparent border border-gray-200 rounded px-1.5 py-0.5 text-gray-500 hover:border-purple-300 focus:border-purple-400 focus:ring-1 focus:ring-purple-200 cursor-pointer"
+                    >
+                      <optgroup label="Контент">
+                        {CONTENT_BLOCK_TYPES.map((t) => (
+                          <option key={t} value={t}>{BLOCK_TYPE_LABELS[t]}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Упражнения">
+                        {INTERACTIVE_BLOCK_TYPES.map((t) => (
+                          <option key={t} value={t}>{BLOCK_TYPE_LABELS[t]}</option>
+                        ))}
+                      </optgroup>
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleMoveBlock(block.id, 'up')}
+                      disabled={index === 0}
+                      className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                      title="Вверх"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => handleMoveBlock(block.id, 'down')}
+                      disabled={index === lesson.blocks.length - 1}
+                      className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                      title="Вниз"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => setEditingBlock(editingBlock?.id === block.id ? null : block)}
+                      className={`p-1 ${editingBlock?.id === block.id ? 'text-purple-600' : 'text-gray-400 hover:text-purple-600'}`}
+                      title="Редактировать"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => handleDeleteBlock(block.id)}
+                      className="p-1 text-gray-400 hover:text-red-600"
+                      title="Удалить"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Block Content / Editor */}
+                <div className="p-4">
+                  {editingBlock?.id === block.id ? (
+                    <BlockEditor
+                      block={block}
+                      onSave={(content, title) => handleUpdateBlock(block, content, title)}
+                      onCancel={() => setEditingBlock(null)}
+                      saving={saving}
+                    />
+                  ) : (
+                    <BlockPreview block={block} />
+                  )}
+                </div>
               </div>
             </div>
           ))
@@ -277,7 +340,7 @@ export default function LessonEditorPage() {
 
         {/* Add Block Button */}
         <button
-          onClick={() => setShowAddBlockModal(true)}
+          onClick={() => { setInsertPosition(null); setShowAddBlockModal(true); }}
           className="w-full py-4 text-purple-600 border-2 border-dashed border-purple-200 rounded-xl hover:bg-purple-50 transition-colors flex items-center justify-center gap-2"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -329,7 +392,7 @@ export default function LessonEditorPage() {
 
             <div className="flex justify-end">
               <button
-                onClick={() => setShowAddBlockModal(false)}
+                onClick={() => { setShowAddBlockModal(false); setInsertPosition(null); }}
                 className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
               >
                 Отмена
