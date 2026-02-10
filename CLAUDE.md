@@ -24,6 +24,7 @@ frontend/
 │   ├── components/    # UI компоненты
 │   │   └── blocks/    # BlockEditor.tsx, BlockRenderer.tsx (конструктор курсов)
 │   ├── pages/         # Страницы
+│   ├── data/          # Статические данные (irregularVerbs.ts)
 │   ├── services/      # API клиенты (api.ts, courseApi.ts)
 │   └── types/         # TypeScript типы (index.ts, course.ts)
 └── package.json
@@ -238,6 +239,16 @@ scripts/edvibe_parser/
   - `.scrollbar-hide` — скрытие скроллбара
   - `.touch-target` — минимальный размер 44x44px
   - `.pb-safe`, `.pt-safe` — safe area для iOS
+
+### Неправильные глаголы (Irregular Verbs)
+- Справочник ~137 неправильных глаголов английского языка
+- Данные хранятся статически в `frontend/src/data/irregularVerbs.ts` (бэкенд не нужен)
+- Интерфейс `IrregularVerb`: v1, v2, v3, translation, transcription
+- Поиск по всем полям (английские формы + русский перевод)
+- Произношение всех трёх форм через Web Speech API (паттерн из VocabularyRenderer)
+- Адаптивный дизайн: таблица (desktop) / карточки (mobile)
+- Доступен для ролей: student (`/student/irregular-verbs`), teacher (`/teacher/irregular-verbs`)
+- Страница: `IrregularVerbsPage.tsx`
 
 ### Материалы урока (Lesson Materials)
 - Преподаватели могут прикреплять PDF материалы к урокам
@@ -634,6 +645,7 @@ ssh jsi "cd ~/english-crm && sudo docker compose exec -T backend python /app/bat
 - `SettingsPage` — настройки системы (admin only) для редактирования WhatsApp номера менеджера
 - `NewsManagementPage` — управление новостями (admin only) с созданием/редактированием/удалением, загрузкой баннеров
 - `NewsPage` — просмотр опубликованных новостей для учеников с баннерами
+- `IrregularVerbsPage` — справочник неправильных глаголов (~137 шт.) с поиском, транскрипцией и произношением (Web Speech API), доступен student и teacher
 - `KnowledgeBasePage` — база знаний (заглушка) для преподавателей и учеников
 - `CoursesPage` — список курсов (замена MaterialsPage)
 - `CourseEditorPage` — редактор структуры курса (секции, уроки)
