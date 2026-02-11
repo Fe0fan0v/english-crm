@@ -338,6 +338,7 @@ scripts/edvibe_parser/
 - `POST /api/lessons/{id}/course-materials` — прикрепить материал курса к уроку (teacher)
 - `DELETE /api/lessons/{id}/course-materials/{material_id}` — открепить материал
 - `GET /api/student/course-materials` — материалы курсов для ученика (только где present)
+- `GET /api/student/course-material/{id}/view` — отфильтрованное дерево курса для ученика (только прикреплённая часть, проверка PRESENT)
 - `GET /api/teacher/lessons-with-materials` — уроки преподавателя с материалами (PDF и курсовые)
 - `POST /api/uploads/courses` — загрузка файлов для курсов (изображения, аудио) в S3
 - `GET /api/uploads/courses/{filename}` — получение файлов курсов
@@ -395,7 +396,7 @@ scripts/edvibe_parser/
 **Права доступа:**
 - admin — полный CRUD курсов, секций, уроков, блоков
 - teacher — просмотр структуры курсов (read-only), прикрепление материалов к своим урокам, просмотр деталей своих уроков
-- student — просмотр прикреплённых материалов (только если был на уроке)
+- student — просмотр прикреплённых материалов (только если был на уроке), видит только прикреплённую часть курса (не весь курс)
 
 **Важно о правах доступа к API:**
 - `GET /api/lessons/{id}` использует `TeacherUser` (доступ для admin/manager/teacher)
@@ -660,6 +661,7 @@ ssh jsi "cd ~/english-crm && sudo docker compose exec -T backend python /app/bat
 ### Frontend страницы
 - `TeacherDashboardPage` — кабинет преподавателя (или просмотр для менеджера), вкладки: Учитель, Ученики (объединённые группы + ученики), Свободное время, Уроки, Сообщения
 - `StudentDashboardPage` — кабинет ученика с кнопкой WhatsApp при низком балансе, вкладки: Моя страница, Уроки, Тесты, Материалы, Сообщения. Уроки в расписании кликабельные — при клике модалка с деталями, кнопкой "Подключиться к уроку" и прикреплёнными материалами (PDF + курсы)
+- `StudentCourseMaterialPage` — просмотр отфильтрованного дерева курса для ученика (`/student/course-material/:materialId`), показывает только прикреплённую часть (секцию/топик/курс) с навигацией по урокам
 - `UserProfilePage` — профиль пользователя (admin/manager view)
 - `SchedulePage` — общее расписание
 - `UsersPage`, `GroupsPage`, `LevelsPage`, `LessonTypesPage` — справочники
