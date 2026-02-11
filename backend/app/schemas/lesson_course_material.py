@@ -69,5 +69,39 @@ class CourseTreeItem(BaseModel):
         from_attributes = True
 
 
+class StudentLessonItem(BaseModel):
+    """Interactive lesson item for student course material view."""
+    id: int
+    title: str
+    description: str | None = None
+    is_homework: bool = False
+
+
+class StudentTopicItem(BaseModel):
+    """Topic item for student course material view."""
+    id: int
+    title: str
+    description: str | None = None
+    lessons: list[StudentLessonItem] = []
+
+
+class StudentSectionItem(BaseModel):
+    """Section item for student course material view."""
+    id: int
+    title: str
+    description: str | None = None
+    topics: list[StudentTopicItem] = []
+
+
+class StudentCourseMaterialView(BaseModel):
+    """Response for student viewing a course material (filtered tree)."""
+    material_type: CourseMaterialType
+    course_title: str | None = None
+    section_title: str | None = None
+    topic_title: str | None = None
+    sections: list[StudentSectionItem] = []
+    interactive_lesson_id: int | None = None
+
+
 # Enable forward reference
 CourseTreeItem.model_rebuild()

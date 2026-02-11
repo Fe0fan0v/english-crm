@@ -52,6 +52,7 @@ import type {
   CourseTreeItem,
   LessonCourseMaterial,
   CourseMaterialType,
+  StudentCourseMaterialView,
 } from "../types";
 
 const api = axios.create({
@@ -888,6 +889,12 @@ export const courseMaterialsApi = {
   // Get student's lessons with course materials
   getStudentCourseMaterials: async () => {
     const response = await api.get("/student/course-materials");
+    return response.data;
+  },
+
+  // Get filtered course material view for student
+  getStudentMaterialView: async (materialId: number): Promise<StudentCourseMaterialView> => {
+    const response = await api.get<StudentCourseMaterialView>(`/student/course-material/${materialId}/view`);
     return response.data;
   },
 };

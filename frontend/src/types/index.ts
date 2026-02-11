@@ -563,3 +563,34 @@ export interface CourseTreeItem {
   type: 'course' | 'section' | 'topic' | 'lesson';
   children: CourseTreeItem[];
 }
+
+// Student Course Material View (filtered tree)
+export interface StudentLessonItem {
+  id: number;
+  title: string;
+  description: string | null;
+  is_homework: boolean;
+}
+
+export interface StudentTopicItem {
+  id: number;
+  title: string;
+  description: string | null;
+  lessons: StudentLessonItem[];
+}
+
+export interface StudentSectionItem {
+  id: number;
+  title: string;
+  description: string | null;
+  topics: StudentTopicItem[];
+}
+
+export interface StudentCourseMaterialView {
+  material_type: CourseMaterialType;
+  course_title: string | null;
+  section_title: string | null;
+  topic_title: string | null;
+  sections: StudentSectionItem[];
+  interactive_lesson_id: number | null;
+}

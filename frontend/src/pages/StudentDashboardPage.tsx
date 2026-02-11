@@ -947,9 +947,7 @@ export default function StudentDashboardPage() {
                       href={
                         m.material_type === "lesson" && m.interactive_lesson_id
                           ? `/courses/lessons/${m.interactive_lesson_id}`
-                          : m.course_id
-                          ? `/courses/${m.course_id}/edit`
-                          : "#"
+                          : `/student/course-material/${m.id}`
                       }
                       className="flex items-center gap-3 p-3 bg-cyan-50 rounded-lg hover:bg-cyan-100 transition-colors"
                     >

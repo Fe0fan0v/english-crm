@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from sqlalchemy import and_, select
 from sqlalchemy.orm import selectinload
 
@@ -16,7 +16,7 @@ from app.models import (
     MaterialAccess,
     TestAccess,
 )
-from app.models.course import Course, CourseSection, InteractiveLesson
+from app.models.course import Course, CourseSection, CourseTopic, InteractiveLesson
 from app.models.lesson import LessonStatus
 from app.schemas.dashboard import (
     StudentDashboardResponse,
@@ -25,6 +25,12 @@ from app.schemas.dashboard import (
     StudentMaterialInfo,
     StudentStats,
     StudentTestInfo,
+)
+from app.schemas.lesson_course_material import (
+    StudentCourseMaterialView,
+    StudentLessonItem,
+    StudentSectionItem,
+    StudentTopicItem,
 )
 
 router = APIRouter()
@@ -413,3 +419,199 @@ async def get_student_course_materials(
     lessons_with_course_materials.sort(key=lambda x: x["scheduled_at"], reverse=True)
 
     return lessons_with_course_materials
+
+
+def _build_section_item(section: CourseSection) -> StudentSectionItem:
+    """Build a StudentSectionItem from a CourseSection, including topics and direct lessons."""
+    topics: list[StudentTopicItem] = []
+
+    # Lessons from topics
+    for topic in sorted(section.topics, key=lambda t: t.position):
+        published_lessons = [
+            StudentLessonItem(
+                id=il.id,
+                title=il.title,
+                description=il.description,
+                is_homework=il.is_homework,
+            )
+            for il in sorted(topic.lessons, key=lambda l: l.position)
+            if il.is_published
+        ]
+        if published_lessons:
+            topics.append(StudentTopicItem(
+                id=topic.id,
+                title=topic.title,
+                description=topic.description,
+                lessons=published_lessons,
+            ))
+
+    # Legacy: lessons directly on section (no topic)
+    direct_lessons = [
+        il for il in sorted(section.lessons, key=lambda l: l.position)
+        if il.is_published and il.topic_id is None
+    ]
+    if direct_lessons:
+        topics.append(StudentTopicItem(
+            id=0,
+            title="Уроки",
+            description=None,
+            lessons=[
+                StudentLessonItem(
+                    id=il.id,
+                    title=il.title,
+                    description=il.description,
+                    is_homework=il.is_homework,
+                )
+                for il in direct_lessons
+            ],
+        ))
+
+    return StudentSectionItem(
+        id=section.id,
+        title=section.title,
+        description=section.description,
+        topics=topics,
+    )
+
+
+@router.get("/course-material/{material_id}/view", response_model=StudentCourseMaterialView)
+async def get_student_course_material_view(
+    material_id: int,
+    db: DBSession,
+    current_user: StudentOnlyUser,
+):
+    """
+    Get filtered course material view for a student.
+    Only returns the part of the course tree that was attached to the lesson.
+    Requires PRESENT attendance status.
+    """
+    # Load the material
+    result = await db.execute(
+        select(LessonCourseMaterial)
+        .where(LessonCourseMaterial.id == material_id)
+    )
+    material = result.scalar_one_or_none()
+    if not material:
+        raise HTTPException(status_code=404, detail="Материал не найден")
+
+    # Check student has PRESENT status for this lesson
+    result = await db.execute(
+        select(LessonStudent).where(
+            LessonStudent.lesson_id == material.lesson_id,
+            LessonStudent.student_id == current_user.id,
+            LessonStudent.attendance_status == AttendanceStatus.PRESENT,
+        )
+    )
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=403, detail="Нет доступа к этому материалу")
+
+    mat_type = material.material_type.value
+
+    # lesson type → just return the interactive_lesson_id for redirect
+    if mat_type == "lesson":
+        return StudentCourseMaterialView(
+            material_type=material.material_type,
+            interactive_lesson_id=material.interactive_lesson_id,
+        )
+
+    # course type → load full course tree
+    if mat_type == "course":
+        result = await db.execute(
+            select(Course)
+            .where(Course.id == material.course_id)
+            .options(
+                selectinload(Course.sections)
+                .selectinload(CourseSection.topics)
+                .selectinload(CourseTopic.lessons),
+                selectinload(Course.sections)
+                .selectinload(CourseSection.lessons),
+            )
+        )
+        course = result.scalar_one_or_none()
+        if not course:
+            raise HTTPException(status_code=404, detail="Курс не найден")
+
+        sections = [
+            item for s in sorted(course.sections, key=lambda s: s.position)
+            if (item := _build_section_item(s)).topics
+        ]
+
+        return StudentCourseMaterialView(
+            material_type=material.material_type,
+            course_title=course.title,
+            sections=sections,
+        )
+
+    # section type → load single section
+    if mat_type == "section":
+        result = await db.execute(
+            select(CourseSection)
+            .where(CourseSection.id == material.section_id)
+            .options(
+                selectinload(CourseSection.topics)
+                .selectinload(CourseTopic.lessons),
+                selectinload(CourseSection.lessons),
+                selectinload(CourseSection.course),
+            )
+        )
+        section = result.scalar_one_or_none()
+        if not section:
+            raise HTTPException(status_code=404, detail="Секция не найдена")
+
+        section_item = _build_section_item(section)
+        sections = [section_item] if section_item.topics else []
+
+        return StudentCourseMaterialView(
+            material_type=material.material_type,
+            course_title=section.course.title if section.course else None,
+            section_title=section.title,
+            sections=sections,
+        )
+
+    # topic type → load single topic
+    if mat_type == "topic":
+        result = await db.execute(
+            select(CourseTopic)
+            .where(CourseTopic.id == material.topic_id)
+            .options(
+                selectinload(CourseTopic.lessons),
+                selectinload(CourseTopic.section).selectinload(CourseSection.course),
+            )
+        )
+        topic = result.scalar_one_or_none()
+        if not topic:
+            raise HTTPException(status_code=404, detail="Топик не найден")
+
+        published_lessons = [
+            StudentLessonItem(
+                id=il.id,
+                title=il.title,
+                description=il.description,
+                is_homework=il.is_homework,
+            )
+            for il in sorted(topic.lessons, key=lambda l: l.position)
+            if il.is_published
+        ]
+
+        topic_item = StudentTopicItem(
+            id=topic.id,
+            title=topic.title,
+            description=topic.description,
+            lessons=published_lessons,
+        )
+
+        section = topic.section
+        section_item = StudentSectionItem(
+            id=section.id,
+            title=section.title,
+            description=section.description,
+            topics=[topic_item] if published_lessons else [],
+        )
+
+        return StudentCourseMaterialView(
+            material_type=material.material_type,
+            course_title=section.course.title if section.course else None,
+            section_title=section.title,
+            topic_title=topic.title,
+            sections=[section_item] if section_item.topics else [],
+        )
