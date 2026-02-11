@@ -980,7 +980,7 @@ async def get_lesson_course_materials(
 ):
     """
     Get course materials attached to a lesson.
-    For students: only shows if they have attendance_status == PRESENT.
+    For students: shows if they are assigned to the lesson.
     For teachers/admin/manager: shows all.
     """
     lesson = await db.get(Lesson, lesson_id)
@@ -989,15 +989,14 @@ async def get_lesson_course_materials(
 
     # Check permissions for students
     if current_user.role == UserRole.STUDENT:
-        # Check if student is in this lesson with PRESENT status
+        # Check if student is assigned to this lesson (any attendance status)
         stmt = select(LessonStudent).where(
             LessonStudent.lesson_id == lesson_id,
             LessonStudent.student_id == current_user.id,
-            LessonStudent.attendance_status == AttendanceStatus.PRESENT,
         )
         result = await db.execute(stmt)
         if not result.scalar_one_or_none():
-            # Return empty list if student is not present
+            # Return empty list if student is not in this lesson
             return []
     elif current_user.role not in [UserRole.ADMIN, UserRole.MANAGER]:
         # Teacher can only see their own lessons

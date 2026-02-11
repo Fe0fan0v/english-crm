@@ -347,19 +347,18 @@ async def get_student_course_materials(
     """
     Get course materials for student's lessons.
     Only shows materials from lessons where:
-    - Student has attendance_status == PRESENT
+    - Student is assigned to the lesson
     - Lesson has started (scheduled_at <= now)
     - Lesson is not older than 30 days
     """
     now = datetime.utcnow()
     one_month_ago = now - timedelta(days=30)
 
-    # Get student's lesson participations with PRESENT status
+    # Get student's lesson participations (any attendance status)
     result = await db.execute(
         select(LessonStudent)
         .where(
             LessonStudent.student_id == current_user.id,
-            LessonStudent.attendance_status == AttendanceStatus.PRESENT,
         )
         .options(
             selectinload(LessonStudent.lesson).selectinload(Lesson.teacher),
@@ -483,7 +482,7 @@ async def get_student_course_material_view(
     """
     Get filtered course material view for a student.
     Only returns the part of the course tree that was attached to the lesson.
-    Requires PRESENT attendance status.
+    Requires student to be assigned to the lesson.
     """
     # Load the material
     result = await db.execute(
@@ -494,12 +493,11 @@ async def get_student_course_material_view(
     if not material:
         raise HTTPException(status_code=404, detail="Материал не найден")
 
-    # Check student has PRESENT status for this lesson
+    # Check student is assigned to this lesson (any attendance status)
     result = await db.execute(
         select(LessonStudent).where(
             LessonStudent.lesson_id == material.lesson_id,
             LessonStudent.student_id == current_user.id,
-            LessonStudent.attendance_status == AttendanceStatus.PRESENT,
         )
     )
     if not result.scalar_one_or_none():
