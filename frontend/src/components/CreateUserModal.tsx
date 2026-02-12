@@ -105,10 +105,15 @@ export default function CreateUserModal({
       });
       setErrors({});
       onClose();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to create user:", error);
-      const message =
-        error?.response?.data?.detail || "Не удалось создать пользователя";
+      let message = "Не удалось создать пользователя";
+      if (error && typeof error === "object" && "response" in error) {
+        const resp = error as { response?: { data?: { detail?: string } } };
+        if (resp.response?.data?.detail) {
+          message = resp.response.data.detail;
+        }
+      }
       setErrors((prev) => ({ ...prev, email: message }));
     } finally {
       setIsLoading(false);
