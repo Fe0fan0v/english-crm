@@ -1,5 +1,6 @@
-import { useState } from "react";
-import type { UserRole } from "../types";
+import { useState, useEffect } from "react";
+import { levelsApi, usersApi } from "../services/api";
+import type { UserRole, Level, User } from "../types";
 
 interface CreateUserModalProps {
   isOpen: boolean;
@@ -15,6 +16,8 @@ export interface CreateUserData {
   phone: string;
   password: string;
   role: UserRole;
+  level_id?: number | null;
+  teacher_id?: number | null;
 }
 
 const roleLabels: Record<UserRole, string> = {
@@ -44,9 +47,20 @@ export default function CreateUserModal({
     phone: "",
     password: "",
     role: defaultRole,
+    level_id: null,
+    teacher_id: null,
   });
   const [errors, setErrors] = useState<Partial<Record<keyof CreateUserData, string>>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [levels, setLevels] = useState<Level[]>([]);
+  const [teachers, setTeachers] = useState<User[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      levelsApi.list().then((data) => setLevels(data.items)).catch(console.error);
+      usersApi.list(1, 100, undefined, "teacher").then((data) => setTeachers(data.items)).catch(console.error);
+    }
+  }, [isOpen]);
 
   const validate = (): boolean => {
     const newErrors: Partial<Record<keyof CreateUserData, string>> = {};
@@ -86,6 +100,8 @@ export default function CreateUserModal({
         phone: "",
         password: "",
         role: defaultRole,
+        level_id: null,
+        teacher_id: null,
       });
       setErrors({});
       onClose();
@@ -223,6 +239,58 @@ export default function CreateUserModal({
               ))}
             </select>
           </div>
+
+          {/* Level (for student and teacher) */}
+          {(formData.role === "student" || formData.role === "teacher") && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Уровень
+              </label>
+              <select
+                value={formData.level_id || ""}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    level_id: e.target.value ? parseInt(e.target.value) : null,
+                  }))
+                }
+                className="input w-full"
+              >
+                <option value="">Не указан</option>
+                {levels.map((level) => (
+                  <option key={level.id} value={level.id}>
+                    {level.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Teacher (for student only) */}
+          {formData.role === "student" && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Преподаватель
+              </label>
+              <select
+                value={formData.teacher_id || ""}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    teacher_id: e.target.value ? parseInt(e.target.value) : null,
+                  }))
+                }
+                className="input w-full"
+              >
+                <option value="">Не назначен</option>
+                {teachers.map((teacher) => (
+                  <option key={teacher.id} value={teacher.id}>
+                    {teacher.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex gap-3 pt-4">

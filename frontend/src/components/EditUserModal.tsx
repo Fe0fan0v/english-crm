@@ -15,6 +15,7 @@ export interface EditUserData {
   phone: string | null;
   photo_url: string | null;
   level_id: number | null;
+  password?: string;
 }
 
 export default function EditUserModal({
@@ -29,6 +30,7 @@ export default function EditUserModal({
     phone: null,
     photo_url: null,
     level_id: null,
+    password: "",
   });
   const [errors, setErrors] = useState<Partial<Record<keyof EditUserData, string>>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -49,6 +51,7 @@ export default function EditUserModal({
         phone: user.phone || null,
         photo_url: user.photo_url || null,
         level_id: user.level_id || null,
+        password: "",
       });
       setErrors({});
     }
@@ -67,6 +70,10 @@ export default function EditUserModal({
       newErrors.email = "Некорректный email";
     }
 
+    if (formData.password && formData.password.length < 6) {
+      newErrors.password = "Пароль должен быть не менее 6 символов";
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -78,7 +85,11 @@ export default function EditUserModal({
 
     setIsLoading(true);
     try {
-      await onSubmit(formData);
+      const dataToSubmit = { ...formData };
+      if (!dataToSubmit.password) {
+        delete dataToSubmit.password;
+      }
+      await onSubmit(dataToSubmit);
       onClose();
     } catch (error) {
       console.error("Failed to update user:", error);
@@ -200,6 +211,24 @@ export default function EditUserModal({
               </select>
             </div>
           )}
+
+          {/* Password */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Новый пароль
+            </label>
+            <input
+              type="password"
+              name="password"
+              value={formData.password || ""}
+              onChange={handleChange}
+              className={`input w-full ${errors.password ? "border-red-500" : ""}`}
+              placeholder="Оставьте пустым, чтобы не менять"
+            />
+            {errors.password && (
+              <p className="text-red-500 text-sm mt-1">{errors.password}</p>
+            )}
+          </div>
 
           {/* Photo URL */}
           <div>

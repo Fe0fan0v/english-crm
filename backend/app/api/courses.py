@@ -88,7 +88,9 @@ async def get_courses_tree(
         .options(
             selectinload(Course.sections)
             .selectinload(CourseSection.topics)
-            .selectinload(CourseTopic.lessons)
+            .selectinload(CourseTopic.lessons),
+            selectinload(Course.sections)
+            .selectinload(CourseSection.lessons),
         )
         .order_by(Course.title)
     )
@@ -128,6 +130,17 @@ async def get_courses_tree(
                         topic_item.children.append(lesson_item)
                 # Include all topics (even empty ones for admin to edit)
                 section_item.children.append(topic_item)
+            # Legacy: lessons directly under section (no topics)
+            if not section_item.children and section.lessons:
+                for lesson in sorted(section.lessons, key=lambda l: l.position):
+                    if lesson.is_published:
+                        lesson_item = CourseTreeItem(
+                            id=lesson.id,
+                            title=lesson.title,
+                            type="lesson",
+                            children=[]
+                        )
+                        section_item.children.append(lesson_item)
             # Include all sections (even empty ones for admin to edit)
             if section_item.children:
                 course_item.children.append(section_item)
@@ -409,7 +422,7 @@ async def create_section(
         select(func.coalesce(func.max(CourseSection.position), -1))
         .where(CourseSection.course_id == course_id)
     )
-    max_pos = max_pos_result.scalar() or -1
+    max_pos = max_pos_result.scalar()
 
     section = CourseSection(
         course_id=course_id,
@@ -769,7 +782,7 @@ async def create_lesson_in_topic(
         select(func.coalesce(func.max(InteractiveLesson.position), -1))
         .where(InteractiveLesson.topic_id == topic_id)
     )
-    max_pos = max_pos_result.scalar() or -1
+    max_pos = max_pos_result.scalar()
 
     lesson = InteractiveLesson(
         topic_id=topic_id,
@@ -826,7 +839,7 @@ async def create_lesson(
         select(func.coalesce(func.max(InteractiveLesson.position), -1))
         .where(InteractiveLesson.section_id == section_id)
     )
-    max_pos = max_pos_result.scalar() or -1
+    max_pos = max_pos_result.scalar()
 
     lesson = InteractiveLesson(
         section_id=section_id,
@@ -1090,7 +1103,7 @@ async def create_block(
         select(func.coalesce(func.max(ExerciseBlock.position), -1))
         .where(ExerciseBlock.lesson_id == lesson_id)
     )
-    max_pos = max_pos_result.scalar() or -1
+    max_pos = max_pos_result.scalar()
 
     block = ExerciseBlock(
         lesson_id=lesson_id,

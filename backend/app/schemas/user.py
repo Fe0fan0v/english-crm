@@ -17,6 +17,7 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=4)
+    teacher_id: int | None = None
 
 
 class UserUpdate(BaseModel):

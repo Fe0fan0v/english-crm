@@ -13,6 +13,7 @@ from app.api.uploads import (
 )
 from app.config import settings
 from app.models.group import Group, GroupStudent
+from app.models.teacher_student import TeacherStudent
 from app.models.transaction import Transaction, TransactionType
 from app.models.user import User, UserRole
 from app.schemas.user import (
@@ -135,6 +136,13 @@ async def create_user(
 
     db.add(user)
     await db.flush()
+
+    # Create teacher-student assignment if teacher_id provided for student
+    if user_data.teacher_id and user_data.role == UserRole.STUDENT:
+        assignment = TeacherStudent(teacher_id=user_data.teacher_id, student_id=user.id)
+        db.add(assignment)
+        await db.flush()
+
     await db.refresh(user)
 
     return user
