@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { usersApi } from "../services/api";
+import { usersApi, levelsApi } from "../services/api";
 import { useAuthStore } from "../store/authStore";
-import type { User, UserListResponse } from "../types";
+import type { User, UserListResponse, Level } from "../types";
 import Avatar from "../components/Avatar";
 import CreateUserModal, { type CreateUserData } from "../components/CreateUserModal";
 import clsx from "clsx";
@@ -16,8 +16,18 @@ export default function UsersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>("students");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [levels, setLevels] = useState<Level[]>([]);
   const navigate = useNavigate();
   const { user: currentUser } = useAuthStore();
+
+  useEffect(() => {
+    levelsApi.list().then((data) => setLevels(data.items)).catch(console.error);
+  }, []);
+
+  const getLevelName = (levelId: number | null) => {
+    if (!levelId) return null;
+    return levels.find((l) => l.id === levelId)?.name || null;
+  };
 
   const fetchUsers = async () => {
     setIsLoading(true);
@@ -154,6 +164,7 @@ export default function UsersPage() {
               onProfile={() => navigate(`/users/${user.id}`)}
               onSchedule={user.role === "teacher" ? () => navigate(`/teachers/${user.id}`) : undefined}
               onDelete={() => handleDeleteUser(user.id, user.name)}
+              levelName={getLevelName(user.level_id)}
             />
           ))}
 
@@ -207,9 +218,10 @@ interface UserCardProps {
   onProfile: () => void;
   onSchedule?: () => void;
   onDelete: () => void;
+  levelName?: string | null;
 }
 
-function UserCard({ user, onProfile, onSchedule, onDelete }: UserCardProps) {
+function UserCard({ user, onProfile, onSchedule, onDelete, levelName }: UserCardProps) {
   return (
     <div className="card card-hover flex items-center gap-4 py-4">
       <Avatar name={user.name} photo={user.photo_url} size="lg" />
@@ -251,6 +263,12 @@ function UserCard({ user, onProfile, onSchedule, onDelete }: UserCardProps) {
             </svg>
             {user.email}
           </span>
+          {/* Level */}
+          {levelName && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+              {levelName}
+            </span>
+          )}
         </div>
       </div>
 
