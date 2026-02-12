@@ -118,23 +118,35 @@ async def create_user(
 
     # Check if email already exists
     result = await db.execute(select(User).where(User.email == user_data.email))
-    if result.scalar_one_or_none():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered",
+    existing_user = result.scalar_one_or_none()
+
+    if existing_user:
+        if existing_user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Этот email уже зарегистрирован",
+            )
+        # Reactivate deleted user with new data
+        existing_user.name = user_data.name
+        existing_user.phone = user_data.phone
+        existing_user.password_hash = get_password_hash(user_data.password)
+        existing_user.role = user_data.role
+        existing_user.level_id = user_data.level_id
+        existing_user.photo_url = user_data.photo_url
+        existing_user.is_active = True
+        user = existing_user
+    else:
+        user = User(
+            name=user_data.name,
+            email=user_data.email,
+            phone=user_data.phone,
+            password_hash=get_password_hash(user_data.password),
+            role=user_data.role,
+            level_id=user_data.level_id,
+            photo_url=user_data.photo_url,
         )
+        db.add(user)
 
-    user = User(
-        name=user_data.name,
-        email=user_data.email,
-        phone=user_data.phone,
-        password_hash=get_password_hash(user_data.password),
-        role=user_data.role,
-        level_id=user_data.level_id,
-        photo_url=user_data.photo_url,
-    )
-
-    db.add(user)
     await db.flush()
 
     # Create teacher-student assignment if teacher_id provided for student
