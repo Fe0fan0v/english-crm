@@ -29,6 +29,7 @@ import CoursesPage from "./pages/CoursesPage";
 import CourseEditorPage from "./pages/CourseEditorPage";
 import LessonEditorPage from "./pages/LessonEditorPage";
 import LessonPreviewPage from "./pages/LessonPreviewPage";
+import LessonResultsPage from "./pages/LessonResultsPage";
 import StudentCourseMaterialPage from "./pages/StudentCourseMaterialPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -349,6 +350,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <LessonEditorPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/courses/lessons/:id/results"
+        element={
+          <ProtectedRoute>
+            <LessonResultsPage />
           </ProtectedRoute>
         }
       />

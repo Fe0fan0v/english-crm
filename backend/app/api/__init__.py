@@ -3,6 +3,7 @@ from app.api import (
     courses,
     dashboard,
     direct_messages,
+    exercise_results,
     group_messages,
     groups,
     lesson_types,
@@ -42,4 +43,5 @@ api_router.include_router(direct_messages.router, prefix="/messages", tags=["dir
 api_router.include_router(uploads.router, prefix="/uploads", tags=["uploads"])
 api_router.include_router(settings.router, prefix="/settings", tags=["settings"])
 api_router.include_router(vocabulary.router, prefix="/vocabulary", tags=["vocabulary"])
+api_router.include_router(exercise_results.router, prefix="/exercise-results", tags=["exercise-results"])
 api_router.include_router(news.router)

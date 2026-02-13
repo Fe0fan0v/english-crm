@@ -1,5 +1,6 @@
 from app.models.course import Course, CourseSection, ExerciseBlock, ExerciseBlockType, InteractiveLesson
 from app.models.direct_message import DirectMessage
+from app.models.exercise_result import ExerciseResult
 from app.models.lesson_course_material import CourseMaterialType, LessonCourseMaterial
 from app.models.group import Group, GroupStudent
 from app.models.group_message import GroupMessage
@@ -52,4 +53,5 @@ __all__ = [
     "GroupStudent",
     "GroupMessage",
     "VocabularyWord",
+    "ExerciseResult",
 ]

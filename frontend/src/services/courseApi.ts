@@ -16,6 +16,10 @@ import type {
   ExerciseBlockCreate,
   ExerciseBlockUpdate,
   ReorderItem,
+  ExerciseResultResponse,
+  LessonResultsResponse,
+  LessonStudentResultsResponse,
+  StudentLessonDetailResponse,
 } from '../types/course';
 
 const api = axios.create({
@@ -173,6 +177,32 @@ export interface UploadResponse {
   filename: string;
   size: number;
 }
+
+// ============== Exercise Results ==============
+
+export const exerciseResultApi = {
+  submit: async (lessonId: number, data: { block_id: number; answer: unknown }): Promise<ExerciseResultResponse> => {
+    const response = await api.post<ExerciseResultResponse>(`/exercise-results/lessons/${lessonId}/submit`, data);
+    return response.data;
+  },
+
+  getMyResults: async (lessonId: number): Promise<LessonResultsResponse> => {
+    const response = await api.get<LessonResultsResponse>(`/exercise-results/lessons/${lessonId}/my-results`);
+    return response.data;
+  },
+
+  getStudentSummaries: async (lessonId: number): Promise<LessonStudentResultsResponse> => {
+    const response = await api.get<LessonStudentResultsResponse>(`/exercise-results/lessons/${lessonId}/students`);
+    return response.data;
+  },
+
+  getStudentDetail: async (lessonId: number, studentId: number): Promise<StudentLessonDetailResponse> => {
+    const response = await api.get<StudentLessonDetailResponse>(`/exercise-results/lessons/${lessonId}/students/${studentId}`);
+    return response.data;
+  },
+};
+
+// ============== File Uploads ==============
 
 export const courseUploadApi = {
   // Upload file for course content (images, audio)

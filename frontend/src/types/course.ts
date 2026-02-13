@@ -349,3 +349,64 @@ export const CONTENT_BLOCK_TYPES: ExerciseBlockType[] = [
 export const INTERACTIVE_BLOCK_TYPES: ExerciseBlockType[] = [
   'fill_gaps', 'test', 'true_false', 'word_order', 'matching', 'image_choice', 'flashcards', 'essay'
 ];
+
+// ============== Exercise Results ==============
+
+export interface ExerciseResultSubmit {
+  block_id: number;
+  answer: unknown;
+}
+
+export interface ExerciseResultResponse {
+  id: number;
+  student_id: number;
+  block_id: number;
+  lesson_id: number;
+  answer: unknown;
+  is_correct: boolean | null;
+  updated_at: string;
+}
+
+export interface LessonResultsResponse {
+  lesson_id: number;
+  results: ExerciseResultResponse[];
+  score: number;
+  total: number;
+  answered: number;
+}
+
+export interface StudentLessonSummary {
+  student_id: number;
+  student_name: string;
+  score: number;
+  total: number;
+  answered: number;
+  total_blocks: number;
+  last_activity: string | null;
+}
+
+export interface LessonStudentResultsResponse {
+  lesson_id: number;
+  lesson_title: string;
+  students: StudentLessonSummary[];
+}
+
+export interface StudentBlockResult {
+  block_id: number;
+  block_type: string;
+  block_title: string | null;
+  block_content: Record<string, unknown>;
+  answer: unknown;
+  is_correct: boolean | null;
+  updated_at: string | null;
+}
+
+export interface StudentLessonDetailResponse {
+  student_id: number;
+  student_name: string;
+  lesson_id: number;
+  lesson_title: string;
+  score: number;
+  total: number;
+  blocks: StudentBlockResult[];
+}

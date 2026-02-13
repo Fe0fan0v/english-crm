@@ -1,16 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { interactiveLessonApi } from '../services/courseApi';
+import { interactiveLessonApi, exerciseResultApi } from '../services/courseApi';
+import { useAuthStore } from '../store/authStore';
 import type { InteractiveLessonDetail, ExerciseBlock } from '../types/course';
 import BlockRenderer from '../components/blocks/BlockRenderer';
 
 export default function LessonPreviewPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuthStore();
   const [lesson, setLesson] = useState<InteractiveLessonDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [answers, setAnswers] = useState<Record<number, unknown>>({});
   const [checked, setChecked] = useState<Record<number, boolean>>({});
+  const savedBlockIds = useRef<Set<number>>(new Set());
+
+  const isStudent = user?.role === 'student';
 
   useEffect(() => {
     if (id) loadLesson();
@@ -21,6 +26,26 @@ export default function LessonPreviewPage() {
       setLoading(true);
       const data = await interactiveLessonApi.get(Number(id));
       setLesson(data);
+
+      // Load saved results for students
+      if (user?.role === 'student') {
+        try {
+          const saved = await exerciseResultApi.getMyResults(Number(id));
+          if (saved.results.length > 0) {
+            const restoredAnswers: Record<number, unknown> = {};
+            const restoredChecked: Record<number, boolean> = {};
+            for (const r of saved.results) {
+              restoredAnswers[r.block_id] = r.answer;
+              restoredChecked[r.block_id] = true;
+              savedBlockIds.current.add(r.block_id);
+            }
+            setAnswers(restoredAnswers);
+            setChecked(restoredChecked);
+          }
+        } catch {
+          // Ignore errors loading saved results
+        }
+      }
     } catch (error) {
       console.error('Failed to load lesson:', error);
       alert('Не удалось загрузить урок');
@@ -31,15 +56,29 @@ export default function LessonPreviewPage() {
   };
 
   const handleAnswerChange = (blockId: number, answer: unknown) => {
+    // Don't allow changes to already saved answers
+    if (savedBlockIds.current.has(blockId)) return;
     setAnswers(prev => ({ ...prev, [blockId]: answer }));
-    // Reset checked state when answer changes
     if (checked[blockId]) {
       setChecked(prev => ({ ...prev, [blockId]: false }));
     }
   };
 
-  const handleCheck = (blockId: number) => {
+  const handleCheck = async (blockId: number) => {
     setChecked(prev => ({ ...prev, [blockId]: true }));
+
+    // Save to backend for students
+    if (isStudent && id) {
+      try {
+        await exerciseResultApi.submit(Number(id), {
+          block_id: blockId,
+          answer: answers[blockId],
+        });
+        savedBlockIds.current.add(blockId);
+      } catch (error) {
+        console.error('Failed to save answer:', error);
+      }
+    }
   };
 
   if (loading) {
