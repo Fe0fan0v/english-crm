@@ -235,18 +235,33 @@ export default function LessonCreateModal({
     setIsLoading(true);
     try {
       if (isRecurring) {
-        // Batch creation
-        const result = await lessonsApi.createLessonsBatch({
-          teacher_id: selectedTeacherId!,
-          lesson_type_id: Number(lessonTypeId),
-          weekdays: selectedWeekdays,
-          time: scheduledTime,
-          start_date: scheduledDate,
-          weeks: weeksCount,
-          duration_minutes: durationMinutes,
-          group_id: groupId !== null ? groupId : undefined,
-          student_ids: selectedStudentIds,
-        });
+        // Batch creation - use teacher API for teachers, lessons API for admin/manager
+        const { user } = useAuthStore.getState();
+        let result: LessonBatchResponse;
+        if (user?.role === "teacher") {
+          result = await teacherApi.createLessonsBatch({
+            lesson_type_id: Number(lessonTypeId),
+            weekdays: selectedWeekdays,
+            time: scheduledTime,
+            start_date: scheduledDate,
+            weeks: weeksCount,
+            duration_minutes: durationMinutes,
+            group_id: groupId !== null ? groupId : undefined,
+            student_ids: selectedStudentIds,
+          });
+        } else {
+          result = await lessonsApi.createLessonsBatch({
+            teacher_id: selectedTeacherId!,
+            lesson_type_id: Number(lessonTypeId),
+            weekdays: selectedWeekdays,
+            time: scheduledTime,
+            start_date: scheduledDate,
+            weeks: weeksCount,
+            duration_minutes: durationMinutes,
+            group_id: groupId !== null ? groupId : undefined,
+            student_ids: selectedStudentIds,
+          });
+        }
         setBatchResult(result);
         onBatchSubmit?.(result);
         // Don't close if there were conflicts - show results

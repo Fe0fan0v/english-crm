@@ -6,7 +6,12 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import DBSession, ManagerUser, TeacherOnlyUser
-from app.api.lessons import check_students_conflict, check_teacher_conflict
+from app.api.lessons import (
+    WEEKDAY_MAP,
+    check_students_conflict,
+    check_teacher_conflict,
+    generate_lesson_dates,
+)
 from app.models import (
     AttendanceStatus,
     Group,
@@ -37,8 +42,11 @@ from app.schemas.dashboard import (
 )
 from app.schemas.lesson import (
     AttendanceBulkUpdate,
+    LessonCreateBatchResponse,
     LessonUpdate,
+    ScheduleLesson,
     TeacherLessonCreate,
+    TeacherLessonCreateBatch,
 )
 from app.schemas.teacher_availability import (
     TeacherAvailabilityCreate,
@@ -952,6 +960,169 @@ async def create_teacher_lesson(
             for ls in lesson.students
         ],
         needs_attendance=check_needs_attendance(lesson),
+    )
+
+
+@router.post("/lessons/batch", response_model=LessonCreateBatchResponse)
+async def create_teacher_lessons_batch(
+    data: TeacherLessonCreateBatch,
+    db: DBSession,
+    current_user: TeacherOnlyUser,
+):
+    """Create recurring lessons for the teacher over multiple weeks."""
+    # Verify lesson type exists
+    lesson_type = await db.get(LessonType, data.lesson_type_id)
+    if not lesson_type:
+        raise HTTPException(status_code=400, detail="Тип занятия не найден")
+
+    # Verify group exists if provided
+    if data.group_id:
+        group = await db.get(Group, data.group_id)
+        if not group:
+            raise HTTPException(status_code=400, detail="Группа не найдена")
+        if group.teacher_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Это не ваша группа")
+
+    # Collect student IDs
+    student_ids = list(data.student_ids)
+    if data.group_id:
+        group_students_result = await db.execute(
+            select(GroupStudent).where(GroupStudent.group_id == data.group_id)
+        )
+        group_students = group_students_result.scalars().all()
+        group_student_ids = [gs.student_id for gs in group_students]
+        student_ids = list(set(student_ids + group_student_ids))
+
+    if not student_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Необходимо выбрать хотя бы одного ученика",
+        )
+
+    # Validate weekdays
+    if not data.weekdays:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Необходимо выбрать хотя бы один день недели",
+        )
+
+    invalid_weekdays = [w for w in data.weekdays if w.lower() not in WEEKDAY_MAP]
+    if invalid_weekdays:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Недопустимые дни недели: {', '.join(invalid_weekdays)}",
+        )
+
+    # Generate all lesson dates
+    lesson_dates = generate_lesson_dates(
+        data.start_date, data.weekdays, data.weeks, data.time
+    )
+
+    if not lesson_dates:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Не удалось сформировать расписание",
+        )
+
+    # Create teacher-student assignments
+    for student_id in student_ids:
+        await ensure_teacher_student_assignment(db, current_user.id, student_id)
+
+    created_lessons = []
+    conflicts = []
+
+    for scheduled_at in lesson_dates:
+        # Check teacher conflict
+        teacher_conflict = await check_teacher_conflict(
+            db, current_user.id, scheduled_at
+        )
+        if teacher_conflict:
+            conflicts.append(
+                {
+                    "date": scheduled_at.isoformat(),
+                    "reason": f"У вас уже есть урок в это время: {teacher_conflict.title}",
+                }
+            )
+            continue
+
+        # Check students conflicts
+        student_conflicts = await check_students_conflict(
+            db, student_ids, scheduled_at
+        )
+        if student_conflicts:
+            conflict_names = ", ".join(
+                set(c["student_name"] for c in student_conflicts[:3])
+            )
+            conflicts.append(
+                {
+                    "date": scheduled_at.isoformat(),
+                    "reason": f"Ученики заняты: {conflict_names}",
+                }
+            )
+            continue
+
+        # Create lesson
+        lesson = Lesson(
+            title=lesson_type.name,
+            teacher_id=current_user.id,
+            group_id=data.group_id,
+            lesson_type_id=data.lesson_type_id,
+            scheduled_at=scheduled_at,
+            duration_minutes=data.duration_minutes,
+            status=LessonStatus.SCHEDULED,
+        )
+        db.add(lesson)
+        await db.flush()
+
+        # Add students
+        for student_id in student_ids:
+            student = await db.get(User, student_id)
+            if student and student.role.value == "student" and student.is_active:
+                lesson_student = LessonStudent(
+                    lesson_id=lesson.id,
+                    student_id=student_id,
+                    attendance_status=AttendanceStatus.PENDING,
+                    charged=False,
+                )
+                db.add(lesson_student)
+
+        created_lessons.append(lesson)
+
+    await db.commit()
+
+    # Reload lessons with relationships to build response
+    created_schedule_lessons = []
+    for lesson in created_lessons:
+        result = await db.execute(
+            select(Lesson)
+            .options(
+                selectinload(Lesson.teacher),
+                selectinload(Lesson.group),
+                selectinload(Lesson.lesson_type),
+                selectinload(Lesson.students),
+            )
+            .where(Lesson.id == lesson.id)
+        )
+        loaded_lesson = result.scalar_one()
+        created_schedule_lessons.append(
+            ScheduleLesson(
+                id=loaded_lesson.id,
+                title=loaded_lesson.title,
+                teacher_id=loaded_lesson.teacher_id,
+                teacher_name=loaded_lesson.teacher.name,
+                group_id=loaded_lesson.group_id,
+                group_name=loaded_lesson.group.name if loaded_lesson.group else None,
+                lesson_type_name=loaded_lesson.lesson_type.name,
+                scheduled_at=loaded_lesson.scheduled_at,
+                duration_minutes=loaded_lesson.duration_minutes,
+                status=loaded_lesson.status,
+                students_count=len(loaded_lesson.students),
+            )
+        )
+
+    return LessonCreateBatchResponse(
+        created=created_schedule_lessons,
+        conflicts=conflicts,
     )
 
 

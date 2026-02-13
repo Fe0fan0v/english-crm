@@ -626,6 +626,20 @@ export const teacherApi = {
     return response.data;
   },
 
+  createLessonsBatch: async (data: {
+    lesson_type_id: number;
+    weekdays: string[];
+    time: string;
+    start_date: string;
+    weeks?: number;
+    duration_minutes?: number;
+    group_id?: number;
+    student_ids?: number[];
+  }): Promise<LessonBatchResponse> => {
+    const response = await api.post<LessonBatchResponse>("/teacher/lessons/batch", data);
+    return response.data;
+  },
+
   updateLesson: async (
     lessonId: number,
     data: {

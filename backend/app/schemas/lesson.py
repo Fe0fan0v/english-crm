@@ -85,6 +85,19 @@ class LessonCreateBatch(BaseModel):
     student_ids: list[int] = []
 
 
+class TeacherLessonCreateBatch(BaseModel):
+    """Schema for teacher creating recurring lessons (teacher_id inferred from auth)."""
+
+    lesson_type_id: int
+    weekdays: list[str]  # ["monday", "wednesday", "friday"]
+    time: str  # "10:00" or "10:00:00"
+    start_date: date  # Start date for generating lessons
+    weeks: int = Field(default=4, ge=1, le=12)  # Number of weeks to generate
+    duration_minutes: int = Field(default=60, ge=15, le=480)
+    group_id: int | None = None
+    student_ids: list[int] = []
+
+
 class LessonCreateBatchResponse(BaseModel):
     """Response for batch lesson creation."""
 
