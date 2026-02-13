@@ -53,6 +53,10 @@ import type {
   LessonCourseMaterial,
   CourseMaterialType,
   StudentCourseMaterialView,
+  VocabularyWord,
+  VocabularyWordListResponse,
+  VocabularyWordCreate,
+  VocabularyWordUpdate,
 } from "../types";
 
 const api = axios.create({
@@ -910,6 +914,58 @@ export const courseMaterialsApi = {
   getStudentMaterialView: async (materialId: number): Promise<StudentCourseMaterialView> => {
     const response = await api.get<StudentCourseMaterialView>(`/student/course-material/${materialId}/view`);
     return response.data;
+  },
+};
+
+// Vocabulary (Personal Dictionary) API
+export const vocabularyApi = {
+  // Student endpoints
+  getMyWords: async (search?: string): Promise<VocabularyWordListResponse> => {
+    const params = new URLSearchParams();
+    if (search) params.append("search", search);
+    const response = await api.get<VocabularyWordListResponse>(`/vocabulary/my?${params}`);
+    return response.data;
+  },
+
+  addMyWord: async (data: VocabularyWordCreate): Promise<VocabularyWord> => {
+    const response = await api.post<VocabularyWord>("/vocabulary/my", data);
+    return response.data;
+  },
+
+  updateMyWord: async (wordId: number, data: VocabularyWordUpdate): Promise<VocabularyWord> => {
+    const response = await api.put<VocabularyWord>(`/vocabulary/my/${wordId}`, data);
+    return response.data;
+  },
+
+  deleteMyWord: async (wordId: number): Promise<void> => {
+    await api.delete(`/vocabulary/my/${wordId}`);
+  },
+
+  // Teacher/Admin/Manager endpoints
+  getStudentWords: async (studentId: number, search?: string): Promise<VocabularyWordListResponse> => {
+    const params = new URLSearchParams();
+    if (search) params.append("search", search);
+    const response = await api.get<VocabularyWordListResponse>(`/vocabulary/student/${studentId}?${params}`);
+    return response.data;
+  },
+
+  addStudentWord: async (studentId: number, data: VocabularyWordCreate): Promise<VocabularyWord> => {
+    const response = await api.post<VocabularyWord>(`/vocabulary/student/${studentId}`, data);
+    return response.data;
+  },
+
+  bulkAddStudentWords: async (studentId: number, words: VocabularyWordCreate[]): Promise<VocabularyWordListResponse> => {
+    const response = await api.post<VocabularyWordListResponse>(`/vocabulary/student/${studentId}/bulk`, { words });
+    return response.data;
+  },
+
+  updateStudentWord: async (studentId: number, wordId: number, data: VocabularyWordUpdate): Promise<VocabularyWord> => {
+    const response = await api.put<VocabularyWord>(`/vocabulary/student/${studentId}/${wordId}`, data);
+    return response.data;
+  },
+
+  deleteStudentWord: async (studentId: number, wordId: number): Promise<void> => {
+    await api.delete(`/vocabulary/student/${studentId}/${wordId}`);
   },
 };
 

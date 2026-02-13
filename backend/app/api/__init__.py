@@ -18,6 +18,7 @@ from app.api import (
     tests,
     uploads,
     users,
+    vocabulary,
 )
 from fastapi import APIRouter
 
@@ -40,4 +41,5 @@ api_router.include_router(student_dashboard.router, prefix="/student", tags=["st
 api_router.include_router(direct_messages.router, prefix="/messages", tags=["direct-messages"])
 api_router.include_router(uploads.router, prefix="/uploads", tags=["uploads"])
 api_router.include_router(settings.router, prefix="/settings", tags=["settings"])
+api_router.include_router(vocabulary.router, prefix="/vocabulary", tags=["vocabulary"])
 api_router.include_router(news.router)

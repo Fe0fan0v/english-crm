@@ -380,6 +380,12 @@ const navItems: NavItem[] = [
     roles: ["teacher"],
   },
   {
+    path: "/teacher/student-vocabulary",
+    label: "Словарь учеников",
+    icon: icons.book,
+    roles: ["teacher"],
+  },
+  {
     path: "/teacher/knowledge-base",
     label: "База знаний",
     icon: icons.book,

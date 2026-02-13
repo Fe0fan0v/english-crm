@@ -17,6 +17,7 @@ from app.models.teacher_student import TeacherStudent
 from app.models.test import Test, TestAccess
 from app.models.transaction import Transaction
 from app.models.user import User
+from app.models.vocabulary import VocabularyWord
 
 __all__ = [
     "User",
@@ -50,4 +51,5 @@ __all__ = [
     "Group",
     "GroupStudent",
     "GroupMessage",
+    "VocabularyWord",
 ]

@@ -19,6 +19,7 @@ import TeacherDashboardPage from "./pages/TeacherDashboardPage";
 import StudentDashboardPage from "./pages/StudentDashboardPage";
 import DictionaryPage from "./pages/DictionaryPage";
 import IrregularVerbsPage from "./pages/IrregularVerbsPage";
+import TeacherStudentVocabularyPage from "./pages/TeacherStudentVocabularyPage";
 import KnowledgeBasePage from "./pages/KnowledgeBasePage";
 import NewsPage from "./pages/NewsPage";
 import NewsManagementPage from "./pages/NewsManagementPage";
@@ -212,6 +213,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <StudentCourseMaterialPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/teacher/student-vocabulary"
+        element={
+          <ProtectedRoute>
+            <TeacherStudentVocabularyPage />
           </ProtectedRoute>
         }
       />

@@ -564,6 +564,39 @@ export interface CourseTreeItem {
   children: CourseTreeItem[];
 }
 
+// Vocabulary (Personal Dictionary)
+export interface VocabularyWord {
+  id: number;
+  student_id: number;
+  english: string;
+  translation: string;
+  transcription: string | null;
+  example: string | null;
+  added_by_id: number | null;
+  added_by_name: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface VocabularyWordListResponse {
+  items: VocabularyWord[];
+  total: number;
+}
+
+export interface VocabularyWordCreate {
+  english: string;
+  translation: string;
+  transcription?: string | null;
+  example?: string | null;
+}
+
+export interface VocabularyWordUpdate {
+  english?: string;
+  translation?: string;
+  transcription?: string | null;
+  example?: string | null;
+}
+
 // Student Course Material View (filtered tree)
 export interface StudentLessonItem {
   id: number;
