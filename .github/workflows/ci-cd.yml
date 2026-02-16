@@ -163,9 +163,6 @@ jobs:
             echo "=== Seeding test users ==="
             docker compose exec -T backend python -m app.seed || echo "Seeding completed or users exist"
 
-            echo "=== Cleaning up ==="
-            docker system prune -f
-
             echo "=== Health check ==="
             curl -f http://localhost:8005/health || exit 1
             curl -f http://localhost:3005 || exit 1
