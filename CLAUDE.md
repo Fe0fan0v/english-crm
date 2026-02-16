@@ -160,6 +160,7 @@ scripts/edvibe_parser/
 - Схема: `LessonCreateBatch` (weekdays, time, start_date, weeks)
 - Автоматическая проверка конфликтов для каждой даты
 - Возвращает список созданных уроков и конфликтов
+- **ВАЖНО**: При использовании `LessonCreateModal` обязательно передавать `onBatchSubmit` callback для обновления UI после batch-создания. `onSubmit` вызывается только для одиночных уроков
 
 ### Личные сообщения (Direct Messages)
 - **Преподаватель ↔ Ученик**: Преподаватель может написать только назначенному ученику
@@ -618,11 +619,11 @@ ssh jsi "cd ~/english-crm && sudo docker compose exec -T backend python /app/bat
 - Миграции 007-008 исправили регистр enum значений (были UPPERCASE, стали lowercase)
 
 ### Timezone в датах
-- Frontend отправляет даты с timezone (локальное время клиента с offset)
-- БД хранит datetime без timezone (naive) в UTC
-- При создании/обновлении урока: Pydantic валидаторы автоматически конвертируют datetime с timezone в UTC naive
-- При запросах с date_from/date_to: используется `normalize_datetime_to_utc()` для конвертации в UTC naive
-- Функция `normalize_datetime_to_utc()`: конвертирует timezone-aware datetime в UTC и удаляет timezone info
+- БД хранит datetime без timezone (naive) — фактически **локальное время** (не UTC!)
+- При создании урока: frontend отправляет naive строку `"2026-02-16T10:00:00"` (без offset/Z), Pydantic сохраняет как есть
+- При запросах расписания: frontend отправляет naive даты в локальном формате (`YYYY-MM-DDT00:00:00` / `YYYY-MM-DDT23:59:59`)
+- **ВАЖНО**: Нельзя использовать `Date.toISOString()` для date_from/date_to — это конвертирует в UTC и сдвигает дату для UTC+ зон (Казахстан UTC+5/+6). Использовать только локальное форматирование через `getFullYear()/getMonth()/getDate()`
+- Функция `normalize_datetime_to_utc()`: конвертирует timezone-aware datetime в UTC naive, для naive — возвращает как есть
 - Реализовано в: `lessons.py`, `student_dashboard.py`, `teacher_dashboard.py`, `schemas/lesson.py`
 
 ### Права доступа к API
