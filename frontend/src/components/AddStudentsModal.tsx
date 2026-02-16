@@ -25,7 +25,7 @@ export default function AddStudentsModal({
   const fetchStudents = async () => {
     setIsLoading(true);
     try {
-      const response = await usersApi.list(1, 100, search || undefined);
+      const response = await usersApi.list(1, 10000, search || undefined, "student");
       // Filter only students who are not already in the group
       const availableStudents = response.items.filter(
         (user) => user.role === "student" && !existingStudentIds.includes(user.id)

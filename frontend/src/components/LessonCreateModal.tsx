@@ -127,7 +127,7 @@ export default function LessonCreateModal({
           setGroups(myGroups);
         } else {
           // Admin/Manager can see all students
-          const studentsRes = await usersApi.list(1, 100, undefined, "student");
+          const studentsRes = await usersApi.list(1, 10000, undefined, "student");
           setStudents(studentsRes.items);
 
           // Load groups for the selected teacher

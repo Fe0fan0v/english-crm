@@ -37,7 +37,7 @@ async def list_users(
     db: DBSession,
     current_user: TeacherUser,
     page: int = Query(1, ge=1),
-    size: int = Query(20, ge=1, le=100),
+    size: int = Query(20, ge=1, le=10000),
     search: str | None = Query(None),
     role: str | None = Query(None),
 ) -> UserListResponse:
