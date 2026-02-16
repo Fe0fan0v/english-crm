@@ -132,6 +132,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 22
+          command_timeout: 30m
           script: |
             cd ~/english-crm
 
@@ -142,7 +143,7 @@ jobs:
             cp docker-compose.prod.yml docker-compose.yml
 
             echo "=== Building containers ==="
-            docker compose build --pull
+            docker compose build
 
             echo "=== Restarting services ==="
             docker compose up -d
