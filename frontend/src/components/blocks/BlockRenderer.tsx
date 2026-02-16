@@ -2,6 +2,8 @@ import { useState, useMemo } from 'react';
 import type { ExerciseBlock } from '../../types/course';
 import { useAuthStore } from '../../store/authStore';
 
+const INTERACTIVE_TYPES = ['fill_gaps', 'test', 'true_false', 'word_order', 'matching', 'essay', 'image_choice'];
+
 interface BlockRendererProps {
   block: ExerciseBlock;
   blockNumber?: number;  // Optional block number for display (e.g., 1, 2, 3...)
@@ -10,6 +12,7 @@ interface BlockRendererProps {
   onAnswerChange: (answer: unknown) => void;
   isChecked: boolean;
   onCheck: () => void;
+  onReset?: () => void;
 }
 
 export default function BlockRenderer({
@@ -20,6 +23,7 @@ export default function BlockRenderer({
   onAnswerChange,
   isChecked,
   onCheck,
+  onReset,
 }: BlockRendererProps) {
   const content = block.content as Record<string, unknown>;
 
@@ -196,9 +200,10 @@ export default function BlockRenderer({
 
   // Render with header if title exists
   const blockContent = renderBlockContent();
+  const isInteractive = INTERACTIVE_TYPES.includes(block.block_type);
 
   // For divider and teaching_guide, don't add header
-  if (block.block_type === 'divider' || block.block_type === 'teaching_guide' || !block.title) {
+  if (block.block_type === 'divider' || block.block_type === 'teaching_guide') {
     return <>{blockContent}</>;
   }
 
@@ -207,13 +212,38 @@ export default function BlockRenderer({
     ? `${lessonNumber}.${blockNumber}`
     : null;
 
+  const resetButton = isInteractive && isChecked && onReset ? (
+    <button
+      onClick={onReset}
+      className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors"
+      title="Сбросить ответ"
+    >
+      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+      Сбросить
+    </button>
+  ) : null;
+
+  if (!block.title) {
+    return (
+      <div>
+        {resetButton && <div className="flex justify-end mb-1">{resetButton}</div>}
+        {blockContent}
+      </div>
+    );
+  }
+
   return (
     <div>
-      <div className="flex items-baseline gap-2 mb-3">
-        {numberPrefix && (
-          <span className="text-sm font-semibold text-cyan-600">{numberPrefix}</span>
-        )}
-        <h3 className="text-lg font-medium text-gray-800">{block.title}</h3>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-baseline gap-2">
+          {numberPrefix && (
+            <span className="text-sm font-semibold text-cyan-600">{numberPrefix}</span>
+          )}
+          <h3 className="text-lg font-medium text-gray-800">{block.title}</h3>
+        </div>
+        {resetButton}
       </div>
       {blockContent}
     </div>

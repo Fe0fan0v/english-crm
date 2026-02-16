@@ -136,6 +136,20 @@ export default function LessonPreviewPage() {
     }
   };
 
+  const handleReset = (blockId: number) => {
+    savedBlockIds.current.delete(blockId);
+    setAnswers(prev => {
+      const next = { ...prev };
+      delete next[blockId];
+      return next;
+    });
+    setChecked(prev => {
+      const next = { ...prev };
+      delete next[blockId];
+      return next;
+    });
+  };
+
   // Build navigation items from blocks with titles
   const navItems: NavItem[] = useMemo(() => {
     if (!lesson) return [];
@@ -230,6 +244,7 @@ export default function LessonPreviewPage() {
                     onAnswerChange={(answer) => handleAnswerChange(block.id, answer)}
                     isChecked={checked[block.id] || false}
                     onCheck={() => handleCheck(block.id)}
+                    onReset={() => handleReset(block.id)}
                   />
                 </div>
               ))
