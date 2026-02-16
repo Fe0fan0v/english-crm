@@ -414,6 +414,44 @@ function FillGapsRenderer({
     ));
   };
 
+  // If no gaps defined, show free-text answer field
+  if (!gaps || gaps.length === 0) {
+    const freeAnswer = (typeof answer === 'string' ? answer : (answer as Record<string, string>)?.free || '') as string;
+    return (
+      <div className="bg-white p-4 rounded-lg border border-gray-100">
+        <div className="text-lg leading-relaxed mb-4">
+          {renderTextWithLineBreaks(processedText)}
+        </div>
+        <textarea
+          value={freeAnswer}
+          onChange={(e) => onAnswerChange(e.target.value)}
+          disabled={isChecked}
+          className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300 resize-y min-h-[80px] ${
+            isChecked ? 'bg-gray-50 text-gray-600' : 'border-gray-200'
+          }`}
+          placeholder="Введите ваш ответ..."
+          rows={3}
+        />
+        {isChecked ? (
+          <div className="mt-3 flex items-center gap-2 text-green-600">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <span className="text-sm font-medium">Ответ отправлен</span>
+          </div>
+        ) : (
+          <button
+            onClick={onCheck}
+            disabled={!freeAnswer.trim()}
+            className="mt-3 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Отправить
+          </button>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white p-4 rounded-lg border border-gray-100">
       <div className="text-lg leading-relaxed">
