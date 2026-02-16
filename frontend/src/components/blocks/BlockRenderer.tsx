@@ -510,7 +510,7 @@ function FillGapsRenderer({
                 placeholder={gap?.hint || '...'}
                 title={canSeeAnswers && gap ? gap.answer : undefined}
               />
-              {isChecked && result === false && gap && (
+              {isChecked && result === false && gap && canSeeAnswers && (
                 <span className="text-xs text-red-500 ml-1">({gap.answer})</span>
               )}
             </span>
@@ -576,8 +576,9 @@ function TestRenderer({
   const getOptionState = (option: TestOption): 'selected' | 'correct' | 'incorrect' | 'default' => {
     const isSelected = selectedIds.includes(option.id);
     if (!isChecked) return isSelected ? 'selected' : 'default';
-    if (option.is_correct) return 'correct';
+    if (isSelected && option.is_correct) return 'correct';
     if (isSelected && !option.is_correct) return 'incorrect';
+    if (option.is_correct && canSeeAnswers) return 'correct';
     return 'default';
   };
 
@@ -692,8 +693,8 @@ function TrueFalseRenderer({
           { value: false, label: 'Неверно' },
         ].map(({ value, label }) => {
           const isSelected = answer === value;
-          const isCorrectAnswer = isChecked && value === isTrue;
-          const isWrong = isChecked && isSelected && !isCorrectAnswer;
+          const isCorrectAnswer = isChecked && value === isTrue && (canSeeAnswers || isSelected);
+          const isWrong = isChecked && isSelected && value !== isTrue;
 
           return (
             <button
@@ -755,6 +756,8 @@ function WordOrderRenderer({
   isChecked: boolean;
   onCheck: () => void;
 }) {
+  const { user } = useAuthStore();
+  const canSeeAnswers = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'teacher';
   const selectedWords = answer || [];
   const availableWords = shuffledWords.filter(
     (word, index) => {
@@ -826,10 +829,16 @@ function WordOrderRenderer({
       </div>
 
       {isChecked && !isCorrect && (
-        <div className="mt-4 p-3 rounded-lg bg-yellow-50">
-          <div className="text-sm font-medium mb-1">Правильный ответ:</div>
-          <div className="text-sm text-gray-600">{correctSentence}</div>
-        </div>
+        canSeeAnswers ? (
+          <div className="mt-4 p-3 rounded-lg bg-yellow-50">
+            <div className="text-sm font-medium mb-1">Правильный ответ:</div>
+            <div className="text-sm text-gray-600">{correctSentence}</div>
+          </div>
+        ) : (
+          <div className="mt-4 p-3 rounded-lg bg-red-50">
+            <div className="text-sm font-medium text-red-600">Неправильно. Попробуйте ещё раз.</div>
+          </div>
+        )
       )}
 
       {!isChecked && (
@@ -953,25 +962,31 @@ function MatchingRenderer({
       </div>
 
       {isChecked && !allCorrect && (
-        <div className="mt-4 p-3 rounded-lg bg-yellow-50">
-          <div className="text-sm font-medium mb-1">Правильные пары:</div>
-          <div className="text-sm text-gray-600 space-y-1">
-            {pairs.map((p) => {
-              const isImage = /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(p.right);
-              return (
-                <div key={p.left} className="flex items-center gap-2">
-                  <span>{p.left}</span>
-                  <span>↔</span>
-                  {isImage ? (
-                    <img src={p.right} alt="" className="h-8 object-contain rounded" />
-                  ) : (
-                    <span>{p.right}</span>
-                  )}
-                </div>
-              );
-            })}
+        canSeeAnswers ? (
+          <div className="mt-4 p-3 rounded-lg bg-yellow-50">
+            <div className="text-sm font-medium mb-1">Правильные пары:</div>
+            <div className="text-sm text-gray-600 space-y-1">
+              {pairs.map((p) => {
+                const isImage = /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(p.right);
+                return (
+                  <div key={p.left} className="flex items-center gap-2">
+                    <span>{p.left}</span>
+                    <span>↔</span>
+                    {isImage ? (
+                      <img src={p.right} alt="" className="h-8 object-contain rounded" />
+                    ) : (
+                      <span>{p.right}</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="mt-4 p-3 rounded-lg bg-red-50">
+            <div className="text-sm font-medium text-red-600">Есть ошибки. Попробуйте ещё раз.</div>
+          </div>
+        )
       )}
 
       {!isChecked && (
@@ -1216,6 +1231,9 @@ function ImageChoiceRenderer({
   isChecked: boolean;
   onCheck: () => void;
 }) {
+  const { user } = useAuthStore();
+  const canSeeAnswers = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'teacher';
+
   const handleSelect = (optionId: string) => {
     if (isChecked) return;
     onAnswerChange(optionId);
@@ -1224,8 +1242,9 @@ function ImageChoiceRenderer({
   const getOptionState = (option: ImageOption): 'selected' | 'correct' | 'incorrect' | 'default' => {
     const isSelected = answer === option.id;
     if (!isChecked) return isSelected ? 'selected' : 'default';
-    if (option.is_correct) return 'correct';
+    if (isSelected && option.is_correct) return 'correct';
     if (isSelected && !option.is_correct) return 'incorrect';
+    if (option.is_correct && canSeeAnswers) return 'correct';
     return 'default';
   };
 
