@@ -121,9 +121,9 @@ function DayModal({ date, lessons, onClose, onLessonClick }: DayModalProps) {
                         <div className="text-sm opacity-80">
                           Учитель: {lesson.teacher_name}
                         </div>
-                        {lesson.students_count > 0 && (
+                        {lesson.student_names?.length > 0 && (
                           <div className="text-sm opacity-80">
-                            Учеников: {lesson.students_count}
+                            {lesson.group_id ? `Учеников: ${lesson.students_count}` : lesson.student_names.join(', ')}
                           </div>
                         )}
                       </div>
@@ -420,14 +420,18 @@ export default function SchedulePage() {
                             <div
                               key={lesson.id}
                               className={`text-xs p-1.5 rounded-lg mb-1 border cursor-pointer truncate hover:shadow-md transition-shadow ${statusColors[lesson.status]}`}
-                              title={`${lesson.title} - ${lesson.teacher_name}`}
+                              title={`${lesson.title} - ${lesson.teacher_name}${!lesson.group_id && lesson.student_names?.length ? '\n' + lesson.student_names.join(', ') : ''}`}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setSelectedLessonId(lesson.id);
                               }}
                             >
                               <div className="font-medium truncate">{lesson.title}</div>
-                              <div className="truncate opacity-80">{lesson.teacher_name}</div>
+                              {!lesson.group_id && lesson.student_names?.length > 0 ? (
+                                <div className="truncate opacity-80">{lesson.student_names.join(', ')}</div>
+                              ) : (
+                                <div className="truncate opacity-80">{lesson.group_name || lesson.teacher_name}</div>
+                              )}
                             </div>
                           ))}
                         </td>

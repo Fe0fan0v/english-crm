@@ -406,6 +406,7 @@ async def create_lessons_batch(
                 duration_minutes=loaded_lesson.duration_minutes,
                 status=loaded_lesson.status,
                 students_count=len(loaded_lesson.students),
+                student_names=[s.name for s in loaded_lesson.students],
             )
         )
 
@@ -537,6 +538,7 @@ async def get_schedule(
             duration_minutes=lesson.duration_minutes,
             status=lesson.status,
             students_count=len(lesson.students),
+            student_names=[s.name for s in lesson.students],
         )
         for lesson in lessons
     ]

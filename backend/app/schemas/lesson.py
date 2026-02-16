@@ -212,6 +212,7 @@ class ScheduleLesson(BaseModel):
     duration_minutes: int
     status: LessonStatus
     students_count: int
+    student_names: list[str] = []
 
 
 # Update forward references

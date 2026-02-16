@@ -638,7 +638,10 @@ export default function TeacherDashboardPage() {
                                     )}
                                   </div>
                                   <div className="text-[10px] opacity-75 flex justify-between">
-                                    <span>{lesson.students.length} уч.</span>
+                                    <span>{!lesson.group_id && lesson.students.length > 0
+                                      ? lesson.students.map(s => s.name.split(' ')[0]).join(', ')
+                                      : `${lesson.students.length} уч.`
+                                    }</span>
                                     <span className="uppercase font-semibold">{statusLabel}</span>
                                   </div>
                                 </button>

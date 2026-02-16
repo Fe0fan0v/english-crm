@@ -218,11 +218,14 @@ export interface ScheduleLesson {
   title: string;
   teacher_id: number;
   teacher_name: string;
+  group_id: number | null;
+  group_name: string | null;
   lesson_type_name: string;
   scheduled_at: string;
   duration_minutes: number;
   status: LessonStatus;
   students_count: number;
+  student_names: string[];
 }
 
 // Batch lesson creation
