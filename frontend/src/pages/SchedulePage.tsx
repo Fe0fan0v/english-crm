@@ -30,12 +30,19 @@ function formatDateRange(start: Date, end: Date): string {
   return `${start.getDate()} ${months[start.getMonth()]} - ${end.getDate()} ${months[end.getMonth()]} ${end.getFullYear()}`;
 }
 
+function formatDateLocal(date: Date): string {
+  const y = date.getFullYear();
+  const m = (date.getMonth() + 1).toString().padStart(2, "0");
+  const d = date.getDate().toString().padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 function formatDateISO(date: Date): string {
-  return date.toISOString().split("T")[0] + "T00:00:00";
+  return formatDateLocal(date) + "T00:00:00";
 }
 
 function formatDateISOEnd(date: Date): string {
-  return date.toISOString().split("T")[0] + "T23:59:59";
+  return formatDateLocal(date) + "T23:59:59";
 }
 
 const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
@@ -475,6 +482,7 @@ export default function SchedulePage() {
         <LessonCreateModal
           onClose={handleCloseCreateModal}
           onSubmit={handleCreateLesson}
+          onBatchSubmit={() => fetchLessons()}
           teachers={teachers}
           prefillDate={prefillDate}
           prefillTime={prefillTime}

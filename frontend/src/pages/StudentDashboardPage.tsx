@@ -92,8 +92,15 @@ export default function StudentDashboardPage() {
 
   useEffect(() => {
     const fetchSchedule = async () => {
-      const dateFrom = weekDates[0].toISOString();
-      const dateTo = weekDates[6].toISOString();
+      // Use local date format to avoid timezone shift issues with toISOString()
+      const formatLocal = (d: Date) => {
+        const y = d.getFullYear();
+        const m = (d.getMonth() + 1).toString().padStart(2, "0");
+        const day = d.getDate().toString().padStart(2, "0");
+        return `${y}-${m}-${day}`;
+      };
+      const dateFrom = formatLocal(weekDates[0]) + "T00:00:00";
+      const dateTo = formatLocal(weekDates[6]) + "T23:59:59";
       try {
         const lessons = await studentApi.getSchedule(dateFrom, dateTo);
         setSchedule(lessons);

@@ -207,8 +207,15 @@ export default function TeacherDashboardPage() {
 
   useEffect(() => {
     const fetchSchedule = async () => {
-      const dateFrom = weekDates[0].toISOString();
-      const dateTo = weekDates[6].toISOString();
+      // Use local date format to avoid timezone shift issues with toISOString()
+      const formatLocal = (d: Date) => {
+        const y = d.getFullYear();
+        const m = (d.getMonth() + 1).toString().padStart(2, "0");
+        const day = d.getDate().toString().padStart(2, "0");
+        return `${y}-${m}-${day}`;
+      };
+      const dateFrom = formatLocal(weekDates[0]) + "T00:00:00";
+      const dateTo = formatLocal(weekDates[6]) + "T23:59:59";
       try {
         const lessons = isManagerView && teacherId
           ? await teacherApi.getScheduleByTeacherId(teacherId, dateFrom, dateTo)
@@ -290,8 +297,14 @@ export default function TeacherDashboardPage() {
 
   // Refresh schedule helper
   const refreshSchedule = async () => {
-    const dateFrom = weekDates[0].toISOString();
-    const dateTo = weekDates[6].toISOString();
+    const formatLocal = (d: Date) => {
+      const y = d.getFullYear();
+      const m = (d.getMonth() + 1).toString().padStart(2, "0");
+      const day = d.getDate().toString().padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    };
+    const dateFrom = formatLocal(weekDates[0]) + "T00:00:00";
+    const dateTo = formatLocal(weekDates[6]) + "T23:59:59";
     const lessons = isManagerView && teacherId
       ? await teacherApi.getScheduleByTeacherId(teacherId, dateFrom, dateTo)
       : await teacherApi.getSchedule(dateFrom, dateTo);
@@ -1150,6 +1163,13 @@ export default function TeacherDashboardPage() {
         <LessonCreateModal
           onClose={handleCloseCreateModal}
           onSubmit={handleCreateLesson}
+          onBatchSubmit={async () => {
+            await refreshSchedule();
+            const response = isManagerView && teacherId
+              ? await teacherApi.getDashboardByTeacherId(teacherId)
+              : await teacherApi.getDashboard();
+            setData(response);
+          }}
           teacherId={isManagerView && teacherId ? teacherId : currentUser?.id}
           prefillDate={prefillDate}
           prefillTime={prefillTime}
