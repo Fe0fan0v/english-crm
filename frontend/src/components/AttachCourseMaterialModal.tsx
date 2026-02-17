@@ -1,6 +1,71 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { courseMaterialsApi } from '../services/api';
 import type { CourseTreeItem, CourseMaterialType } from '../types';
+
+const LAST_ATTACHED_KEY = 'lastAttachedMaterial';
+
+interface LastAttachedPosition {
+  courseId: number;
+  sectionId: number;
+  topicId: number;
+  lessonId: number;
+}
+
+function findNextLesson(tree: CourseTreeItem[], last: LastAttachedPosition): number | null {
+  for (let ci = 0; ci < tree.length; ci++) {
+    const course = tree[ci];
+    if (course.id !== last.courseId) continue;
+
+    for (let si = 0; si < course.children.length; si++) {
+      const section = course.children[si];
+      if (section.id !== last.sectionId) continue;
+
+      for (let ti = 0; ti < section.children.length; ti++) {
+        const topic = section.children[ti];
+        if (topic.id !== last.topicId) continue;
+
+        const lessonIdx = topic.children.findIndex(l => l.id === last.lessonId);
+        if (lessonIdx === -1) continue;
+
+        // Next lesson in same topic
+        if (lessonIdx + 1 < topic.children.length) {
+          return topic.children[lessonIdx + 1].id;
+        }
+        // First lesson in next topic of same section
+        for (let nti = ti + 1; nti < section.children.length; nti++) {
+          if (section.children[nti].children.length > 0) {
+            return section.children[nti].children[0].id;
+          }
+        }
+        // First lesson in next section of same course
+        for (let nsi = si + 1; nsi < course.children.length; nsi++) {
+          for (const nextTopic of course.children[nsi].children) {
+            if (nextTopic.children.length > 0) {
+              return nextTopic.children[0].id;
+            }
+          }
+        }
+        return null;
+      }
+    }
+  }
+  return null;
+}
+
+function findLessonPosition(tree: CourseTreeItem[], lessonId: number): { courseId: number; sectionId: number; topicId: number } | null {
+  for (const course of tree) {
+    for (const section of course.children) {
+      for (const topic of section.children) {
+        for (const lesson of topic.children) {
+          if (lesson.id === lessonId) {
+            return { courseId: course.id, sectionId: section.id, topicId: topic.id };
+          }
+        }
+      }
+    }
+  }
+  return null;
+}
 
 interface Props {
   isOpen: boolean;
@@ -18,16 +83,56 @@ export default function AttachCourseMaterialModal({ isOpen, onClose, lessonId, o
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set());
   const [expandedTopics, setExpandedTopics] = useState<Set<number>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
+  const [suggestedLessonId, setSuggestedLessonId] = useState<number | null>(null);
+  const suggestedRef = useRef<HTMLDivElement>(null);
+
+  const restoreLastPosition = useCallback((loadedTree: CourseTreeItem[]) => {
+    try {
+      const raw = localStorage.getItem(LAST_ATTACHED_KEY);
+      if (!raw) return;
+      const last: LastAttachedPosition = JSON.parse(raw);
+
+      // Expand tree to the last position
+      setExpandedCourses(prev => new Set([...prev, last.courseId]));
+      setExpandedSections(prev => new Set([...prev, last.sectionId]));
+      setExpandedTopics(prev => new Set([...prev, last.topicId]));
+
+      // Find and suggest next lesson
+      const nextId = findNextLesson(loadedTree, last);
+      if (nextId) {
+        const pos = findLessonPosition(loadedTree, nextId);
+        if (pos) {
+          setExpandedCourses(prev => new Set([...prev, pos.courseId]));
+          setExpandedSections(prev => new Set([...prev, pos.sectionId]));
+          setExpandedTopics(prev => new Set([...prev, pos.topicId]));
+        }
+        setSuggestedLessonId(nextId);
+      }
+    } catch {
+      // ignore invalid localStorage data
+    }
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
       loadTree();
       setSearchQuery('');
+      setSuggestedLessonId(null);
     }
   }, [isOpen]);
 
-  // Auto-expand all levels when searching
+  // Auto-scroll to suggested lesson
   useEffect(() => {
+    if (suggestedLessonId && suggestedRef.current) {
+      setTimeout(() => {
+        suggestedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+  }, [suggestedLessonId]);
+
+  // Auto-expand all levels when searching, reset suggestion
+  useEffect(() => {
+    if (searchQuery) setSuggestedLessonId(null);
     if (!searchQuery) return;
     const courseIds = new Set<number>();
     const sectionIds = new Set<number>();
@@ -66,6 +171,7 @@ export default function AttachCourseMaterialModal({ isOpen, onClose, lessonId, o
       const data = await courseMaterialsApi.getCourseTree();
       setTree(data);
       setExpandedCourses(new Set(data.map(c => c.id)));
+      restoreLastPosition(data);
     } catch (err) {
       setError('Failed to load courses');
       console.error(err);
@@ -95,6 +201,17 @@ export default function AttachCourseMaterialModal({ isOpen, onClose, lessonId, o
         await courseMaterialsApi.attachCourseMaterial(lessonId, type, undefined, undefined, id, undefined);
       } else if (type === 'lesson') {
         await courseMaterialsApi.attachCourseMaterial(lessonId, type, undefined, undefined, undefined, id);
+      }
+
+      // Save last attached lesson position for "next lesson" suggestion
+      if (type === 'lesson') {
+        const pos = findLessonPosition(tree, id);
+        if (pos) {
+          localStorage.setItem(LAST_ATTACHED_KEY, JSON.stringify({
+            ...pos,
+            lessonId: id,
+          }));
+        }
       }
 
       onAttached();
@@ -300,16 +417,28 @@ export default function AttachCourseMaterialModal({ isOpen, onClose, lessonId, o
                                   {/* Lessons — primary selection target */}
                                   {expandedTopics.has(topic.id) && topic.children.length > 0 && (
                                     <div className="ml-4 border-l">
-                                      {topic.children.map((lesson) => (
+                                      {topic.children.map((lesson) => {
+                                        const isSuggested = lesson.id === suggestedLessonId && !searchQuery;
+                                        return (
                                         <div
                                           key={lesson.id}
-                                          className="flex items-center justify-between p-2 hover:bg-green-50 group"
+                                          ref={isSuggested ? suggestedRef : undefined}
+                                          className={`flex items-center justify-between p-2 group ${
+                                            isSuggested
+                                              ? 'bg-blue-50 ring-2 ring-blue-300 rounded-md'
+                                              : 'hover:bg-green-50'
+                                          }`}
                                         >
                                           <div className="flex items-center gap-2 flex-1 min-w-0">
                                             <svg className="w-4 h-4 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                                             </svg>
                                             <span className="text-sm truncate">{highlightMatch(lesson.title, searchQuery)}</span>
+                                            {isSuggested && (
+                                              <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium flex-shrink-0">
+                                                Следующий
+                                              </span>
+                                            )}
                                           </div>
                                           <button
                                             onClick={() => handleAttach('lesson', lesson.id)}
@@ -319,7 +448,8 @@ export default function AttachCourseMaterialModal({ isOpen, onClose, lessonId, o
                                             Добавить
                                           </button>
                                         </div>
-                                      ))}
+                                        );
+                                      })}
                                     </div>
                                   )}
                                 </div>
