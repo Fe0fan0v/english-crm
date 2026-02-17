@@ -375,9 +375,7 @@ export default function LessonCreateModal({
                   onChange={(e) => setIsRecurring(e.target.checked)}
                   className="sr-only peer"
                 />
-                <div className="relative w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-blue-500 transition-colors">
-                  <div className="absolute left-[2px] top-[2px] w-5 h-5 bg-white rounded-full transition-transform peer-checked:translate-x-5" />
-                </div>
+                <div className="relative w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-blue-500 transition-colors after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full" />
                 <span className="ml-3 text-sm font-medium text-gray-700">
                   Расписание на несколько недель
                 </span>
