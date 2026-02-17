@@ -420,6 +420,80 @@ async def get_student_course_materials(
     return lessons_with_course_materials
 
 
+@router.get("/homework")
+async def get_student_homework(
+    db: DBSession,
+    current_user: StudentOnlyUser,
+):
+    """
+    Get ALL course materials for student's lessons (no time limit).
+    Only shows materials from lessons that have already started.
+    """
+    now = datetime.utcnow()
+
+    result = await db.execute(
+        select(LessonStudent)
+        .where(
+            LessonStudent.student_id == current_user.id,
+        )
+        .options(
+            selectinload(LessonStudent.lesson).selectinload(Lesson.teacher),
+            selectinload(LessonStudent.lesson).selectinload(Lesson.lesson_type),
+        )
+    )
+    lesson_students = result.scalars().all()
+
+    # Filter: only lessons that have already started (no 30-day limit)
+    filtered_ls = [
+        ls for ls in lesson_students
+        if ls.lesson.scheduled_at <= now
+    ]
+
+    lessons_with_course_materials = []
+    for ls in filtered_ls:
+        materials_result = await db.execute(
+            select(LessonCourseMaterial)
+            .where(LessonCourseMaterial.lesson_id == ls.lesson.id)
+            .options(
+                selectinload(LessonCourseMaterial.course),
+                selectinload(LessonCourseMaterial.section),
+                selectinload(LessonCourseMaterial.interactive_lesson),
+            )
+        )
+        course_materials = materials_result.scalars().all()
+
+        if course_materials:
+            materials_list = []
+            for cm in course_materials:
+                material_info = {
+                    "id": cm.id,
+                    "material_type": cm.material_type.value,
+                }
+                if cm.course:
+                    material_info["course_id"] = cm.course.id
+                    material_info["course_title"] = cm.course.title
+                if cm.section:
+                    material_info["section_id"] = cm.section.id
+                    material_info["section_title"] = cm.section.title
+                if cm.interactive_lesson:
+                    material_info["interactive_lesson_id"] = cm.interactive_lesson.id
+                    material_info["interactive_lesson_title"] = cm.interactive_lesson.title
+                materials_list.append(material_info)
+
+            lessons_with_course_materials.append({
+                "id": ls.lesson.id,
+                "title": ls.lesson.title,
+                "scheduled_at": ls.lesson.scheduled_at.isoformat(),
+                "teacher_name": ls.lesson.teacher.name,
+                "lesson_type_name": ls.lesson.lesson_type.name,
+                "course_materials": materials_list,
+            })
+
+    lessons_with_course_materials.sort(key=lambda x: x["scheduled_at"], reverse=True)
+
+    return lessons_with_course_materials
+
+
 def _build_section_item(section: CourseSection) -> StudentSectionItem:
     """Build a StudentSectionItem from a CourseSection, including topics and direct lessons."""
     topics: list[StudentTopicItem] = []

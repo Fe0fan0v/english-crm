@@ -720,6 +720,11 @@ export const studentApi = {
     const response = await api.get<StudentTestInfo[]>("/student/tests");
     return response.data;
   },
+
+  getHomework: async () => {
+    const response = await api.get("/student/homework");
+    return response.data;
+  },
 };
 
 // Group Messages (Chat) API

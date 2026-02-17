@@ -13,7 +13,7 @@ import type {
   LessonCourseMaterial,
 } from "../types";
 
-type TabType = "info" | "lessons" | "tests" | "messages";
+type TabType = "info" | "lessons" | "tests" | "homework" | "messages";
 
 function formatDate(date: Date): string {
   return date.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
@@ -47,6 +47,8 @@ export default function StudentDashboardPage() {
   const [schedule, setSchedule] = useState<StudentLessonInfo[]>([]);
   const [tests, setTests] = useState<StudentTestInfo[]>([]);
   const [lessonsWithMaterials, setLessonsWithMaterials] = useState<LessonWithMaterials[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [homework, setHomework] = useState<any[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [chatPartner, setChatPartner] = useState<{ id: number; name: string } | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(user?.photo_url || null);
@@ -140,6 +142,20 @@ export default function StudentDashboardPage() {
         }
       };
       fetchTests();
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === "homework") {
+      const fetchHomework = async () => {
+        try {
+          const result = await studentApi.getHomework();
+          setHomework(result);
+        } catch (error) {
+          console.error("Failed to fetch homework:", error);
+        }
+      };
+      fetchHomework();
     }
   }, [activeTab]);
 
@@ -327,6 +343,7 @@ export default function StudentDashboardPage() {
           { key: "info" as TabType, label: "Моя страница" },
           { key: "lessons" as TabType, label: "Уроки" },
           { key: "tests" as TabType, label: "Тесты" },
+          { key: "homework" as TabType, label: "Домашнее задание" },
           { key: "messages" as TabType, label: "Сообщения" },
         ].map((tab) => (
           <button
@@ -788,6 +805,101 @@ export default function StudentDashboardPage() {
               </svg>
               <p className="text-gray-500">Нет доступных материалов к урокам</p>
               <p className="text-sm text-gray-400 mt-2">Материалы появятся после начала урока</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === "homework" && (
+        <div className="card">
+          <h2 className="section-title mb-4">Домашнее задание</h2>
+          <p className="text-sm text-gray-500 mb-6">
+            Все курсовые материалы, прикреплённые к вашим урокам
+          </p>
+          {homework.length > 0 ? (
+            <div className="space-y-4">
+              {homework.map((lesson: { id: number; title: string; scheduled_at: string; teacher_name: string; lesson_type_name: string; course_materials: { id: number; material_type: string; course_id?: number; course_title?: string; section_id?: number; section_title?: string; interactive_lesson_id?: number; interactive_lesson_title?: string }[] }) => {
+                const lessonDate = new Date(lesson.scheduled_at);
+                const formattedDate = lessonDate.toLocaleDateString("ru-RU", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                });
+                const formattedTime = lessonDate.toLocaleTimeString("ru-RU", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                });
+
+                return (
+                  <div key={lesson.id} className="border border-gray-200 rounded-xl overflow-hidden">
+                    <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-4 border-b border-gray-200">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-purple-500 text-white flex items-center justify-center flex-shrink-0">
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-gray-800 text-lg">{lesson.title}</h3>
+                          <div className="flex flex-wrap gap-2 mt-1 text-sm text-gray-600">
+                            <span className="flex items-center gap-1">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                              {formattedDate}
+                            </span>
+                            <span className="text-gray-400">•</span>
+                            <span>{formattedTime}</span>
+                            <span className="text-gray-400">•</span>
+                            <span>{lesson.teacher_name}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-white">
+                      <div className="space-y-2">
+                        {lesson.course_materials.map((m) => (
+                          <a
+                            key={m.id}
+                            href={
+                              m.material_type === "lesson" && m.interactive_lesson_id
+                                ? `/courses/lessons/${m.interactive_lesson_id}`
+                                : `/student/course-material/${m.id}`
+                            }
+                            className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors group"
+                          >
+                            <div className="w-10 h-10 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center flex-shrink-0">
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                              </svg>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-gray-800 truncate group-hover:text-purple-600 transition-colors">
+                                {m.course_title || m.section_title || m.interactive_lesson_title || "Материал курса"}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {m.material_type === "course" ? "Курс" : m.material_type === "section" ? "Секция" : m.material_type === "topic" ? "Топик" : "Урок"}
+                              </p>
+                            </div>
+                            <svg className="w-5 h-5 text-gray-400 group-hover:text-purple-600 transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+              <p className="text-gray-500">Нет прикреплённых курсовых материалов</p>
+              <p className="text-sm text-gray-400 mt-2">Материалы появятся после того, как преподаватель прикрепит их к уроку</p>
             </div>
           )}
         </div>
