@@ -388,7 +388,7 @@ async def create_lessons_batch(
                 selectinload(Lesson.teacher),
                 selectinload(Lesson.group),
                 selectinload(Lesson.lesson_type),
-                selectinload(Lesson.students),
+                selectinload(Lesson.students).selectinload(LessonStudent.student),
             )
             .where(Lesson.id == lesson.id)
         )
@@ -406,7 +406,7 @@ async def create_lessons_batch(
                 duration_minutes=loaded_lesson.duration_minutes,
                 status=loaded_lesson.status,
                 students_count=len(loaded_lesson.students),
-                student_names=[s.name for s in loaded_lesson.students],
+                student_names=[s.student.name for s in loaded_lesson.students if s.student],
             )
         )
 
@@ -493,7 +493,7 @@ async def get_schedule(
         selectinload(Lesson.teacher),
         selectinload(Lesson.group),
         selectinload(Lesson.lesson_type),
-        selectinload(Lesson.students),
+        selectinload(Lesson.students).selectinload(LessonStudent.student),
     )
 
     conditions = [
@@ -538,7 +538,7 @@ async def get_schedule(
             duration_minutes=lesson.duration_minutes,
             status=lesson.status,
             students_count=len(lesson.students),
-            student_names=[s.name for s in lesson.students],
+            student_names=[s.student.name for s in lesson.students if s.student],
         )
         for lesson in lessons
     ]
