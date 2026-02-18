@@ -821,6 +821,13 @@ async def delete_lesson(
             detail="Lesson not found",
         )
 
+    # Detach transactions from this lesson (keep transactions for reports)
+    await db.execute(
+        Transaction.__table__.update()
+        .where(Transaction.lesson_id == lesson_id)
+        .values(lesson_id=None)
+    )
+
     await db.delete(lesson)
     await db.commit()
 
