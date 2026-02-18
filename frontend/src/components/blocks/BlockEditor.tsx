@@ -631,6 +631,18 @@ function FillGapsEditor({
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                   placeholder="Подсказка (необязательно)"
                 />
+                <input
+                  type="text"
+                  value={(gap.alternatives || []).join(', ')}
+                  onChange={(e) => {
+                    const alts = e.target.value
+                      ? e.target.value.split(',').map((a: string) => a.trim()).filter(Boolean)
+                      : [];
+                    updateGap(index, 'alternatives', alts);
+                  }}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                  placeholder="Альтернативные ответы через запятую (необязательно)"
+                />
               </div>
               <button
                 type="button"

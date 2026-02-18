@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy import and_, func, select
 from sqlalchemy.orm import selectinload
 
@@ -775,6 +776,33 @@ async def get_teacher_students_by_id(
         )
         for data in students_map.values()
     ]
+
+
+# ============ TEACHER MEETING URL ============
+
+
+class MeetingUrlUpdate(BaseModel):
+    meeting_url: str | None = None
+
+
+@router.put("/profile/meeting-url")
+async def update_teacher_meeting_url(
+    data: MeetingUrlUpdate,
+    db: DBSession,
+    current_user: TeacherOnlyUser,
+):
+    """Update teacher's permanent meeting URL."""
+    current_user.meeting_url = data.meeting_url
+    await db.commit()
+    return {"meeting_url": current_user.meeting_url}
+
+
+@router.get("/profile/meeting-url")
+async def get_teacher_meeting_url(
+    current_user: TeacherOnlyUser,
+):
+    """Get teacher's permanent meeting URL."""
+    return {"meeting_url": current_user.meeting_url}
 
 
 # ============ TEACHER LESSON ENDPOINTS ============

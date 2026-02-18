@@ -115,6 +115,7 @@ class StudentLessonInfo(BaseModel):
     lesson_type_name: str
     lesson_price: Decimal  # Price of the lesson for balance check
     meeting_url: str | None
+    duration_minutes: int = 60
     status: LessonStatus
     group_name: str | None
 
@@ -136,3 +137,10 @@ class StudentTestInfo(BaseModel):
     id: int
     title: str
     granted_at: datetime
+
+
+class StudentTeacherInfo(BaseModel):
+    id: int
+    name: str
+    photo_url: str | None = None
+    groups: list[str] = []

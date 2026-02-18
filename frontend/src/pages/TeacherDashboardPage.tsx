@@ -152,6 +152,9 @@ export default function TeacherDashboardPage() {
   const [groupFilter, setGroupFilter] = useState<number | null>(null);
   const [studentsLoading, setStudentsLoading] = useState(false);
   const [studentsError, setStudentsError] = useState<string | null>(null);
+  const [meetingUrl, setMeetingUrl] = useState<string>("");
+  const [meetingUrlSaving, setMeetingUrlSaving] = useState(false);
+  const [meetingUrlSaved, setMeetingUrlSaved] = useState(false);
 
   // Check if current user can create lessons
   // Teachers can create lessons in their own dashboard
@@ -271,6 +274,34 @@ export default function TeacherDashboardPage() {
     };
     fetchAvailability();
   }, [isManagerView, teacherId]);
+
+  // Load teacher meeting URL
+  useEffect(() => {
+    if (!isManagerView) {
+      const fetchMeetingUrl = async () => {
+        try {
+          const data = await teacherApi.getMeetingUrl();
+          setMeetingUrl(data.meeting_url || "");
+        } catch (error) {
+          console.error("Failed to fetch meeting URL:", error);
+        }
+      };
+      fetchMeetingUrl();
+    }
+  }, [isManagerView]);
+
+  const saveMeetingUrl = async () => {
+    setMeetingUrlSaving(true);
+    try {
+      await teacherApi.updateMeetingUrl(meetingUrl.trim() || null);
+      setMeetingUrlSaved(true);
+      setTimeout(() => setMeetingUrlSaved(false), 2000);
+    } catch (error) {
+      console.error("Failed to save meeting URL:", error);
+    } finally {
+      setMeetingUrlSaving(false);
+    }
+  };
 
   // Load lessons with materials when materials tab is active
   useEffect(() => {
@@ -496,6 +527,29 @@ export default function TeacherDashboardPage() {
                 </p>
               </div>
             </div>
+            {/* Meeting URL */}
+            {!isManagerView && (
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <label className="text-sm text-gray-500 mb-1 block">Постоянная ссылка на урок (Zoom, Google Meet и т.д.)</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="url"
+                    value={meetingUrl}
+                    onChange={(e) => setMeetingUrl(e.target.value)}
+                    placeholder="https://zoom.us/j/..."
+                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-300"
+                  />
+                  <button
+                    onClick={saveMeetingUrl}
+                    disabled={meetingUrlSaving}
+                    className="px-4 py-2 bg-cyan-500 text-white rounded-lg text-sm font-medium hover:bg-cyan-600 transition-colors disabled:opacity-50"
+                  >
+                    {meetingUrlSaving ? "..." : meetingUrlSaved ? "Сохранено" : "Сохранить"}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">Эта ссылка будет автоматически доступна студентам для всех уроков, если не указана другая</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -27,6 +27,7 @@ class UserUpdate(BaseModel):
     role: UserRole | None = None
     level_id: int | None = None
     photo_url: str | None = None
+    meeting_url: str | None = None
     password: str | None = Field(None, min_length=4)
     is_active: bool | None = None
 
@@ -39,6 +40,7 @@ class UserResponse(BaseModel):
     role: UserRole
     level_id: int | None
     photo_url: str | None
+    meeting_url: str | None = None
     balance: Decimal
     is_active: bool
     created_at: datetime

@@ -63,6 +63,7 @@ export default function StudentDashboardPage() {
     return dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Convert Sunday (0) to 6, Mon (1) to 0, etc.
   });
   const [whatsappPhone, setWhatsappPhone] = useState<string | null>(null);
+  const [myTeachers, setMyTeachers] = useState<{ id: number; name: string; photo_url: string | null; groups: string[] }[]>([]);
 
   const weekDates = useMemo(() => getWeekDates(currentWeek), [currentWeek]);
 
@@ -90,6 +91,18 @@ export default function StudentDashboardPage() {
       }
     };
     fetchSettings();
+  }, []);
+
+  useEffect(() => {
+    const fetchTeachers = async () => {
+      try {
+        const teachers = await studentApi.getMyTeachers();
+        setMyTeachers(teachers);
+      } catch (error) {
+        console.error("Failed to fetch teachers:", error);
+      }
+    };
+    fetchTeachers();
   }, []);
 
   useEffect(() => {
@@ -172,6 +185,18 @@ export default function StudentDashboardPage() {
       setSelectedLessonCourseMaterials(courseMats);
       setIsMaterialsLoading(false);
     });
+  };
+
+  // Meeting URL button state: 'active' | 'disabled' | 'hidden'
+  const getMeetingUrlState = (lesson: StudentLessonInfo): 'active' | 'disabled' | 'hidden' => {
+    if (!lesson.meeting_url || lesson.status === "cancelled") return 'hidden';
+    const now = new Date();
+    const lessonStart = new Date(lesson.scheduled_at);
+    const lessonEnd = new Date(lessonStart.getTime() + (lesson.duration_minutes || 60) * 60 * 1000);
+    if (now > lessonEnd) return 'hidden';
+    const tenMinBefore = new Date(lessonStart.getTime() - 10 * 60 * 1000);
+    if (now >= tenMinBefore) return 'active';
+    return 'disabled';
   };
 
   const getLessonsForSlot = (date: Date, hour: number): StudentLessonInfo[] => {
@@ -436,6 +461,51 @@ export default function StudentDashboardPage() {
             )}
           </div>
 
+          {/* My Teachers */}
+          {myTeachers.length > 0 && (
+            <div className="card p-4 lg:p-6">
+              <h2 className="section-title mb-3 lg:mb-4">Мои преподаватели</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
+                {myTeachers.map((teacher) => (
+                  <div
+                    key={teacher.id}
+                    className="p-3 lg:p-4 bg-gray-50 rounded-xl flex items-center gap-3"
+                  >
+                    {teacher.photo_url ? (
+                      <img
+                        src={teacher.photo_url}
+                        alt={teacher.name}
+                        className="w-12 h-12 rounded-full object-cover flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-cyan-100 text-cyan-600 flex items-center justify-center flex-shrink-0 text-lg font-bold">
+                        {teacher.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-medium text-gray-800 truncate">{teacher.name}</h3>
+                      {teacher.groups.length > 0 && (
+                        <p className="text-xs text-gray-500 truncate">{teacher.groups.join(', ')}</p>
+                      )}
+                      <button
+                        onClick={() => {
+                          setChatPartner({ id: teacher.id, name: teacher.name });
+                          setActiveTab("messages");
+                        }}
+                        className="flex items-center gap-1 mt-1 text-cyan-600 text-sm hover:text-cyan-700"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        Написать
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Schedule Calendar */}
           <div className="card p-4 lg:p-6">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-4 gap-3">
@@ -553,19 +623,31 @@ export default function StudentDashboardPage() {
                             </div>
                           )}
                         </div>
-                        {lesson.meeting_url && lesson.status !== "cancelled" && !hasInsufficientBalance && (
-                          <a
-                            href={lesson.meeting_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1 px-3 py-2 bg-cyan-500 text-white rounded-lg text-sm font-medium hover:bg-cyan-600 transition-colors touch-target"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                            </svg>
-                            Войти
-                          </a>
-                        )}
+                        {(() => {
+                          const meetState = getMeetingUrlState(lesson);
+                          if (meetState === 'hidden' || hasInsufficientBalance) return null;
+                          return meetState === 'active' ? (
+                            <a
+                              href={lesson.meeting_url!}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 px-3 py-2 bg-cyan-500 text-white rounded-lg text-sm font-medium hover:bg-cyan-600 transition-colors touch-target"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                              </svg>
+                              Войти
+                            </a>
+                          ) : (
+                            <span className="flex items-center gap-1 px-3 py-2 bg-gray-300 text-gray-500 rounded-lg text-sm font-medium cursor-not-allowed">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                              </svg>
+                              Войти
+                            </span>
+                          );
+                        })()}
                       </div>
                     </div>
                   );
@@ -638,20 +720,31 @@ export default function StudentDashboardPage() {
                                       Пополните баланс
                                     </div>
                                   )}
-                                  {lesson.meeting_url && lesson.status !== "cancelled" && !hasInsufficientBalance && (
-                                    <a
-                                      href={lesson.meeting_url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-1 mt-1 text-[10px] text-cyan-600 hover:underline"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                      </svg>
-                                      Ссылка
-                                    </a>
-                                  )}
+                                  {(() => {
+                                    const meetState = getMeetingUrlState(lesson);
+                                    if (meetState === 'hidden' || hasInsufficientBalance) return null;
+                                    return meetState === 'active' ? (
+                                      <a
+                                        href={lesson.meeting_url!}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 mt-1 text-[10px] text-cyan-600 hover:underline"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                        </svg>
+                                        Ссылка
+                                      </a>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 mt-1 text-[10px] text-gray-400">
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                        </svg>
+                                        Ссылка
+                                      </span>
+                                    );
+                                  })()}
                                 </div>
                               );
                             })}
@@ -1016,21 +1109,34 @@ export default function StudentDashboardPage() {
               </div>
 
               {/* Meeting URL */}
-              {selectedLesson.meeting_url && selectedLesson.status !== "cancelled" && (
-                <div className="mt-4">
-                  <a
-                    href={selectedLesson.meeting_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-cyan-500 text-white rounded-xl font-medium hover:bg-cyan-600 transition-colors"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                    Подключиться к уроку
-                  </a>
-                </div>
-              )}
+              {(() => {
+                const meetState = getMeetingUrlState(selectedLesson);
+                if (meetState === 'hidden') return null;
+                return (
+                  <div className="mt-4">
+                    {meetState === 'active' ? (
+                      <a
+                        href={selectedLesson.meeting_url!}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-cyan-500 text-white rounded-xl font-medium hover:bg-cyan-600 transition-colors"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        Подключиться к уроку
+                      </a>
+                    ) : (
+                      <div className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-gray-200 text-gray-500 rounded-xl font-medium cursor-not-allowed">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        Ссылка доступна за 10 мин до начала
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Materials */}
               {isMaterialsLoading ? (

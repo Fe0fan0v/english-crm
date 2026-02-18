@@ -38,8 +38,11 @@ def _grade_fill_gaps(content: dict, answer: Any) -> bool:
     for gap in gaps:
         idx = gap.get("index")
         correct = gap.get("answer", "").lower().strip()
-        alternatives = [a.lower().strip() for a in gap.get("alternatives", [])]
         user_answer = str(answer.get(str(idx), answer.get(idx, ""))).lower().strip()
+        if correct == "":
+            # Empty correct answer means any input is accepted
+            continue
+        alternatives = [a.lower().strip() for a in gap.get("alternatives", [])]
         if user_answer != correct and user_answer not in alternatives:
             return False
     return True

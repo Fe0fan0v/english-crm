@@ -37,6 +37,7 @@ class User(Base):
     )
     level_id: Mapped[int | None] = mapped_column(ForeignKey("levels.id"), nullable=True)
     photo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    meeting_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     balance: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=Decimal("0.00"))
     is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

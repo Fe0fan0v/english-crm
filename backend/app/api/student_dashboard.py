@@ -14,7 +14,9 @@ from app.models import (
     LessonMaterial,
     LessonStudent,
     MaterialAccess,
+    TeacherStudent,
     TestAccess,
+    User,
 )
 from app.models.course import Course, CourseSection, CourseTopic, InteractiveLesson
 from app.models.lesson import LessonStatus
@@ -24,6 +26,7 @@ from app.schemas.dashboard import (
     StudentLessonInfo,
     StudentMaterialInfo,
     StudentStats,
+    StudentTeacherInfo,
     StudentTestInfo,
 )
 from app.schemas.lesson_course_material import (
@@ -127,7 +130,8 @@ async def get_student_dashboard(
             teacher_name=ls.lesson.teacher.name,
             lesson_type_name=ls.lesson.lesson_type.name,
             lesson_price=ls.lesson.lesson_type.price,
-            meeting_url=ls.lesson.meeting_url,
+            meeting_url=ls.lesson.meeting_url or ls.lesson.teacher.meeting_url,
+            duration_minutes=ls.lesson.duration_minutes,
             status=ls.lesson.status,
             group_name=None,  # TODO: link lessons to groups
         )
@@ -178,7 +182,8 @@ async def get_student_schedule(
             teacher_name=ls.lesson.teacher.name,
             lesson_type_name=ls.lesson.lesson_type.name,
             lesson_price=ls.lesson.lesson_type.price,
-            meeting_url=ls.lesson.meeting_url,
+            meeting_url=ls.lesson.meeting_url or ls.lesson.teacher.meeting_url,
+            duration_minutes=ls.lesson.duration_minutes,
             status=ls.lesson.status,
             group_name=None,
         )
@@ -687,3 +692,62 @@ async def get_student_course_material_view(
             topic_title=topic.title,
             sections=[section_item] if section_item.topics else [],
         )
+
+
+@router.get("/my-teachers", response_model=list[StudentTeacherInfo])
+async def get_student_teachers(
+    db: DBSession,
+    current_user: StudentOnlyUser,
+):
+    """Get student's teachers with their groups."""
+    student_id = current_user.id
+    teachers_map: dict[int, dict] = {}
+
+    # Get teachers from groups
+    groups_result = await db.execute(
+        select(GroupStudent)
+        .where(GroupStudent.student_id == student_id)
+        .options(
+            selectinload(GroupStudent.group).selectinload(Group.teacher),
+        )
+    )
+    group_students = groups_result.scalars().all()
+
+    for gs in group_students:
+        if not gs.group.is_active or not gs.group.teacher:
+            continue
+        teacher = gs.group.teacher
+        if not teacher.is_active:
+            continue
+        if teacher.id not in teachers_map:
+            teachers_map[teacher.id] = {
+                "teacher": teacher,
+                "groups": [],
+            }
+        teachers_map[teacher.id]["groups"].append(gs.group.name)
+
+    # Get teachers from direct assignments (TeacherStudent)
+    direct_result = await db.execute(
+        select(TeacherStudent)
+        .where(TeacherStudent.student_id == student_id)
+        .options(selectinload(TeacherStudent.teacher))
+    )
+    direct_assignments = direct_result.scalars().all()
+
+    for ts in direct_assignments:
+        teacher = ts.teacher
+        if teacher and teacher.is_active and teacher.id not in teachers_map:
+            teachers_map[teacher.id] = {
+                "teacher": teacher,
+                "groups": [],
+            }
+
+    return [
+        StudentTeacherInfo(
+            id=data["teacher"].id,
+            name=data["teacher"].name,
+            photo_url=data["teacher"].photo_url,
+            groups=data["groups"],
+        )
+        for data in teachers_map.values()
+    ]

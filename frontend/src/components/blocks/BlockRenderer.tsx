@@ -427,8 +427,9 @@ function FillGapsRenderer({
     if (!isChecked) return null;
     const gap = gaps.find((g) => g.index === gapIndex);
     if (!gap) return null;
-    const userAnswer = (answers[gapIndex] || '').toLowerCase().trim();
     const correct = gap.answer.toLowerCase().trim();
+    if (correct === '') return true; // Empty correct answer means any input is accepted
+    const userAnswer = (answers[gapIndex] || '').toLowerCase().trim();
     const alternatives = gap.alternatives?.map((a) => a.toLowerCase().trim()) || [];
     return userAnswer === correct || alternatives.includes(userAnswer);
   };

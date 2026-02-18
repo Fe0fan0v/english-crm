@@ -688,6 +688,17 @@ export const teacherApi = {
     const response = await api.get<TeacherAvailabilityListResponse>(`/teacher/availability/${teacherId}`);
     return response.data;
   },
+
+  // Meeting URL
+  getMeetingUrl: async (): Promise<{ meeting_url: string | null }> => {
+    const response = await api.get<{ meeting_url: string | null }>("/teacher/profile/meeting-url");
+    return response.data;
+  },
+
+  updateMeetingUrl: async (meetingUrl: string | null): Promise<{ meeting_url: string | null }> => {
+    const response = await api.put<{ meeting_url: string | null }>("/teacher/profile/meeting-url", { meeting_url: meetingUrl });
+    return response.data;
+  },
 };
 
 // Student Dashboard API
@@ -723,6 +734,11 @@ export const studentApi = {
 
   getHomework: async () => {
     const response = await api.get("/student/homework");
+    return response.data;
+  },
+
+  getMyTeachers: async (): Promise<{ id: number; name: string; photo_url: string | null; groups: string[] }[]> => {
+    const response = await api.get("/student/my-teachers");
     return response.data;
   },
 };
