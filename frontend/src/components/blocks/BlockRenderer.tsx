@@ -1,18 +1,27 @@
-import { useState, useMemo } from 'react';
-import type { ExerciseBlock } from '../../types/course';
-import { useAuthStore } from '../../store/authStore';
+import { useState, useMemo } from "react";
+import type { ExerciseBlock, ExerciseResultDetails } from "../../types/course";
+import { useAuthStore } from "../../store/authStore";
 
-const INTERACTIVE_TYPES = ['fill_gaps', 'test', 'true_false', 'word_order', 'matching', 'essay', 'image_choice'];
+const INTERACTIVE_TYPES = [
+  "fill_gaps",
+  "test",
+  "true_false",
+  "word_order",
+  "matching",
+  "essay",
+  "image_choice",
+];
 
 interface BlockRendererProps {
   block: ExerciseBlock;
-  blockNumber?: number;  // Optional block number for display (e.g., 1, 2, 3...)
+  blockNumber?: number; // Optional block number for display (e.g., 1, 2, 3...)
   lessonNumber?: number; // Optional lesson number within section (e.g., 1 for "1.1 Title")
   answer: unknown;
   onAnswerChange: (answer: unknown) => void;
   isChecked: boolean;
   onCheck: () => void;
   onReset?: () => void;
+  serverDetails?: ExerciseResultDetails;
 }
 
 export default function BlockRenderer({
@@ -24,61 +33,72 @@ export default function BlockRenderer({
   isChecked,
   onCheck,
   onReset,
+  serverDetails,
 }: BlockRendererProps) {
   const content = block.content as Record<string, unknown>;
 
   // Render block content based on type
   const renderBlockContent = () => {
     switch (block.block_type) {
-      case 'text':
+      case "text":
         return (
           <div
             className="prose prose-sm max-w-none [&_iframe]:w-full [&_iframe]:min-h-[500px] [&_iframe]:rounded-lg"
-            dangerouslySetInnerHTML={{ __html: (content.html as string) || '' }}
+            dangerouslySetInnerHTML={{ __html: (content.html as string) || "" }}
           />
         );
 
-      case 'video':
-        return <VideoRenderer url={(content.url as string) || ''} title={(content.title as string) || ''} />;
+      case "video":
+        return (
+          <VideoRenderer
+            url={(content.url as string) || ""}
+            title={(content.title as string) || ""}
+          />
+        );
 
-      case 'audio':
-        return <AudioRenderer url={(content.url as string) || ''} title={(content.title as string) || ''} />;
+      case "audio":
+        return (
+          <AudioRenderer
+            url={(content.url as string) || ""}
+            title={(content.title as string) || ""}
+          />
+        );
 
-      case 'article':
+      case "article":
         return (
           <ArticleRenderer
-            html={(content.html as string) || ''}
-            imageUrl={(content.image_url as string) || ''}
-            imagePosition={(content.image_position as string) || 'right'}
+            html={(content.html as string) || ""}
+            imageUrl={(content.image_url as string) || ""}
+            imagePosition={(content.image_position as string) || "right"}
           />
         );
 
-      case 'divider':
+      case "divider":
         // Dividers don't need headers
-        return <DividerRenderer style={(content.style as string) || 'line'} />;
+        return <DividerRenderer style={(content.style as string) || "line"} />;
 
-      case 'image':
+      case "image":
         return (
           <ImageRenderer
-            url={(content.url as string) || ''}
-            caption={(content.caption as string) || ''}
-            alt={(content.alt as string) || ''}
+            url={(content.url as string) || ""}
+            caption={(content.caption as string) || ""}
+            alt={(content.alt as string) || ""}
           />
         );
 
-      case 'teaching_guide':
+      case "teaching_guide":
         // Teaching guide is only visible in editor, not for students
         return null;
 
-      case 'remember':
+      case "remember":
         return (
           <RememberRenderer
-            html={(content.html as string) || ''}
-            icon={(content.icon as string) || 'info'}
+            html={(content.html as string) || ""}
+            icon={(content.icon as string) || "info"}
           />
         );
 
-      case 'table':
+      case "table":
         return (
           <TableRenderer
             rows={(content.rows as TableRow[]) || []}
@@ -86,59 +106,63 @@ export default function BlockRenderer({
           />
         );
 
-      case 'fill_gaps':
+      case "fill_gaps":
         return (
           <FillGapsRenderer
-            text={(content.text as string) || ''}
+            text={(content.text as string) || ""}
             gaps={(content.gaps as GapItem[]) || []}
             answer={answer as Record<number, string>}
             onAnswerChange={onAnswerChange}
             isChecked={isChecked}
             onCheck={onCheck}
+            serverDetails={serverDetails}
           />
         );
 
-      case 'test':
+      case "test":
         return (
           <TestRenderer
-            question={(content.question as string) || ''}
+            question={(content.question as string) || ""}
             options={(content.options as TestOption[]) || []}
             multipleAnswers={(content.multiple_answers as boolean) || false}
-            explanation={(content.explanation as string) || ''}
+            explanation={(content.explanation as string) || ""}
             answer={answer as string[] | string}
             onAnswerChange={onAnswerChange}
             isChecked={isChecked}
             onCheck={onCheck}
+            serverDetails={serverDetails}
           />
         );
 
-      case 'true_false':
+      case "true_false":
         return (
           <TrueFalseRenderer
-            statement={(content.statement as string) || ''}
+            statement={(content.statement as string) || ""}
             isTrue={(content.is_true as boolean) ?? true}
-            explanation={(content.explanation as string) || ''}
+            explanation={(content.explanation as string) || ""}
             answer={answer as boolean | undefined}
             onAnswerChange={onAnswerChange}
             isChecked={isChecked}
             onCheck={onCheck}
+            serverDetails={serverDetails}
           />
         );
 
-      case 'word_order':
+      case "word_order":
         return (
           <WordOrderRenderer
-            correctSentence={(content.correct_sentence as string) || ''}
+            correctSentence={(content.correct_sentence as string) || ""}
             shuffledWords={(content.shuffled_words as string[]) || []}
-            hint={(content.hint as string) || ''}
+            hint={(content.hint as string) || ""}
             answer={answer as string[]}
             onAnswerChange={onAnswerChange}
             isChecked={isChecked}
             onCheck={onCheck}
+            serverDetails={serverDetails}
           />
         );
 
-      case 'matching':
+      case "matching":
         return (
           <MatchingRenderer
             pairs={(content.pairs as MatchingPair[]) || []}
@@ -147,35 +171,37 @@ export default function BlockRenderer({
             onAnswerChange={onAnswerChange}
             isChecked={isChecked}
             onCheck={onCheck}
+            serverDetails={serverDetails}
           />
         );
 
-      case 'image_choice':
+      case "image_choice":
         return (
           <ImageChoiceRenderer
-            question={(content.question as string) || ''}
+            question={(content.question as string) || ""}
             options={(content.options as ImageOption[]) || []}
-            explanation={(content.explanation as string) || ''}
+            explanation={(content.explanation as string) || ""}
             answer={answer as string}
             onAnswerChange={onAnswerChange}
             isChecked={isChecked}
             onCheck={onCheck}
+            serverDetails={serverDetails}
           />
         );
 
-      case 'flashcards':
+      case "flashcards":
         return (
           <FlashcardsRenderer
-            title={(content.title as string) || ''}
+            title={(content.title as string) || ""}
             cards={(content.cards as Flashcard[]) || []}
             shuffle={(content.shuffle as boolean) ?? true}
           />
         );
 
-      case 'essay':
+      case "essay":
         return (
           <EssayRenderer
-            prompt={(content.prompt as string) || ''}
+            prompt={(content.prompt as string) || ""}
             minWords={content.min_words as number | null}
             maxWords={content.max_words as number | null}
             answer={answer as string}
@@ -185,7 +211,7 @@ export default function BlockRenderer({
           />
         );
 
-      case 'vocabulary':
+      case "vocabulary":
         return (
           <VocabularyRenderer
             words={(content.words as VocabularyWordItem[]) || []}
@@ -203,32 +229,44 @@ export default function BlockRenderer({
   const isInteractive = INTERACTIVE_TYPES.includes(block.block_type);
 
   // For divider and teaching_guide, don't add header
-  if (block.block_type === 'divider' || block.block_type === 'teaching_guide') {
+  if (block.block_type === "divider" || block.block_type === "teaching_guide") {
     return <>{blockContent}</>;
   }
 
   // Render with header
-  const numberPrefix = blockNumber !== undefined
-    ? `${lessonNumber}.${blockNumber}`
-    : null;
+  const numberPrefix =
+    blockNumber !== undefined ? `${lessonNumber}.${blockNumber}` : null;
 
-  const resetButton = isInteractive && isChecked && onReset ? (
-    <button
-      onClick={onReset}
-      className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors"
-      title="Сбросить ответ"
-    >
-      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-      </svg>
-      Сбросить
-    </button>
-  ) : null;
+  const resetButton =
+    isInteractive && isChecked && onReset ? (
+      <button
+        onClick={onReset}
+        className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors"
+        title="Сбросить ответ"
+      >
+        <svg
+          className="w-3.5 h-3.5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+          />
+        </svg>
+        Сбросить
+      </button>
+    ) : null;
 
   if (!block.title) {
     return (
       <div>
-        {resetButton && <div className="flex justify-end mb-1">{resetButton}</div>}
+        {resetButton && (
+          <div className="flex justify-end mb-1">{resetButton}</div>
+        )}
         {blockContent}
       </div>
     );
@@ -239,7 +277,9 @@ export default function BlockRenderer({
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-baseline gap-2">
           {numberPrefix && (
-            <span className="text-sm font-semibold text-cyan-600">{numberPrefix}</span>
+            <span className="text-sm font-semibold text-cyan-600">
+              {numberPrefix}
+            </span>
           )}
           <h3 className="text-lg font-medium text-gray-800">{block.title}</h3>
         </div>
@@ -320,7 +360,7 @@ function VideoRenderer({ url, title }: { url: string; title: string }) {
     <div className="aspect-video rounded-lg overflow-hidden bg-gray-100">
       <iframe
         src={embedUrl}
-        title={title || 'Видео'}
+        title={title || "Видео"}
         className="w-full h-full"
         allowFullScreen
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -337,7 +377,9 @@ function AudioRenderer({ url, title }: { url: string; title: string }) {
 
   return (
     <div className="bg-gray-50 rounded-lg p-4">
-      {title && <div className="text-sm font-medium text-gray-700 mb-2">{title}</div>}
+      {title && (
+        <div className="text-sm font-medium text-gray-700 mb-2">{title}</div>
+      )}
       <audio src={url} controls className="w-full" />
     </div>
   );
@@ -353,23 +395,26 @@ function ArticleRenderer({
   imageUrl: string;
   imagePosition: string;
 }) {
-  const isVertical = imagePosition === 'top' || imagePosition === 'bottom';
-  const imageFirst = imagePosition === 'top' || imagePosition === 'left';
+  const isVertical = imagePosition === "top" || imagePosition === "bottom";
+  const imageFirst = imagePosition === "top" || imagePosition === "left";
 
   const imageEl = imageUrl && (
     <img
       src={imageUrl}
       alt=""
-      className={`rounded-lg object-cover ${isVertical ? 'w-full h-48' : 'w-48 h-auto'}`}
+      className={`rounded-lg object-cover ${isVertical ? "w-full h-48" : "w-48 h-auto"}`}
     />
   );
 
   const textEl = (
-    <div className="prose prose-sm max-w-none flex-1" dangerouslySetInnerHTML={{ __html: html }} />
+    <div
+      className="prose prose-sm max-w-none flex-1"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
   );
 
   return (
-    <div className={`flex ${isVertical ? 'flex-col' : 'flex-row'} gap-4`}>
+    <div className={`flex ${isVertical ? "flex-col" : "flex-row"} gap-4`}>
       {imageFirst ? (
         <>
           {imageEl}
@@ -388,11 +433,11 @@ function ArticleRenderer({
 // Divider Renderer
 function DividerRenderer({ style }: { style: string }) {
   switch (style) {
-    case 'line':
+    case "line":
       return <hr className="border-gray-200 my-4" />;
-    case 'space':
+    case "space":
       return <div className="h-8" />;
-    case 'dots':
+    case "dots":
       return <div className="text-center text-gray-300 my-4">• • •</div>;
     default:
       return <hr className="border-gray-200 my-4" />;
@@ -407,6 +452,7 @@ function FillGapsRenderer({
   onAnswerChange,
   isChecked,
   onCheck,
+  serverDetails,
 }: {
   text: string;
   gaps: GapItem[];
@@ -414,29 +460,39 @@ function FillGapsRenderer({
   onAnswerChange: (answer: Record<number, string>) => void;
   isChecked: boolean;
   onCheck: () => void;
+  serverDetails?: ExerciseResultDetails;
 }) {
   const answers = answer || {};
   const { user } = useAuthStore();
-  const canSeeAnswers = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'teacher';
+  const canSeeAnswers =
+    user?.role === "admin" ||
+    user?.role === "manager" ||
+    user?.role === "teacher";
 
   // Auto-detect numbered items and add line breaks (e.g., "... 2. Text" → "...\n2. Text")
-  const processedText = text.replace(/ (\d+)\. /g, '\n$1. ').trimStart();
+  const processedText = text.replace(/ (\d+)\. /g, "\n$1. ").trimStart();
   const parts = processedText.split(/\{(\d+)\}/);
 
   const checkAnswer = (gapIndex: number): boolean | null => {
     if (!isChecked) return null;
+    // Use server-side results if available (students)
+    if (serverDetails?.gap_results) {
+      return serverDetails.gap_results[String(gapIndex)] ?? null;
+    }
+    // Fallback to local check (admin/teacher)
     const gap = gaps.find((g) => g.index === gapIndex);
     if (!gap) return null;
-    const correct = gap.answer.toLowerCase().trim();
-    if (correct === '') return true; // Empty correct answer means any input is accepted
-    const userAnswer = (answers[gapIndex] || '').toLowerCase().trim();
-    const alternatives = gap.alternatives?.map((a) => a.toLowerCase().trim()) || [];
+    const correct = (gap.answer || "").toLowerCase().trim();
+    if (correct === "") return true;
+    const userAnswer = (answers[gapIndex] || "").toLowerCase().trim();
+    const alternatives =
+      gap.alternatives?.map((a) => a.toLowerCase().trim()) || [];
     return userAnswer === correct || alternatives.includes(userAnswer);
   };
 
   // Helper to render text with line breaks
   const renderTextWithLineBreaks = (textPart: string) => {
-    const lines = textPart.split('\n');
+    const lines = textPart.split("\n");
     return lines.map((line, lineIndex) => (
       <span key={lineIndex}>
         {line}
@@ -447,7 +503,11 @@ function FillGapsRenderer({
 
   // If no gaps defined, show free-text answer field
   if (!gaps || gaps.length === 0) {
-    const freeAnswer = (typeof answer === 'string' ? answer : (answer as Record<string, string>)?.free || '') as string;
+    const freeAnswer = (
+      typeof answer === "string"
+        ? answer
+        : (answer as Record<string, string>)?.free || ""
+    ) as string;
     return (
       <div className="bg-white p-4 rounded-lg border border-gray-100">
         <div className="text-lg leading-relaxed mb-4">
@@ -458,15 +518,25 @@ function FillGapsRenderer({
           onChange={(e) => onAnswerChange(e.target.value)}
           disabled={isChecked}
           className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-300 resize-y min-h-[80px] ${
-            isChecked ? 'bg-gray-50 text-gray-600' : 'border-gray-200'
+            isChecked ? "bg-gray-50 text-gray-600" : "border-gray-200"
           }`}
           placeholder="Введите ваш ответ..."
           rows={3}
         />
         {isChecked ? (
           <div className="mt-3 flex items-center gap-2 text-green-600">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
             </svg>
             <span className="text-sm font-medium">Ответ отправлен</span>
           </div>
@@ -498,21 +568,25 @@ function FillGapsRenderer({
             <span key={index} className="inline-block mx-1">
               <input
                 type="text"
-                value={answers[gapIndex] || ''}
-                onChange={(e) => onAnswerChange({ ...answers, [gapIndex]: e.target.value })}
+                value={answers[gapIndex] || ""}
+                onChange={(e) =>
+                  onAnswerChange({ ...answers, [gapIndex]: e.target.value })
+                }
                 disabled={isChecked}
                 className={`w-32 px-2 py-1 border-b-2 text-center focus:outline-none ${
                   result === null
-                    ? 'border-purple-300 focus:border-purple-500'
+                    ? "border-purple-300 focus:border-purple-500"
                     : result
-                    ? 'border-green-500 bg-green-50'
-                    : 'border-red-500 bg-red-50'
+                      ? "border-green-500 bg-green-50"
+                      : "border-red-500 bg-red-50"
                 }`}
-                placeholder={gap?.hint || '...'}
+                placeholder={gap?.hint || "..."}
                 title={canSeeAnswers && gap ? gap.answer : undefined}
               />
               {isChecked && result === false && gap && canSeeAnswers && (
-                <span className="text-xs text-red-500 ml-1">({gap.answer})</span>
+                <span className="text-xs text-red-500 ml-1">
+                  ({gap.answer})
+                </span>
               )}
             </span>
           );
@@ -541,6 +615,7 @@ function TestRenderer({
   onAnswerChange,
   isChecked,
   onCheck,
+  serverDetails,
 }: {
   question: string;
   options: TestOption[];
@@ -550,15 +625,19 @@ function TestRenderer({
   onAnswerChange: (answer: string[] | string) => void;
   isChecked: boolean;
   onCheck: () => void;
+  serverDetails?: ExerciseResultDetails;
 }) {
   const { user } = useAuthStore();
-  const canSeeAnswers = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'teacher';
+  const canSeeAnswers =
+    user?.role === "admin" ||
+    user?.role === "manager" ||
+    user?.role === "teacher";
 
   const selectedIds = multipleAnswers
     ? (answer as string[]) || []
     : answer
-    ? [answer as string]
-    : [];
+      ? [answer as string]
+      : [];
 
   const handleSelect = (optionId: string) => {
     if (isChecked) return;
@@ -574,13 +653,23 @@ function TestRenderer({
     }
   };
 
-  const getOptionState = (option: TestOption): 'selected' | 'correct' | 'incorrect' | 'default' => {
+  const getOptionState = (
+    option: TestOption,
+  ): "selected" | "correct" | "incorrect" | "default" => {
     const isSelected = selectedIds.includes(option.id);
-    if (!isChecked) return isSelected ? 'selected' : 'default';
-    if (isSelected && option.is_correct) return 'correct';
-    if (isSelected && !option.is_correct) return 'incorrect';
-    if (option.is_correct && canSeeAnswers) return 'correct';
-    return 'default';
+    if (!isChecked) return isSelected ? "selected" : "default";
+    // Use server-side results if available (students)
+    if (serverDetails?.option_results) {
+      const serverState = serverDetails.option_results[option.id];
+      if (serverState === "correct") return "correct";
+      if (serverState === "incorrect") return "incorrect";
+      return "default";
+    }
+    // Fallback to local check (admin/teacher)
+    if (isSelected && option.is_correct) return "correct";
+    if (isSelected && !option.is_correct) return "incorrect";
+    if (option.is_correct && canSeeAnswers) return "correct";
+    return "default";
   };
 
   const isCorrect =
@@ -602,31 +691,41 @@ function TestRenderer({
               key={option.id}
               onClick={() => handleSelect(option.id)}
               disabled={isChecked}
-              title={canSeeAnswers && option.is_correct ? '✓ Правильный ответ' : undefined}
+              title={
+                canSeeAnswers && option.is_correct
+                  ? "✓ Правильный ответ"
+                  : undefined
+              }
               className={`w-full text-left px-4 py-3 rounded-lg border-2 transition-colors ${
-                state === 'selected'
-                  ? 'border-purple-500 bg-purple-50'
-                  : state === 'correct'
-                  ? 'border-green-500 bg-green-50'
-                  : state === 'incorrect'
-                  ? 'border-red-500 bg-red-50'
-                  : 'border-gray-200 hover:border-gray-300'
+                state === "selected"
+                  ? "border-purple-500 bg-purple-50"
+                  : state === "correct"
+                    ? "border-green-500 bg-green-50"
+                    : state === "incorrect"
+                      ? "border-red-500 bg-red-50"
+                      : "border-gray-200 hover:border-gray-300"
               }`}
             >
               <div className="flex items-center gap-3">
                 <div
                   className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                    state === 'selected'
-                      ? 'border-purple-500 bg-purple-500'
-                      : state === 'correct'
-                      ? 'border-green-500 bg-green-500'
-                      : state === 'incorrect'
-                      ? 'border-red-500 bg-red-500'
-                      : 'border-gray-300'
+                    state === "selected"
+                      ? "border-purple-500 bg-purple-500"
+                      : state === "correct"
+                        ? "border-green-500 bg-green-500"
+                        : state === "incorrect"
+                          ? "border-red-500 bg-red-500"
+                          : "border-gray-300"
                   }`}
                 >
-                  {(state === 'selected' || state === 'correct' || state === 'incorrect') && (
-                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  {(state === "selected" ||
+                    state === "correct" ||
+                    state === "incorrect") && (
+                    <svg
+                      className="w-3 h-3 text-white"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
                       <path
                         fillRule="evenodd"
                         d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
@@ -643,8 +742,12 @@ function TestRenderer({
       </div>
 
       {isChecked && explanation && (
-        <div className={`mt-4 p-3 rounded-lg ${isCorrect ? 'bg-green-50' : 'bg-yellow-50'}`}>
-          <div className="text-sm font-medium mb-1">{isCorrect ? 'Правильно!' : 'Пояснение'}</div>
+        <div
+          className={`mt-4 p-3 rounded-lg ${isCorrect ? "bg-green-50" : "bg-yellow-50"}`}
+        >
+          <div className="text-sm font-medium mb-1">
+            {isCorrect ? "Правильно!" : "Пояснение"}
+          </div>
           <div className="text-sm text-gray-600">{explanation}</div>
         </div>
       )}
@@ -671,6 +774,7 @@ function TrueFalseRenderer({
   onAnswerChange,
   isChecked,
   onCheck,
+  serverDetails,
 }: {
   statement: string;
   isTrue: boolean;
@@ -679,10 +783,19 @@ function TrueFalseRenderer({
   onAnswerChange: (answer: boolean) => void;
   isChecked: boolean;
   onCheck: () => void;
+  serverDetails?: ExerciseResultDetails;
 }) {
   const { user } = useAuthStore();
-  const canSeeAnswers = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'teacher';
-  const isCorrect = isChecked && answer === isTrue;
+  const canSeeAnswers =
+    user?.role === "admin" ||
+    user?.role === "manager" ||
+    user?.role === "teacher";
+  // Use server result for students, local check for admin/teacher
+  const isCorrect =
+    isChecked &&
+    (serverDetails?.is_correct !== undefined
+      ? serverDetails.is_correct
+      : answer === isTrue);
 
   return (
     <div className="bg-white p-4 rounded-lg border border-gray-100">
@@ -690,27 +803,38 @@ function TrueFalseRenderer({
 
       <div className="flex gap-4">
         {[
-          { value: true, label: 'Верно' },
-          { value: false, label: 'Неверно' },
+          { value: true, label: "Верно" },
+          { value: false, label: "Неверно" },
         ].map(({ value, label }) => {
           const isSelected = answer === value;
-          const isCorrectAnswer = isChecked && value === isTrue && (canSeeAnswers || isSelected);
-          const isWrong = isChecked && isSelected && value !== isTrue;
+          // For students with serverDetails: only highlight selected answer as correct/wrong
+          const isCorrectAnswer = isChecked && isSelected && isCorrect;
+          const isWrongAnswer = isChecked && isSelected && !isCorrect;
+          // For admin/teacher: also show the correct answer even if not selected
+          const showCorrect =
+            isChecked && !isSelected && canSeeAnswers && value === isTrue;
+          const isWrong = serverDetails
+            ? isWrongAnswer
+            : isChecked && isSelected && value !== isTrue;
 
           return (
             <button
               key={String(value)}
               onClick={() => !isChecked && onAnswerChange(value)}
               disabled={isChecked}
-              title={canSeeAnswers && value === isTrue ? '✓ Правильный ответ' : undefined}
+              title={
+                canSeeAnswers && value === isTrue
+                  ? "✓ Правильный ответ"
+                  : undefined
+              }
               className={`flex-1 px-4 py-3 rounded-lg border-2 transition-colors ${
-                isCorrectAnswer
-                  ? 'border-green-500 bg-green-50'
+                isCorrectAnswer || showCorrect
+                  ? "border-green-500 bg-green-50"
                   : isWrong
-                  ? 'border-red-500 bg-red-50'
-                  : isSelected
-                  ? 'border-purple-500 bg-purple-50'
-                  : 'border-gray-200 hover:border-gray-300'
+                    ? "border-red-500 bg-red-50"
+                    : isSelected
+                      ? "border-purple-500 bg-purple-50"
+                      : "border-gray-200 hover:border-gray-300"
               }`}
             >
               {label}
@@ -720,8 +844,12 @@ function TrueFalseRenderer({
       </div>
 
       {isChecked && explanation && (
-        <div className={`mt-4 p-3 rounded-lg ${isCorrect ? 'bg-green-50' : 'bg-yellow-50'}`}>
-          <div className="text-sm font-medium mb-1">{isCorrect ? 'Правильно!' : 'Пояснение'}</div>
+        <div
+          className={`mt-4 p-3 rounded-lg ${isCorrect ? "bg-green-50" : "bg-yellow-50"}`}
+        >
+          <div className="text-sm font-medium mb-1">
+            {isCorrect ? "Правильно!" : "Пояснение"}
+          </div>
           <div className="text-sm text-gray-600">{explanation}</div>
         </div>
       )}
@@ -748,6 +876,7 @@ function WordOrderRenderer({
   onAnswerChange,
   isChecked,
   onCheck,
+  serverDetails,
 }: {
   correctSentence: string;
   shuffledWords: string[];
@@ -756,22 +885,29 @@ function WordOrderRenderer({
   onAnswerChange: (answer: string[]) => void;
   isChecked: boolean;
   onCheck: () => void;
+  serverDetails?: ExerciseResultDetails;
 }) {
   const { user } = useAuthStore();
-  const canSeeAnswers = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'teacher';
+  const canSeeAnswers =
+    user?.role === "admin" ||
+    user?.role === "manager" ||
+    user?.role === "teacher";
   const selectedWords = answer || [];
-  const availableWords = shuffledWords.filter(
-    (word, index) => {
-      const selectedIndex = selectedWords.indexOf(word);
-      if (selectedIndex === -1) return true;
-      // Check if this specific instance is used
-      const wordCount = shuffledWords.slice(0, index + 1).filter(w => w === word).length;
-      const usedCount = selectedWords.filter(w => w === word).length;
-      return wordCount > usedCount;
-    }
-  );
+  const availableWords = shuffledWords.filter((word, index) => {
+    const selectedIndex = selectedWords.indexOf(word);
+    if (selectedIndex === -1) return true;
+    const wordCount = shuffledWords
+      .slice(0, index + 1)
+      .filter((w) => w === word).length;
+    const usedCount = selectedWords.filter((w) => w === word).length;
+    return wordCount > usedCount;
+  });
 
-  const isCorrect = isChecked && selectedWords.join(' ') === correctSentence;
+  const isCorrect =
+    isChecked &&
+    (serverDetails?.is_correct !== undefined
+      ? serverDetails.is_correct
+      : selectedWords.join(" ") === correctSentence);
 
   const handleSelectWord = (word: string) => {
     if (isChecked) return;
@@ -792,13 +928,15 @@ function WordOrderRenderer({
         className={`min-h-[60px] p-3 rounded-lg border-2 mb-4 ${
           isChecked
             ? isCorrect
-              ? 'border-green-500 bg-green-50'
-              : 'border-red-500 bg-red-50'
-            : 'border-gray-200 bg-gray-50'
+              ? "border-green-500 bg-green-50"
+              : "border-red-500 bg-red-50"
+            : "border-gray-200 bg-gray-50"
         }`}
       >
         {selectedWords.length === 0 ? (
-          <span className="text-gray-400">Нажмите на слова, чтобы составить предложение</span>
+          <span className="text-gray-400">
+            Нажмите на слова, чтобы составить предложение
+          </span>
         ) : (
           <div className="flex flex-wrap gap-2">
             {selectedWords.map((word, index) => (
@@ -829,18 +967,20 @@ function WordOrderRenderer({
         ))}
       </div>
 
-      {isChecked && !isCorrect && (
-        canSeeAnswers ? (
+      {isChecked &&
+        !isCorrect &&
+        (canSeeAnswers ? (
           <div className="mt-4 p-3 rounded-lg bg-yellow-50">
             <div className="text-sm font-medium mb-1">Правильный ответ:</div>
             <div className="text-sm text-gray-600">{correctSentence}</div>
           </div>
         ) : (
           <div className="mt-4 p-3 rounded-lg bg-red-50">
-            <div className="text-sm font-medium text-red-600">Неправильно. Попробуйте ещё раз.</div>
+            <div className="text-sm font-medium text-red-600">
+              Неправильно. Попробуйте ещё раз.
+            </div>
           </div>
-        )
-      )}
+        ))}
 
       {!isChecked && (
         <button
@@ -863,6 +1003,7 @@ function MatchingRenderer({
   onAnswerChange,
   isChecked,
   onCheck,
+  serverDetails,
 }: {
   pairs: MatchingPair[];
   shuffleRight: boolean;
@@ -870,9 +1011,13 @@ function MatchingRenderer({
   onAnswerChange: (answer: Record<string, string>) => void;
   isChecked: boolean;
   onCheck: () => void;
+  serverDetails?: ExerciseResultDetails;
 }) {
   const { user } = useAuthStore();
-  const canSeeAnswers = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'teacher';
+  const canSeeAnswers =
+    user?.role === "admin" ||
+    user?.role === "manager" ||
+    user?.role === "teacher";
   const [selectedLeft, setSelectedLeft] = useState<string | null>(null);
   const matches = answer || {};
 
@@ -897,12 +1042,20 @@ function MatchingRenderer({
 
   const isCorrect = (left: string): boolean | null => {
     if (!isChecked) return null;
+    // Use server-side results if available (students)
+    if (serverDetails?.pair_results) {
+      return serverDetails.pair_results[left] ?? null;
+    }
+    // Fallback to local check (admin/teacher)
     const pair = pairs.find((p) => p.left === left);
     return pair ? matches[left] === pair.right : null;
   };
 
   const allCorrect =
-    isChecked && pairs.every((pair) => matches[pair.left] === pair.right);
+    isChecked &&
+    (serverDetails?.pair_results
+      ? Object.values(serverDetails.pair_results).every(Boolean)
+      : pairs.every((pair) => matches[pair.left] === pair.right));
 
   return (
     <div className="bg-white p-4 rounded-lg border border-gray-100">
@@ -919,14 +1072,14 @@ function MatchingRenderer({
                 title={canSeeAnswers ? `✓ ${pair.right}` : undefined}
                 className={`w-full px-4 py-3 rounded-lg border-2 text-left transition-colors ${
                   result === true
-                    ? 'border-green-500 bg-green-50'
+                    ? "border-green-500 bg-green-50"
                     : result === false
-                    ? 'border-red-500 bg-red-50'
-                    : selectedLeft === pair.left
-                    ? 'border-purple-500 bg-purple-50'
-                    : matches[pair.left]
-                    ? 'border-blue-300 bg-blue-50'
-                    : 'border-gray-200 hover:border-gray-300'
+                      ? "border-red-500 bg-red-50"
+                      : selectedLeft === pair.left
+                        ? "border-purple-500 bg-purple-50"
+                        : matches[pair.left]
+                          ? "border-blue-300 bg-blue-50"
+                          : "border-gray-200 hover:border-gray-300"
                 }`}
               >
                 {pair.left}
@@ -939,7 +1092,10 @@ function MatchingRenderer({
         <div className="flex-1 space-y-2">
           {rightItems.map((right) => {
             const isMatched = Object.values(matches).includes(right);
-            const isImage = /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(right);
+            const isImage =
+              /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(
+                right,
+              );
             return (
               <button
                 key={right}
@@ -947,12 +1103,16 @@ function MatchingRenderer({
                 disabled={isChecked || !selectedLeft}
                 className={`w-full px-4 py-3 rounded-lg border-2 text-left transition-colors ${
                   isMatched
-                    ? 'border-blue-300 bg-blue-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                } ${!isChecked && selectedLeft ? 'hover:border-purple-300' : ''}`}
+                    ? "border-blue-300 bg-blue-50"
+                    : "border-gray-200 hover:border-gray-300"
+                } ${!isChecked && selectedLeft ? "hover:border-purple-300" : ""}`}
               >
                 {isImage ? (
-                  <img src={right} alt="" className="w-full h-24 object-contain rounded" />
+                  <img
+                    src={right}
+                    alt=""
+                    className="w-full h-24 object-contain rounded"
+                  />
                 ) : (
                   right
                 )}
@@ -962,19 +1122,27 @@ function MatchingRenderer({
         </div>
       </div>
 
-      {isChecked && !allCorrect && (
-        canSeeAnswers ? (
+      {isChecked &&
+        !allCorrect &&
+        (canSeeAnswers ? (
           <div className="mt-4 p-3 rounded-lg bg-yellow-50">
             <div className="text-sm font-medium mb-1">Правильные пары:</div>
             <div className="text-sm text-gray-600 space-y-1">
               {pairs.map((p) => {
-                const isImage = /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(p.right);
+                const isImage =
+                  /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(
+                    p.right,
+                  );
                 return (
                   <div key={p.left} className="flex items-center gap-2">
                     <span>{p.left}</span>
                     <span>↔</span>
                     {isImage ? (
-                      <img src={p.right} alt="" className="h-8 object-contain rounded" />
+                      <img
+                        src={p.right}
+                        alt=""
+                        className="h-8 object-contain rounded"
+                      />
                     ) : (
                       <span>{p.right}</span>
                     )}
@@ -985,10 +1153,11 @@ function MatchingRenderer({
           </div>
         ) : (
           <div className="mt-4 p-3 rounded-lg bg-red-50">
-            <div className="text-sm font-medium text-red-600">Есть ошибки. Попробуйте ещё раз.</div>
+            <div className="text-sm font-medium text-red-600">
+              Есть ошибки. Попробуйте ещё раз.
+            </div>
           </div>
-        )
-      )}
+        ))}
 
       {!isChecked && (
         <button
@@ -1021,11 +1190,12 @@ function EssayRenderer({
   isChecked: boolean;
   onCheck: () => void;
 }) {
-  const text = answer || '';
+  const text = answer || "";
   const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
 
   const isValid =
-    (minWords === null || wordCount >= minWords) && (maxWords === null || wordCount <= maxWords);
+    (minWords === null || wordCount >= minWords) &&
+    (maxWords === null || wordCount <= maxWords);
 
   return (
     <div className="bg-white p-4 rounded-lg border border-gray-100">
@@ -1047,8 +1217,12 @@ function EssayRenderer({
         </div>
         {!isValid && (
           <div className="text-sm text-red-500">
-            {minWords !== null && wordCount < minWords && `Минимум ${minWords} слов`}
-            {maxWords !== null && wordCount > maxWords && `Максимум ${maxWords} слов`}
+            {minWords !== null &&
+              wordCount < minWords &&
+              `Минимум ${minWords} слов`}
+            {maxWords !== null &&
+              wordCount > maxWords &&
+              `Максимум ${maxWords} слов`}
           </div>
         )}
       </div>
@@ -1090,11 +1264,13 @@ function ImageRenderer({
     <figure className="text-center my-6">
       <img
         src={url}
-        alt={alt || caption || 'Изображение'}
+        alt={alt || caption || "Изображение"}
         className="w-full max-w-4xl h-auto rounded-lg mx-auto shadow-md"
       />
       {caption && (
-        <figcaption className="mt-3 text-base text-gray-700 italic max-w-4xl mx-auto">{caption}</figcaption>
+        <figcaption className="mt-3 text-base text-gray-700 italic max-w-4xl mx-auto">
+          {caption}
+        </figcaption>
       )}
     </figure>
   );
@@ -1104,41 +1280,81 @@ function ImageRenderer({
 function RememberRenderer({ html, icon }: { html: string; icon: string }) {
   const getIconClass = () => {
     switch (icon) {
-      case 'warning':
-        return 'text-yellow-500';
-      case 'tip':
-        return 'text-green-500';
-      case 'important':
-        return 'text-red-500';
+      case "warning":
+        return "text-yellow-500";
+      case "tip":
+        return "text-green-500";
+      case "important":
+        return "text-red-500";
       default:
-        return 'text-blue-500';
+        return "text-blue-500";
     }
   };
 
   const getIcon = () => {
     switch (icon) {
-      case 'warning':
+      case "warning":
         return (
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          <svg
+            className="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+            />
           </svg>
         );
-      case 'tip':
+      case "tip":
         return (
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+          <svg
+            className="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+            />
           </svg>
         );
-      case 'important':
+      case "important":
         return (
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <svg
+            className="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
           </svg>
         );
       default:
         return (
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <svg
+            className="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
           </svg>
         );
     }
@@ -1146,14 +1362,14 @@ function RememberRenderer({ html, icon }: { html: string; icon: string }) {
 
   const getBgColor = () => {
     switch (icon) {
-      case 'warning':
-        return 'bg-yellow-50 border-yellow-200';
-      case 'tip':
-        return 'bg-green-50 border-green-200';
-      case 'important':
-        return 'bg-red-50 border-red-200';
+      case "warning":
+        return "bg-yellow-50 border-yellow-200";
+      case "tip":
+        return "bg-green-50 border-green-200";
+      case "important":
+        return "bg-red-50 border-red-200";
       default:
-        return 'bg-blue-50 border-blue-200';
+        return "bg-blue-50 border-blue-200";
     }
   };
 
@@ -1190,10 +1406,13 @@ function TableRenderer({
             <tr key={rowIndex}>
               {row.cells.map((cell, cellIndex) => {
                 const isHeader = hasHeader && rowIndex === 0;
-                const CellTag = isHeader ? 'th' : 'td';
-                const baseClass = 'border border-gray-200 px-4 py-2';
-                const headerClass = isHeader ? 'bg-gray-100 font-medium text-left' : '';
-                const styleClass = cell.style === 'header' ? 'bg-gray-100 font-medium' : '';
+                const CellTag = isHeader ? "th" : "td";
+                const baseClass = "border border-gray-200 px-4 py-2";
+                const headerClass = isHeader
+                  ? "bg-gray-100 font-medium text-left"
+                  : "";
+                const styleClass =
+                  cell.style === "header" ? "bg-gray-100 font-medium" : "";
 
                 return (
                   <CellTag
@@ -1223,6 +1442,7 @@ function ImageChoiceRenderer({
   onAnswerChange,
   isChecked,
   onCheck,
+  serverDetails,
 }: {
   question: string;
   options: ImageOption[];
@@ -1231,25 +1451,43 @@ function ImageChoiceRenderer({
   onAnswerChange: (answer: string) => void;
   isChecked: boolean;
   onCheck: () => void;
+  serverDetails?: ExerciseResultDetails;
 }) {
   const { user } = useAuthStore();
-  const canSeeAnswers = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'teacher';
+  const canSeeAnswers =
+    user?.role === "admin" ||
+    user?.role === "manager" ||
+    user?.role === "teacher";
 
   const handleSelect = (optionId: string) => {
     if (isChecked) return;
     onAnswerChange(optionId);
   };
 
-  const getOptionState = (option: ImageOption): 'selected' | 'correct' | 'incorrect' | 'default' => {
+  const getOptionState = (
+    option: ImageOption,
+  ): "selected" | "correct" | "incorrect" | "default" => {
     const isSelected = answer === option.id;
-    if (!isChecked) return isSelected ? 'selected' : 'default';
-    if (isSelected && option.is_correct) return 'correct';
-    if (isSelected && !option.is_correct) return 'incorrect';
-    if (option.is_correct && canSeeAnswers) return 'correct';
-    return 'default';
+    if (!isChecked) return isSelected ? "selected" : "default";
+    // Use server-side results if available (students)
+    if (serverDetails?.option_results) {
+      const serverState = serverDetails.option_results[option.id];
+      if (serverState === "correct") return "correct";
+      if (serverState === "incorrect") return "incorrect";
+      return "default";
+    }
+    // Fallback to local check (admin/teacher)
+    if (isSelected && option.is_correct) return "correct";
+    if (isSelected && !option.is_correct) return "incorrect";
+    if (option.is_correct && canSeeAnswers) return "correct";
+    return "default";
   };
 
-  const isCorrect = isChecked && options.find((o) => o.id === answer)?.is_correct;
+  const isCorrect =
+    isChecked &&
+    (serverDetails?.option_results
+      ? Object.values(serverDetails.option_results).some((s) => s === "correct")
+      : options.find((o) => o.id === answer)?.is_correct);
 
   return (
     <div className="bg-white p-4 rounded-lg border border-gray-100">
@@ -1264,30 +1502,36 @@ function ImageChoiceRenderer({
               onClick={() => handleSelect(option.id)}
               disabled={isChecked}
               className={`relative rounded-lg border-4 overflow-hidden transition-colors ${
-                state === 'selected'
-                  ? 'border-purple-500'
-                  : state === 'correct'
-                  ? 'border-green-500'
-                  : state === 'incorrect'
-                  ? 'border-red-500'
-                  : 'border-gray-200 hover:border-gray-300'
+                state === "selected"
+                  ? "border-purple-500"
+                  : state === "correct"
+                    ? "border-green-500"
+                    : state === "incorrect"
+                      ? "border-red-500"
+                      : "border-gray-200 hover:border-gray-300"
               }`}
             >
               <img
                 src={option.url}
-                alt={option.caption || ''}
+                alt={option.caption || ""}
                 className="w-full h-32 object-cover"
               />
               {option.caption && (
-                <div className="p-2 text-sm text-center bg-gray-50">{option.caption}</div>
+                <div className="p-2 text-sm text-center bg-gray-50">
+                  {option.caption}
+                </div>
               )}
-              {(state === 'selected' || state === 'correct') && (
+              {(state === "selected" || state === "correct") && (
                 <div
                   className={`absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center ${
-                    state === 'correct' ? 'bg-green-500' : 'bg-purple-500'
+                    state === "correct" ? "bg-green-500" : "bg-purple-500"
                   }`}
                 >
-                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <svg
+                    className="w-4 h-4 text-white"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
                     <path
                       fillRule="evenodd"
                       d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
@@ -1296,9 +1540,13 @@ function ImageChoiceRenderer({
                   </svg>
                 </div>
               )}
-              {state === 'incorrect' && (
+              {state === "incorrect" && (
                 <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-red-500 flex items-center justify-center">
-                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <svg
+                    className="w-4 h-4 text-white"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
                     <path
                       fillRule="evenodd"
                       d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
@@ -1313,8 +1561,12 @@ function ImageChoiceRenderer({
       </div>
 
       {isChecked && explanation && (
-        <div className={`mt-4 p-3 rounded-lg ${isCorrect ? 'bg-green-50' : 'bg-yellow-50'}`}>
-          <div className="text-sm font-medium mb-1">{isCorrect ? 'Правильно!' : 'Пояснение'}</div>
+        <div
+          className={`mt-4 p-3 rounded-lg ${isCorrect ? "bg-green-50" : "bg-yellow-50"}`}
+        >
+          <div className="text-sm font-medium mb-1">
+            {isCorrect ? "Правильно!" : "Пояснение"}
+          </div>
           <div className="text-sm text-gray-600">{explanation}</div>
         </div>
       )}
@@ -1363,20 +1615,34 @@ function FlashcardsRenderer({
 
   const handlePrev = () => {
     setIsFlipped(false);
-    setCurrentIndex((prev) => (prev - 1 + shuffledCards.length) % shuffledCards.length);
+    setCurrentIndex(
+      (prev) => (prev - 1 + shuffledCards.length) % shuffledCards.length,
+    );
   };
 
   return (
     <div className="bg-white p-4 rounded-lg border border-gray-100">
-      {title && <div className="text-lg font-medium mb-4 text-center">{title}</div>}
+      {title && (
+        <div className="text-lg font-medium mb-4 text-center">{title}</div>
+      )}
 
       <div className="flex items-center justify-center gap-4">
         <button
           onClick={handlePrev}
           className="p-2 rounded-full bg-gray-100 hover:bg-gray-200"
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          <svg
+            className="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
           </svg>
         </button>
 
@@ -1386,17 +1652,17 @@ function FlashcardsRenderer({
         >
           <div
             className={`absolute w-full h-full transition-transform duration-500 transform-style-preserve-3d ${
-              isFlipped ? 'rotate-y-180' : ''
+              isFlipped ? "rotate-y-180" : ""
             }`}
             style={{
-              transformStyle: 'preserve-3d',
-              transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+              transformStyle: "preserve-3d",
+              transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)",
             }}
           >
             {/* Front */}
             <div
               className="absolute w-full h-full bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg flex flex-col items-center justify-center p-6 text-white"
-              style={{ backfaceVisibility: 'hidden' }}
+              style={{ backfaceVisibility: "hidden" }}
             >
               {currentCard.image_url && (
                 <img
@@ -1405,19 +1671,25 @@ function FlashcardsRenderer({
                   className="w-16 h-16 object-cover rounded-lg mb-3"
                 />
               )}
-              <div className="text-xl font-medium text-center">{currentCard.front}</div>
-              <div className="mt-2 text-sm text-purple-200">Нажмите, чтобы перевернуть</div>
+              <div className="text-xl font-medium text-center">
+                {currentCard.front}
+              </div>
+              <div className="mt-2 text-sm text-purple-200">
+                Нажмите, чтобы перевернуть
+              </div>
             </div>
 
             {/* Back */}
             <div
               className="absolute w-full h-full bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg flex items-center justify-center p-6 text-white"
               style={{
-                backfaceVisibility: 'hidden',
-                transform: 'rotateY(180deg)',
+                backfaceVisibility: "hidden",
+                transform: "rotateY(180deg)",
               }}
             >
-              <div className="text-xl font-medium text-center">{currentCard.back}</div>
+              <div className="text-xl font-medium text-center">
+                {currentCard.back}
+              </div>
             </div>
           </div>
         </div>
@@ -1426,8 +1698,18 @@ function FlashcardsRenderer({
           onClick={handleNext}
           className="p-2 rounded-full bg-gray-100 hover:bg-gray-200"
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          <svg
+            className="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 5l7 7-7 7"
+            />
           </svg>
         </button>
       </div>
@@ -1454,7 +1736,7 @@ function VocabularyRenderer({
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'en-US';
+    utterance.lang = "en-US";
     utterance.rate = 0.9;
 
     utterance.onstart = () => setSpeaking(index);
@@ -1481,12 +1763,17 @@ function VocabularyRenderer({
               onClick={() => speak(word.word, index)}
               className={`p-2 rounded-full transition-colors ${
                 speaking === index
-                  ? 'bg-cyan-100 text-cyan-600'
-                  : 'hover:bg-gray-100 text-gray-400 hover:text-gray-600'
+                  ? "bg-cyan-100 text-cyan-600"
+                  : "hover:bg-gray-100 text-gray-400 hover:text-gray-600"
               }`}
               title="Прослушать произношение"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"

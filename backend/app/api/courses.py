@@ -1,3 +1,4 @@
+import random
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -6,7 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import AdminUser, CurrentUser, TeacherUser, get_db
-from app.models.course import Course, CourseSection, CourseTopic, ExerciseBlock, InteractiveLesson
+from app.models.course import (
+    Course,
+    CourseSection,
+    CourseTopic,
+    ExerciseBlock,
+    InteractiveLesson,
+)
 from app.models.user import User, UserRole
 from app.schemas.course import (
     CourseCreate,
@@ -59,7 +66,85 @@ def can_view_course(user: User, course: Course) -> bool:
     return False
 
 
+def strip_answers_from_content(block_type: str, content: dict) -> dict:
+    """Remove correct answers from block content for students.
+
+    Students should not be able to see answers via DevTools/Network tab.
+    """
+    if block_type == "fill_gaps":
+        content = dict(content)
+        stripped_gaps = []
+        for gap in content.get("gaps", []):
+            stripped_gaps.append(
+                {
+                    "index": gap.get("index"),
+                    "hint": gap.get("hint"),
+                }
+            )
+        content["gaps"] = stripped_gaps
+        return content
+
+    if block_type == "test":
+        content = dict(content)
+        stripped_options = []
+        for opt in content.get("options", []):
+            stripped_options.append(
+                {
+                    "id": opt.get("id"),
+                    "text": opt.get("text"),
+                }
+            )
+        content["options"] = stripped_options
+        return content
+
+    if block_type == "true_false":
+        content = dict(content)
+        content.pop("is_true", None)
+        return content
+
+    if block_type == "word_order":
+        content = dict(content)
+        content.pop("correct_sentence", None)
+        return content
+
+    if block_type == "matching":
+        content = dict(content)
+        pairs = content.get("pairs", [])
+        if pairs:
+            # Keep left values, shuffle right values so student can't infer order
+            lefts = [p.get("left", "") for p in pairs]
+            rights = [p.get("right", "") for p in pairs]
+            shuffled_rights = rights[:]
+            random.shuffle(shuffled_rights)
+            content["pairs"] = [
+                {"left": l, "right": r} for l, r in zip(lefts, shuffled_rights)
+            ]
+        return content
+
+    if block_type == "image_choice":
+        content = dict(content)
+        stripped_options = []
+        for opt in content.get("options", []):
+            stripped_options.append(
+                {
+                    "id": opt.get("id"),
+                    "url": opt.get("url"),
+                    "caption": opt.get("caption"),
+                }
+            )
+        content["options"] = stripped_options
+        return content
+
+    if block_type == "essay":
+        content = dict(content)
+        content.pop("sample_answer", None)
+        return content
+
+    return content
+
+
 # ============== Course Tree (for material selection) ==============
+
 
 @router.get("/courses/tree", response_model=list[CourseTreeItem])
 async def get_courses_tree(
@@ -89,8 +174,7 @@ async def get_courses_tree(
             selectinload(Course.sections)
             .selectinload(CourseSection.topics)
             .selectinload(CourseTopic.lessons),
-            selectinload(Course.sections)
-            .selectinload(CourseSection.lessons),
+            selectinload(Course.sections).selectinload(CourseSection.lessons),
         )
         .order_by(Course.title)
     )
@@ -99,33 +183,21 @@ async def get_courses_tree(
     tree = []
     for course in courses:
         course_item = CourseTreeItem(
-            id=course.id,
-            title=course.title,
-            type="course",
-            children=[]
+            id=course.id, title=course.title, type="course", children=[]
         )
         for section in sorted(course.sections, key=lambda s: s.position):
             section_item = CourseTreeItem(
-                id=section.id,
-                title=section.title,
-                type="section",
-                children=[]
+                id=section.id, title=section.title, type="section", children=[]
             )
             for topic in sorted(section.topics, key=lambda t: t.position):
                 topic_item = CourseTreeItem(
-                    id=topic.id,
-                    title=topic.title,
-                    type="topic",
-                    children=[]
+                    id=topic.id, title=topic.title, type="topic", children=[]
                 )
                 for lesson in sorted(topic.lessons, key=lambda l: l.position):
                     # Only include published lessons
                     if lesson.is_published:
                         lesson_item = CourseTreeItem(
-                            id=lesson.id,
-                            title=lesson.title,
-                            type="lesson",
-                            children=[]
+                            id=lesson.id, title=lesson.title, type="lesson", children=[]
                         )
                         topic_item.children.append(lesson_item)
                 # Include all topics (even empty ones for admin to edit)
@@ -135,10 +207,7 @@ async def get_courses_tree(
                 for lesson in sorted(section.lessons, key=lambda l: l.position):
                     if lesson.is_published:
                         lesson_item = CourseTreeItem(
-                            id=lesson.id,
-                            title=lesson.title,
-                            type="lesson",
-                            children=[]
+                            id=lesson.id, title=lesson.title, type="lesson", children=[]
                         )
                         section_item.children.append(lesson_item)
             # Include all sections (even empty ones for admin to edit)
@@ -153,6 +222,7 @@ async def get_courses_tree(
 
 # ============== Courses ==============
 
+
 @router.get("/courses", response_model=CourseListResponse)
 async def list_courses(
     current_user: CurrentUser,
@@ -164,7 +234,7 @@ async def list_courses(
     """List courses. Students see only published courses."""
     query = select(Course).options(
         selectinload(Course.created_by),
-        selectinload(Course.sections).selectinload(CourseSection.lessons)
+        selectinload(Course.sections).selectinload(CourseSection.lessons),
     )
 
     # Students can only see published courses
@@ -193,24 +263,28 @@ async def list_courses(
     for course in courses:
         sections_count = len(course.sections)
         lessons_count = sum(len(section.lessons) for section in course.sections)
-        items.append(CourseResponse(
-            id=course.id,
-            title=course.title,
-            description=course.description,
-            cover_url=course.cover_url,
-            is_published=course.is_published,
-            created_by_id=course.created_by_id,
-            created_by_name=course.created_by.name if course.created_by else "",
-            created_at=course.created_at,
-            updated_at=course.updated_at,
-            sections_count=sections_count,
-            lessons_count=lessons_count,
-        ))
+        items.append(
+            CourseResponse(
+                id=course.id,
+                title=course.title,
+                description=course.description,
+                cover_url=course.cover_url,
+                is_published=course.is_published,
+                created_by_id=course.created_by_id,
+                created_by_name=course.created_by.name if course.created_by else "",
+                created_at=course.created_at,
+                updated_at=course.updated_at,
+                sections_count=sections_count,
+                lessons_count=lessons_count,
+            )
+        )
 
     return CourseListResponse(items=items, total=total or 0)
 
 
-@router.post("/courses", response_model=CourseResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/courses", response_model=CourseResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_course(
     course_data: CourseCreate,
     current_user: AdminUser,
@@ -255,8 +329,13 @@ async def get_course(
         .where(Course.id == course_id)
         .options(
             selectinload(Course.created_by),
-            selectinload(Course.sections).selectinload(CourseSection.topics).selectinload(CourseTopic.lessons).selectinload(InteractiveLesson.blocks),
-            selectinload(Course.sections).selectinload(CourseSection.lessons).selectinload(InteractiveLesson.blocks),
+            selectinload(Course.sections)
+            .selectinload(CourseSection.topics)
+            .selectinload(CourseTopic.lessons)
+            .selectinload(InteractiveLesson.blocks),
+            selectinload(Course.sections)
+            .selectinload(CourseSection.lessons)
+            .selectinload(InteractiveLesson.blocks),
         )
     )
     course = result.scalar_one_or_none()
@@ -277,9 +356,30 @@ async def get_course(
                 # Students can only see published lessons
                 if current_user.role == UserRole.STUDENT and not lesson.is_published:
                     continue
-                lessons.append(InteractiveLessonResponse(
+                lessons.append(
+                    InteractiveLessonResponse(
+                        id=lesson.id,
+                        section_id=lesson.section_id
+                        or section.id,  # Use section.id if section_id is None
+                        title=lesson.title,
+                        description=lesson.description,
+                        position=lesson.position,
+                        is_published=lesson.is_published,
+                        created_by_id=lesson.created_by_id,
+                        created_at=lesson.created_at,
+                        updated_at=lesson.updated_at,
+                        blocks_count=len(lesson.blocks),
+                    )
+                )
+        # Also include direct lessons (old structure for backward compatibility)
+        for lesson in section.lessons:
+            # Students can only see published lessons
+            if current_user.role == UserRole.STUDENT and not lesson.is_published:
+                continue
+            lessons.append(
+                InteractiveLessonResponse(
                     id=lesson.id,
-                    section_id=lesson.section_id or section.id,  # Use section.id if section_id is None
+                    section_id=lesson.section_id,
                     title=lesson.title,
                     description=lesson.description,
                     position=lesson.position,
@@ -288,37 +388,23 @@ async def get_course(
                     created_at=lesson.created_at,
                     updated_at=lesson.updated_at,
                     blocks_count=len(lesson.blocks),
-                ))
-        # Also include direct lessons (old structure for backward compatibility)
-        for lesson in section.lessons:
-            # Students can only see published lessons
-            if current_user.role == UserRole.STUDENT and not lesson.is_published:
-                continue
-            lessons.append(InteractiveLessonResponse(
-                id=lesson.id,
-                section_id=lesson.section_id,
-                title=lesson.title,
-                description=lesson.description,
-                position=lesson.position,
-                is_published=lesson.is_published,
-                created_by_id=lesson.created_by_id,
-                created_at=lesson.created_at,
-                updated_at=lesson.updated_at,
-                blocks_count=len(lesson.blocks),
-            ))
+                )
+            )
         # Sort lessons by position
         lessons.sort(key=lambda l: l.position)
 
-        sections.append(CourseSectionDetailResponse(
-            id=section.id,
-            course_id=section.course_id,
-            title=section.title,
-            description=section.description,
-            position=section.position,
-            created_at=section.created_at,
-            updated_at=section.updated_at,
-            lessons=lessons,
-        ))
+        sections.append(
+            CourseSectionDetailResponse(
+                id=section.id,
+                course_id=section.course_id,
+                title=section.title,
+                description=section.description,
+                position=section.position,
+                created_at=section.created_at,
+                updated_at=section.updated_at,
+                lessons=lessons,
+            )
+        )
 
     return CourseDetailResponse(
         id=course.id,
@@ -400,7 +486,12 @@ async def delete_course(
 
 # ============== Course Sections ==============
 
-@router.post("/courses/{course_id}/sections", response_model=CourseSectionResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/courses/{course_id}/sections",
+    response_model=CourseSectionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_section(
     course_id: int,
     section_data: CourseSectionCreate,
@@ -419,8 +510,9 @@ async def create_section(
 
     # Get max position for new section
     max_pos_result = await db.execute(
-        select(func.coalesce(func.max(CourseSection.position), -1))
-        .where(CourseSection.course_id == course_id)
+        select(func.coalesce(func.max(CourseSection.position), -1)).where(
+            CourseSection.course_id == course_id
+        )
     )
     max_pos = max_pos_result.scalar()
 
@@ -457,7 +549,9 @@ async def update_section(
     result = await db.execute(
         select(CourseSection)
         .where(CourseSection.id == section_id)
-        .options(selectinload(CourseSection.course), selectinload(CourseSection.lessons))
+        .options(
+            selectinload(CourseSection.course), selectinload(CourseSection.lessons)
+        )
     )
     section = result.scalar_one_or_none()
 
@@ -529,8 +623,9 @@ async def reorder_sections(
 
     for item in reorder_data.items:
         await db.execute(
-            select(CourseSection)
-            .where(CourseSection.id == item.id, CourseSection.course_id == course_id)
+            select(CourseSection).where(
+                CourseSection.id == item.id, CourseSection.course_id == course_id
+            )
         )
         result = await db.execute(
             select(CourseSection).where(CourseSection.id == item.id)
@@ -545,7 +640,12 @@ async def reorder_sections(
 
 # ============== Course Topics ==============
 
-@router.post("/courses/sections/{section_id}/topics", response_model=CourseTopicResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/courses/sections/{section_id}/topics",
+    response_model=CourseTopicResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_topic(
     section_id: int,
     topic_data: CourseTopicCreate,
@@ -568,8 +668,9 @@ async def create_topic(
 
     # Get max position for new topic
     max_pos_result = await db.execute(
-        select(func.coalesce(func.max(CourseTopic.position), -1))
-        .where(CourseTopic.section_id == section_id)
+        select(func.coalesce(func.max(CourseTopic.position), -1)).where(
+            CourseTopic.section_id == section_id
+        )
     )
     max_position = max_pos_result.scalar_one()
 
@@ -741,9 +842,7 @@ async def reorder_topics(
         raise HTTPException(status_code=403, detail="Access denied")
 
     for item in reorder_data.items:
-        result = await db.execute(
-            select(CourseTopic).where(CourseTopic.id == item.id)
-        )
+        result = await db.execute(select(CourseTopic).where(CourseTopic.id == item.id))
         topic = result.scalar_one_or_none()
         if topic and topic.section_id == section_id:
             topic.position = item.position
@@ -754,7 +853,12 @@ async def reorder_topics(
 
 # ============== Interactive Lessons ==============
 
-@router.post("/courses/topics/{topic_id}/lessons", response_model=InteractiveLessonResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/courses/topics/{topic_id}/lessons",
+    response_model=InteractiveLessonResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_lesson_in_topic(
     topic_id: int,
     lesson_data: InteractiveLessonCreate,
@@ -765,9 +869,7 @@ async def create_lesson_in_topic(
     result = await db.execute(
         select(CourseTopic)
         .where(CourseTopic.id == topic_id)
-        .options(
-            selectinload(CourseTopic.section).selectinload(CourseSection.course)
-        )
+        .options(selectinload(CourseTopic.section).selectinload(CourseSection.course))
     )
     topic = result.scalar_one_or_none()
 
@@ -779,8 +881,9 @@ async def create_lesson_in_topic(
 
     # Get max position
     max_pos_result = await db.execute(
-        select(func.coalesce(func.max(InteractiveLesson.position), -1))
-        .where(InteractiveLesson.topic_id == topic_id)
+        select(func.coalesce(func.max(InteractiveLesson.position), -1)).where(
+            InteractiveLesson.topic_id == topic_id
+        )
     )
     max_pos = max_pos_result.scalar()
 
@@ -813,7 +916,11 @@ async def create_lesson_in_topic(
     )
 
 
-@router.post("/courses/sections/{section_id}/lessons", response_model=InteractiveLessonResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/courses/sections/{section_id}/lessons",
+    response_model=InteractiveLessonResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_lesson(
     section_id: int,
     lesson_data: InteractiveLessonCreate,
@@ -836,8 +943,9 @@ async def create_lesson(
 
     # Get max position
     max_pos_result = await db.execute(
-        select(func.coalesce(func.max(InteractiveLesson.position), -1))
-        .where(InteractiveLesson.section_id == section_id)
+        select(func.coalesce(func.max(InteractiveLesson.position), -1)).where(
+            InteractiveLesson.section_id == section_id
+        )
     )
     max_pos = max_pos_result.scalar()
 
@@ -867,7 +975,9 @@ async def create_lesson(
     )
 
 
-@router.get("/courses/lessons/{lesson_id}", response_model=InteractiveLessonDetailResponse)
+@router.get(
+    "/courses/lessons/{lesson_id}", response_model=InteractiveLessonDetailResponse
+)
 async def get_lesson(
     lesson_id: int,
     current_user: CurrentUser,
@@ -879,8 +989,10 @@ async def get_lesson(
         .where(InteractiveLesson.id == lesson_id)
         .options(
             selectinload(InteractiveLesson.section).selectinload(CourseSection.course),
-            selectinload(InteractiveLesson.topic).selectinload(CourseTopic.section).selectinload(CourseSection.course),
-            selectinload(InteractiveLesson.blocks)
+            selectinload(InteractiveLesson.topic)
+            .selectinload(CourseTopic.section)
+            .selectinload(CourseSection.course),
+            selectinload(InteractiveLesson.blocks),
         )
     )
     lesson = result.scalar_one_or_none()
@@ -903,19 +1015,29 @@ async def get_lesson(
     if current_user.role == UserRole.STUDENT and not lesson.is_published:
         raise HTTPException(status_code=403, detail="Lesson not published")
 
-    blocks = [
-        ExerciseBlockResponse(
-            id=block.id,
-            lesson_id=block.lesson_id,
-            block_type=block.block_type,
-            title=block.title,
-            content=block.content,
-            position=block.position,
-            created_at=block.created_at,
-            updated_at=block.updated_at,
+    is_student = current_user.role == UserRole.STUDENT
+    sorted_blocks = sorted(lesson.blocks, key=lambda b: b.position)
+
+    blocks = []
+    for block in sorted_blocks:
+        # Hide teaching_guide blocks from students
+        if is_student and block.block_type.value == "teaching_guide":
+            continue
+        content = block.content
+        if is_student:
+            content = strip_answers_from_content(block.block_type.value, content)
+        blocks.append(
+            ExerciseBlockResponse(
+                id=block.id,
+                lesson_id=block.lesson_id,
+                block_type=block.block_type,
+                title=block.title,
+                content=content,
+                position=block.position,
+                created_at=block.created_at,
+                updated_at=block.updated_at,
+            )
         )
-        for block in sorted(lesson.blocks, key=lambda b: b.position)
-    ]
 
     return InteractiveLessonDetailResponse(
         id=lesson.id,
@@ -944,8 +1066,10 @@ async def update_lesson(
         .where(InteractiveLesson.id == lesson_id)
         .options(
             selectinload(InteractiveLesson.section).selectinload(CourseSection.course),
-            selectinload(InteractiveLesson.topic).selectinload(CourseTopic.section).selectinload(CourseSection.course),
-            selectinload(InteractiveLesson.blocks)
+            selectinload(InteractiveLesson.topic)
+            .selectinload(CourseTopic.section)
+            .selectinload(CourseSection.course),
+            selectinload(InteractiveLesson.blocks),
         )
     )
     lesson = result.scalar_one_or_none()
@@ -989,7 +1113,9 @@ async def delete_lesson(
         .where(InteractiveLesson.id == lesson_id)
         .options(
             selectinload(InteractiveLesson.section).selectinload(CourseSection.course),
-            selectinload(InteractiveLesson.topic).selectinload(CourseTopic.section).selectinload(CourseSection.course),
+            selectinload(InteractiveLesson.topic)
+            .selectinload(CourseTopic.section)
+            .selectinload(CourseSection.course),
         )
     )
     lesson = result.scalar_one_or_none()
@@ -1004,7 +1130,9 @@ async def delete_lesson(
     await db.commit()
 
 
-@router.post("/courses/topics/{topic_id}/lessons/reorder", status_code=status.HTTP_200_OK)
+@router.post(
+    "/courses/topics/{topic_id}/lessons/reorder", status_code=status.HTTP_200_OK
+)
 async def reorder_lessons_in_topic(
     topic_id: int,
     reorder_data: ReorderRequest,
@@ -1015,9 +1143,7 @@ async def reorder_lessons_in_topic(
     result = await db.execute(
         select(CourseTopic)
         .where(CourseTopic.id == topic_id)
-        .options(
-            selectinload(CourseTopic.section).selectinload(CourseSection.course)
-        )
+        .options(selectinload(CourseTopic.section).selectinload(CourseSection.course))
     )
     topic = result.scalar_one_or_none()
 
@@ -1039,7 +1165,9 @@ async def reorder_lessons_in_topic(
     return {"status": "ok"}
 
 
-@router.post("/courses/sections/{section_id}/lessons/reorder", status_code=status.HTTP_200_OK)
+@router.post(
+    "/courses/sections/{section_id}/lessons/reorder", status_code=status.HTTP_200_OK
+)
 async def reorder_lessons(
     section_id: int,
     reorder_data: ReorderRequest,
@@ -1074,7 +1202,12 @@ async def reorder_lessons(
 
 # ============== Exercise Blocks ==============
 
-@router.post("/courses/lessons/{lesson_id}/blocks", response_model=ExerciseBlockResponse, status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/courses/lessons/{lesson_id}/blocks",
+    response_model=ExerciseBlockResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_block(
     lesson_id: int,
     block_data: ExerciseBlockCreate,
@@ -1087,7 +1220,9 @@ async def create_block(
         .where(InteractiveLesson.id == lesson_id)
         .options(
             selectinload(InteractiveLesson.section).selectinload(CourseSection.course),
-            selectinload(InteractiveLesson.topic).selectinload(CourseTopic.section).selectinload(CourseSection.course),
+            selectinload(InteractiveLesson.topic)
+            .selectinload(CourseTopic.section)
+            .selectinload(CourseSection.course),
         )
     )
     lesson = result.scalar_one_or_none()
@@ -1100,8 +1235,9 @@ async def create_block(
 
     # Get max position
     max_pos_result = await db.execute(
-        select(func.coalesce(func.max(ExerciseBlock.position), -1))
-        .where(ExerciseBlock.lesson_id == lesson_id)
+        select(func.coalesce(func.max(ExerciseBlock.position), -1)).where(
+            ExerciseBlock.lesson_id == lesson_id
+        )
     )
     max_pos = max_pos_result.scalar()
 
@@ -1208,7 +1344,9 @@ async def delete_block(
     await db.commit()
 
 
-@router.post("/courses/lessons/{lesson_id}/blocks/reorder", status_code=status.HTTP_200_OK)
+@router.post(
+    "/courses/lessons/{lesson_id}/blocks/reorder", status_code=status.HTTP_200_OK
+)
 async def reorder_blocks(
     lesson_id: int,
     reorder_data: ReorderRequest,
@@ -1221,7 +1359,9 @@ async def reorder_blocks(
         .where(InteractiveLesson.id == lesson_id)
         .options(
             selectinload(InteractiveLesson.section).selectinload(CourseSection.course),
-            selectinload(InteractiveLesson.topic).selectinload(CourseTopic.section).selectinload(CourseSection.course),
+            selectinload(InteractiveLesson.topic)
+            .selectinload(CourseTopic.section)
+            .selectinload(CourseSection.course),
         )
     )
     lesson = result.scalar_one_or_none()

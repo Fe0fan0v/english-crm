@@ -1,30 +1,34 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { interactiveLessonApi, exerciseResultApi } from '../services/courseApi';
-import { useAuthStore } from '../store/authStore';
-import type { InteractiveLessonDetail, ExerciseBlock } from '../types/course';
-import BlockRenderer from '../components/blocks/BlockRenderer';
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { interactiveLessonApi, exerciseResultApi } from "../services/courseApi";
+import { useAuthStore } from "../store/authStore";
+import type {
+  InteractiveLessonDetail,
+  ExerciseBlock,
+  ExerciseResultDetails,
+} from "../types/course";
+import BlockRenderer from "../components/blocks/BlockRenderer";
 
 // Block type labels for the sidebar
 const BLOCK_TYPE_ICONS: Record<string, string> = {
-  text: '',
-  image: '',
-  video: '',
-  audio: '',
-  fill_gaps: '',
-  test: '',
-  true_false: '',
-  word_order: '',
-  matching: '',
-  essay: '',
-  flashcards: '',
-  vocabulary: '',
-  article: '',
-  table: '',
-  image_choice: '',
-  remember: '',
-  teaching_guide: '',
-  divider: '',
+  text: "",
+  image: "",
+  video: "",
+  audio: "",
+  fill_gaps: "",
+  test: "",
+  true_false: "",
+  word_order: "",
+  matching: "",
+  essay: "",
+  flashcards: "",
+  vocabulary: "",
+  article: "",
+  table: "",
+  image_choice: "",
+  remember: "",
+  teaching_guide: "",
+  divider: "",
 };
 
 interface NavItem {
@@ -42,12 +46,15 @@ export default function LessonPreviewPage() {
   const [loading, setLoading] = useState(true);
   const [answers, setAnswers] = useState<Record<number, unknown>>({});
   const [checked, setChecked] = useState<Record<number, boolean>>({});
+  const [serverDetails, setServerDetails] = useState<
+    Record<number, ExerciseResultDetails>
+  >({});
   const savedBlockIds = useRef<Set<number>>(new Set());
   const [activeBlockId, setActiveBlockId] = useState<number | null>(null);
   const blockRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const isStudent = user?.role === 'student';
+  const isStudent = user?.role === "student";
 
   useEffect(() => {
     if (id) loadLesson();
@@ -60,12 +67,12 @@ export default function LessonPreviewPage() {
       (entries) => {
         for (const entry of entries) {
           if (entry.isIntersecting) {
-            const blockId = Number(entry.target.getAttribute('data-block-id'));
+            const blockId = Number(entry.target.getAttribute("data-block-id"));
             if (blockId) setActiveBlockId(blockId);
           }
         }
       },
-      { rootMargin: '-20% 0px -60% 0px', threshold: 0 }
+      { rootMargin: "-20% 0px -60% 0px", threshold: 0 },
     );
 
     for (const block of lesson.blocks) {
@@ -83,7 +90,7 @@ export default function LessonPreviewPage() {
       setLesson(data);
 
       // Load saved results for students
-      if (user?.role === 'student') {
+      if (user?.role === "student") {
         try {
           const saved = await exerciseResultApi.getMyResults(Number(id));
           if (saved.results.length > 0) {
@@ -102,8 +109,8 @@ export default function LessonPreviewPage() {
         }
       }
     } catch (error) {
-      console.error('Failed to load lesson:', error);
-      alert('Не удалось загрузить урок');
+      console.error("Failed to load lesson:", error);
+      alert("Не удалось загрузить урок");
       navigate(-1);
     } finally {
       setLoading(false);
@@ -113,37 +120,44 @@ export default function LessonPreviewPage() {
   const handleAnswerChange = (blockId: number, answer: unknown) => {
     // Don't allow changes to already saved answers
     if (savedBlockIds.current.has(blockId)) return;
-    setAnswers(prev => ({ ...prev, [blockId]: answer }));
+    setAnswers((prev) => ({ ...prev, [blockId]: answer }));
     if (checked[blockId]) {
-      setChecked(prev => ({ ...prev, [blockId]: false }));
+      setChecked((prev) => ({ ...prev, [blockId]: false }));
     }
   };
 
   const handleCheck = async (blockId: number) => {
-    setChecked(prev => ({ ...prev, [blockId]: true }));
-
-    // Save to backend for students
+    // Save to backend for students and get server-side grading details
     if (isStudent && id) {
       try {
-        await exerciseResultApi.submit(Number(id), {
+        const result = await exerciseResultApi.submit(Number(id), {
           block_id: blockId,
           answer: answers[blockId],
         });
         savedBlockIds.current.add(blockId);
+        if (result.details) {
+          setServerDetails((prev) => ({ ...prev, [blockId]: result.details! }));
+        }
       } catch (error) {
-        console.error('Failed to save answer:', error);
+        console.error("Failed to save answer:", error);
       }
     }
+    setChecked((prev) => ({ ...prev, [blockId]: true }));
   };
 
   const handleReset = (blockId: number) => {
     savedBlockIds.current.delete(blockId);
-    setAnswers(prev => {
+    setAnswers((prev) => {
       const next = { ...prev };
       delete next[blockId];
       return next;
     });
-    setChecked(prev => {
+    setChecked((prev) => {
+      const next = { ...prev };
+      delete next[blockId];
+      return next;
+    });
+    setServerDetails((prev) => {
       const next = { ...prev };
       delete next[blockId];
       return next;
@@ -156,17 +170,20 @@ export default function LessonPreviewPage() {
     return lesson.blocks
       .map((block, index) => ({
         id: block.id,
-        title: block.title || '',
+        title: block.title || "",
         blockType: block.block_type,
         index,
       }))
-      .filter(item => item.title && !['teaching_guide', 'divider'].includes(item.blockType));
+      .filter(
+        (item) =>
+          item.title && !["teaching_guide", "divider"].includes(item.blockType),
+      );
   }, [lesson]);
 
   const scrollToBlock = useCallback((blockId: number) => {
     const el = blockRefs.current[blockId];
     if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
       setSidebarOpen(false);
     }
   }, []);
@@ -180,13 +197,15 @@ export default function LessonPreviewPage() {
   }
 
   if (!lesson) {
-    return <div className="text-center py-12 text-gray-500">Урок не найден</div>;
+    return (
+      <div className="text-center py-12 text-gray-500">Урок не найден</div>
+    );
   }
 
   const showSidebar = navItems.length >= 3;
 
   return (
-    <div className={`${showSidebar ? 'max-w-5xl' : 'max-w-3xl'} mx-auto`}>
+    <div className={`${showSidebar ? "max-w-5xl" : "max-w-3xl"} mx-auto`}>
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between">
@@ -194,8 +213,18 @@ export default function LessonPreviewPage() {
             onClick={() => navigate(-1)}
             className="text-gray-500 hover:text-gray-700 mb-4 flex items-center gap-1"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
             Назад
           </button>
@@ -206,8 +235,18 @@ export default function LessonPreviewPage() {
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="lg:hidden text-gray-500 hover:text-gray-700 mb-4 flex items-center gap-1 text-sm"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
               </svg>
               Содержание
             </button>
@@ -220,7 +259,7 @@ export default function LessonPreviewPage() {
         )}
       </div>
 
-      <div className={`${showSidebar ? 'flex gap-6' : ''}`}>
+      <div className={`${showSidebar ? "flex gap-6" : ""}`}>
         {/* Main content */}
         <div className="flex-1 min-w-0">
           {/* Blocks */}
@@ -233,7 +272,9 @@ export default function LessonPreviewPage() {
               lesson.blocks.map((block, index) => (
                 <div
                   key={block.id}
-                  ref={(el) => { blockRefs.current[block.id] = el; }}
+                  ref={(el) => {
+                    blockRefs.current[block.id] = el;
+                  }}
                   data-block-id={block.id}
                   className="scroll-mt-4"
                 >
@@ -241,10 +282,13 @@ export default function LessonPreviewPage() {
                     block={block}
                     blockNumber={getBlockNumber(lesson.blocks, index)}
                     answer={answers[block.id]}
-                    onAnswerChange={(answer) => handleAnswerChange(block.id, answer)}
+                    onAnswerChange={(answer) =>
+                      handleAnswerChange(block.id, answer)
+                    }
                     isChecked={checked[block.id] || false}
                     onCheck={() => handleCheck(block.id)}
                     onReset={() => handleReset(block.id)}
+                    serverDetails={serverDetails[block.id]}
                   />
                 </div>
               ))
@@ -257,7 +301,11 @@ export default function LessonPreviewPage() {
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm text-gray-600">Прогресс</span>
                 <span className="text-sm font-medium text-gray-800">
-                  {Object.keys(checked).filter(k => checked[Number(k)]).length} / {getInteractiveBlocksCount(lesson.blocks)}
+                  {
+                    Object.keys(checked).filter((k) => checked[Number(k)])
+                      .length
+                  }{" "}
+                  / {getInteractiveBlocksCount(lesson.blocks)}
                 </span>
               </div>
               <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -266,7 +314,9 @@ export default function LessonPreviewPage() {
                   style={{
                     width: `${
                       getInteractiveBlocksCount(lesson.blocks) > 0
-                        ? (Object.keys(checked).filter(k => checked[Number(k)]).length /
+                        ? (Object.keys(checked).filter(
+                            (k) => checked[Number(k)],
+                          ).length /
                             getInteractiveBlocksCount(lesson.blocks)) *
                           100
                         : 0
@@ -294,12 +344,13 @@ export default function LessonPreviewPage() {
                       onClick={() => scrollToBlock(item.id)}
                       className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors truncate ${
                         activeBlockId === item.id
-                          ? 'bg-purple-100 text-purple-700 font-medium'
-                          : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
+                          ? "bg-purple-100 text-purple-700 font-medium"
+                          : "text-gray-600 hover:bg-gray-100 hover:text-gray-800"
                       }`}
                       title={item.title}
                     >
-                      {BLOCK_TYPE_ICONS[item.blockType]}{item.title}
+                      {BLOCK_TYPE_ICONS[item.blockType]}
+                      {item.title}
                     </button>
                   ))}
                 </div>
@@ -309,13 +360,29 @@ export default function LessonPreviewPage() {
             {/* Mobile sidebar overlay */}
             {sidebarOpen && (
               <div className="lg:hidden fixed inset-0 z-50 flex justify-end">
-                <div className="absolute inset-0 bg-black/30" onClick={() => setSidebarOpen(false)} />
+                <div
+                  className="absolute inset-0 bg-black/30"
+                  onClick={() => setSidebarOpen(false)}
+                />
                 <div className="relative w-72 bg-white shadow-xl p-4 overflow-y-auto">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-semibold text-gray-800">Содержание</h3>
-                    <button onClick={() => setSidebarOpen(false)} className="text-gray-400 hover:text-gray-600">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    <button
+                      onClick={() => setSidebarOpen(false)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
                       </svg>
                     </button>
                   </div>
@@ -326,8 +393,8 @@ export default function LessonPreviewPage() {
                         onClick={() => scrollToBlock(item.id)}
                         className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
                           activeBlockId === item.id
-                            ? 'bg-purple-100 text-purple-700 font-medium'
-                            : 'text-gray-600 hover:bg-gray-100'
+                            ? "bg-purple-100 text-purple-700 font-medium"
+                            : "text-gray-600 hover:bg-gray-100"
                         }`}
                       >
                         {item.title}
@@ -345,14 +412,24 @@ export default function LessonPreviewPage() {
 }
 
 function getInteractiveBlocksCount(blocks: ExerciseBlock[]): number {
-  const interactiveTypes = ['fill_gaps', 'test', 'true_false', 'word_order', 'matching', 'essay'];
-  return blocks.filter(b => interactiveTypes.includes(b.block_type)).length;
+  const interactiveTypes = [
+    "fill_gaps",
+    "test",
+    "true_false",
+    "word_order",
+    "matching",
+    "essay",
+  ];
+  return blocks.filter((b) => interactiveTypes.includes(b.block_type)).length;
 }
 
 // Block types that should not be numbered (informational/instructional blocks)
-const NON_NUMBERED_TYPES = ['teaching_guide', 'divider', 'remember'];
+const NON_NUMBERED_TYPES = ["teaching_guide", "divider", "remember"];
 
-function getBlockNumber(blocks: ExerciseBlock[], currentIndex: number): number | undefined {
+function getBlockNumber(
+  blocks: ExerciseBlock[],
+  currentIndex: number,
+): number | undefined {
   const block = blocks[currentIndex];
 
   // Non-numbered block types

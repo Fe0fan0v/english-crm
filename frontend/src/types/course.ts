@@ -1,23 +1,23 @@
 // Exercise Block Types
 export type ExerciseBlockType =
-  | 'text'
-  | 'video'
-  | 'audio'
-  | 'image'
-  | 'article'
-  | 'divider'
-  | 'teaching_guide'
-  | 'remember'
-  | 'table'
-  | 'vocabulary'
-  | 'fill_gaps'
-  | 'test'
-  | 'true_false'
-  | 'word_order'
-  | 'matching'
-  | 'image_choice'
-  | 'flashcards'
-  | 'essay';
+  | "text"
+  | "video"
+  | "audio"
+  | "image"
+  | "article"
+  | "divider"
+  | "teaching_guide"
+  | "remember"
+  | "table"
+  | "vocabulary"
+  | "fill_gaps"
+  | "test"
+  | "true_false"
+  | "word_order"
+  | "matching"
+  | "image_choice"
+  | "flashcards"
+  | "essay";
 
 // Content type interfaces for each block type
 
@@ -39,11 +39,11 @@ export interface AudioBlockContent {
 export interface ArticleBlockContent {
   html: string;
   image_url?: string | null;
-  image_position?: 'left' | 'right' | 'top' | 'bottom';
+  image_position?: "left" | "right" | "top" | "bottom";
 }
 
 export interface DividerBlockContent {
-  style?: 'line' | 'space' | 'dots';
+  style?: "line" | "space" | "dots";
 }
 
 export interface GapItem {
@@ -193,7 +193,7 @@ export interface ExerciseBlock {
   id: number;
   lesson_id: number;
   block_type: ExerciseBlockType;
-  title?: string | null;  // Optional block title (e.g., "Introduce yourself")
+  title?: string | null; // Optional block title (e.g., "Introduce yourself")
   content: Record<string, unknown>;
   position: number;
   created_at: string;
@@ -229,7 +229,10 @@ export interface InteractiveLesson {
   blocks_count: number;
 }
 
-export interface InteractiveLessonDetail extends Omit<InteractiveLesson, 'blocks_count'> {
+export interface InteractiveLessonDetail extends Omit<
+  InteractiveLesson,
+  "blocks_count"
+> {
   blocks: ExerciseBlock[];
 }
 
@@ -261,7 +264,10 @@ export interface CourseSection {
   lessons_count: number;
 }
 
-export interface CourseSectionDetail extends Omit<CourseSection, 'lessons_count'> {
+export interface CourseSectionDetail extends Omit<
+  CourseSection,
+  "lessons_count"
+> {
   lessons: InteractiveLesson[];
 }
 
@@ -292,7 +298,10 @@ export interface Course {
   lessons_count: number;
 }
 
-export interface CourseDetail extends Omit<Course, 'sections_count' | 'lessons_count'> {
+export interface CourseDetail extends Omit<
+  Course,
+  "sections_count" | "lessons_count"
+> {
   sections: CourseSectionDetail[];
 }
 
@@ -323,31 +332,47 @@ export interface ReorderItem {
 
 // Block type labels and icons for UI
 export const BLOCK_TYPE_LABELS: Record<ExerciseBlockType, string> = {
-  text: 'Текст',
-  video: 'Видео',
-  audio: 'Аудио',
-  image: 'Изображение',
-  article: 'Статья',
-  divider: 'Разделитель',
-  teaching_guide: 'Заметка для учителя',
-  remember: 'Запомни',
-  table: 'Таблица',
-  vocabulary: 'Словарь',
-  fill_gaps: 'Заполнить пропуски',
-  test: 'Тест',
-  true_false: 'Верно/Неверно',
-  word_order: 'Порядок слов',
-  matching: 'Сопоставление',
-  image_choice: 'Выбор изображения',
-  flashcards: 'Карточки',
-  essay: 'Эссе',
+  text: "Текст",
+  video: "Видео",
+  audio: "Аудио",
+  image: "Изображение",
+  article: "Статья",
+  divider: "Разделитель",
+  teaching_guide: "Заметка для учителя",
+  remember: "Запомни",
+  table: "Таблица",
+  vocabulary: "Словарь",
+  fill_gaps: "Заполнить пропуски",
+  test: "Тест",
+  true_false: "Верно/Неверно",
+  word_order: "Порядок слов",
+  matching: "Сопоставление",
+  image_choice: "Выбор изображения",
+  flashcards: "Карточки",
+  essay: "Эссе",
 };
 
 export const CONTENT_BLOCK_TYPES: ExerciseBlockType[] = [
-  'text', 'video', 'audio', 'image', 'article', 'divider', 'teaching_guide', 'remember', 'table', 'vocabulary'
+  "text",
+  "video",
+  "audio",
+  "image",
+  "article",
+  "divider",
+  "teaching_guide",
+  "remember",
+  "table",
+  "vocabulary",
 ];
 export const INTERACTIVE_BLOCK_TYPES: ExerciseBlockType[] = [
-  'fill_gaps', 'test', 'true_false', 'word_order', 'matching', 'image_choice', 'flashcards', 'essay'
+  "fill_gaps",
+  "test",
+  "true_false",
+  "word_order",
+  "matching",
+  "image_choice",
+  "flashcards",
+  "essay",
 ];
 
 // ============== Exercise Results ==============
@@ -357,6 +382,13 @@ export interface ExerciseResultSubmit {
   answer: unknown;
 }
 
+export interface ExerciseResultDetails {
+  gap_results?: Record<string, boolean>;
+  option_results?: Record<string, "correct" | "incorrect" | "default">;
+  pair_results?: Record<string, boolean>;
+  is_correct?: boolean;
+}
+
 export interface ExerciseResultResponse {
   id: number;
   student_id: number;
@@ -364,6 +396,7 @@ export interface ExerciseResultResponse {
   lesson_id: number;
   answer: unknown;
   is_correct: boolean | null;
+  details?: ExerciseResultDetails | null;
   updated_at: string;
 }
 

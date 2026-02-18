@@ -1,6 +1,7 @@
-from datetime import datetime, timedelta, timezone
-from typing import Annotated
 import logging
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, func, select
@@ -16,8 +17,11 @@ from app.models.lesson import AttendanceStatus, Lesson, LessonStatus, LessonStud
 from app.models.lesson_course_material import CourseMaterialType, LessonCourseMaterial
 from app.models.lesson_material import LessonMaterial
 from app.models.lesson_type import LessonType
+from app.models.level_lesson_type_payment import LevelLessonTypePayment
 from app.models.material import Material
+from app.models.notification import Notification, NotificationType
 from app.models.teacher_student import TeacherStudent
+from app.models.transaction import Transaction, TransactionType
 from app.models.user import User, UserRole
 from app.schemas.lesson import (
     LessonCreate,
@@ -406,7 +410,9 @@ async def create_lessons_batch(
                 duration_minutes=loaded_lesson.duration_minutes,
                 status=loaded_lesson.status,
                 students_count=len(loaded_lesson.students),
-                student_names=[s.student.name for s in loaded_lesson.students if s.student],
+                student_names=[
+                    s.student.name for s in loaded_lesson.students if s.student
+                ],
             )
         )
 
@@ -825,14 +831,23 @@ async def update_attendance(
     student_id: int,
     attendance_status: AttendanceStatus,
     db: AsyncSession = Depends(get_db),
-    _: ManagerUser = None,
+    current_user: ManagerUser = None,
 ):
     """
     Update student attendance for a lesson (manager endpoint).
 
-    Note: This is a simplified endpoint for managers. For full attendance
-    management with automatic balance deduction, use the teacher dashboard API.
+    Full logic: balance deduction, teacher payment, lesson status update.
     """
+    # Load lesson with lesson_type
+    lesson_result = await db.execute(
+        select(Lesson)
+        .where(Lesson.id == lesson_id)
+        .options(selectinload(Lesson.lesson_type))
+    )
+    lesson = lesson_result.scalar_one_or_none()
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+
     result = await db.execute(
         select(LessonStudent).where(
             LessonStudent.lesson_id == lesson_id,
@@ -847,7 +862,160 @@ async def update_attendance(
             detail="Student not found in this lesson",
         )
 
-    lesson_student.attendance_status = attendance_status
+    new_status = attendance_status
+    was_charged = lesson_student.charged
+    price = lesson.lesson_type.price
+    lesson_type_id = lesson.lesson_type_id
+
+    # Update attendance status
+    lesson_student.attendance_status = new_status
+
+    # Get teacher for payment
+    teacher = await db.get(User, lesson.teacher_id) if lesson.teacher_id else None
+
+    should_charge = new_status in [
+        AttendanceStatus.PRESENT,
+        AttendanceStatus.ABSENT_UNEXCUSED,
+    ]
+
+    if should_charge and not was_charged:
+        student = await db.get(User, student_id)
+        if student:
+            if student.balance >= price:
+                # Charge student
+                student.balance -= price
+                description = (
+                    f"Урок: {lesson.title}"
+                    if new_status == AttendanceStatus.PRESENT
+                    else f"Неявка без уважительной причины: {lesson.title}"
+                )
+                transaction = Transaction(
+                    user_id=student_id,
+                    amount=price,
+                    type=TransactionType.DEBIT,
+                    lesson_id=lesson_id,
+                    description=description,
+                    created_by_id=current_user.id,
+                )
+                db.add(transaction)
+                lesson_student.charged = True
+
+                # Low balance notification
+                LOW_BALANCE_THRESHOLD = Decimal("5000")
+                if student.balance < LOW_BALANCE_THRESHOLD:
+                    msg = (
+                        "Ваш баланс равен 0. Пожалуйста, пополните баланс для продолжения занятий."
+                        if student.balance == 0
+                        else f"Ваш баланс низкий: {student.balance:,.0f} тг. Рекомендуем пополнить баланс."
+                    )
+                    db.add(
+                        Notification(
+                            user_id=student.id,
+                            type=NotificationType.LOW_BALANCE.value,
+                            title="Низкий баланс",
+                            message=msg,
+                            data={"balance": str(student.balance)},
+                        )
+                    )
+            else:
+                # Insufficient balance notification
+                db.add(
+                    Notification(
+                        user_id=student.id,
+                        type=NotificationType.LOW_BALANCE.value,
+                        title="Недостаточно средств",
+                        message=(
+                            f"Не удалось списать оплату за урок '{lesson.title}'. "
+                            f"Баланс: {student.balance:,.0f} тг, стоимость: {price:,.0f} тг."
+                        ),
+                        data={"balance": str(student.balance), "price": str(price)},
+                    )
+                )
+
+            # Pay teacher
+            if teacher and lesson_student.charged:
+                teacher_payment = None
+                if teacher.level_id:
+                    payment_result = await db.execute(
+                        select(LevelLessonTypePayment).where(
+                            and_(
+                                LevelLessonTypePayment.level_id == teacher.level_id,
+                                LevelLessonTypePayment.lesson_type_id == lesson_type_id,
+                            )
+                        )
+                    )
+                    payment_config = payment_result.scalar_one_or_none()
+                    if payment_config:
+                        teacher_payment = payment_config.teacher_payment
+
+                if teacher_payment is None:
+                    teacher_payment = price * Decimal("0.5")
+
+                teacher.balance += teacher_payment
+                db.add(
+                    Transaction(
+                        user_id=teacher.id,
+                        amount=teacher_payment,
+                        type=TransactionType.CREDIT,
+                        lesson_id=lesson_id,
+                        description=f"Оплата за урок: {lesson.title} ({student.name})",
+                        created_by_id=current_user.id,
+                    )
+                )
+
+    elif not should_charge and was_charged:
+        # Refund: status changed from charged to excused/pending
+        student = await db.get(User, student_id)
+        if student:
+            student.balance += price
+            db.add(
+                Transaction(
+                    user_id=student_id,
+                    amount=price,
+                    type=TransactionType.CREDIT,
+                    lesson_id=lesson_id,
+                    description=f"Возврат за урок (уважительная причина): {lesson.title}",
+                    created_by_id=current_user.id,
+                )
+            )
+            lesson_student.charged = False
+
+            # Reverse teacher payment
+            if teacher and teacher.level_id:
+                payment_result = await db.execute(
+                    select(LevelLessonTypePayment).where(
+                        and_(
+                            LevelLessonTypePayment.level_id == teacher.level_id,
+                            LevelLessonTypePayment.lesson_type_id == lesson_type_id,
+                        )
+                    )
+                )
+                payment_config = payment_result.scalar_one_or_none()
+                if payment_config:
+                    teacher.balance -= payment_config.teacher_payment
+                    db.add(
+                        Transaction(
+                            user_id=teacher.id,
+                            amount=payment_config.teacher_payment,
+                            type=TransactionType.DEBIT,
+                            lesson_id=lesson_id,
+                            description=f"Отмена оплаты за урок: {lesson.title} ({student.name})",
+                            created_by_id=current_user.id,
+                        )
+                    )
+
+    # Mark lesson as completed if all students have been marked
+    all_pending_result = await db.execute(
+        select(LessonStudent).where(
+            and_(
+                LessonStudent.lesson_id == lesson_id,
+                LessonStudent.attendance_status == AttendanceStatus.PENDING,
+            )
+        )
+    )
+    if not all_pending_result.scalars().all():
+        lesson.status = LessonStatus.COMPLETED
+
     await db.commit()
 
     return {"success": True}
@@ -978,7 +1146,9 @@ async def detach_material_from_lesson(
 # ============== Course Materials ==============
 
 
-@router.get("/{lesson_id}/course-materials", response_model=list[LessonCourseMaterialResponse])
+@router.get(
+    "/{lesson_id}/course-materials", response_model=list[LessonCourseMaterialResponse]
+)
 async def get_lesson_course_materials(
     lesson_id: int,
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -1015,8 +1185,12 @@ async def get_lesson_course_materials(
         .where(LessonCourseMaterial.lesson_id == lesson_id)
         .options(
             selectinload(LessonCourseMaterial.course),
-            selectinload(LessonCourseMaterial.section).selectinload(CourseSection.course),
-            selectinload(LessonCourseMaterial.topic).selectinload(CourseTopic.section).selectinload(CourseSection.course),
+            selectinload(LessonCourseMaterial.section).selectinload(
+                CourseSection.course
+            ),
+            selectinload(LessonCourseMaterial.topic)
+            .selectinload(CourseTopic.section)
+            .selectinload(CourseSection.course),
             selectinload(LessonCourseMaterial.interactive_lesson),
             selectinload(LessonCourseMaterial.attacher),
         )
@@ -1030,19 +1204,30 @@ async def get_lesson_course_materials(
     for m in materials:
         # Get course_id - prioritize direct link, then through relationships
         course_id = m.course_id
-        if not course_id and m.section and hasattr(m.section, 'course_id'):
+        if not course_id and m.section and hasattr(m.section, "course_id"):
             course_id = m.section.course_id
-        elif not course_id and m.topic and hasattr(m.topic, 'section') and hasattr(m.topic.section, 'course_id'):
+        elif (
+            not course_id
+            and m.topic
+            and hasattr(m.topic, "section")
+            and hasattr(m.topic.section, "course_id")
+        ):
             course_id = m.topic.section.course_id
 
         # Get course_title
         course_title = None
         if m.course:
             course_title = m.course.title
-        elif m.section and hasattr(m.section, 'course'):
+        elif m.section and hasattr(m.section, "course"):
             course_title = m.section.course.title if m.section.course else None
-        elif m.topic and hasattr(m.topic, 'section') and hasattr(m.topic.section, 'course'):
-            course_title = m.topic.section.course.title if m.topic.section.course else None
+        elif (
+            m.topic
+            and hasattr(m.topic, "section")
+            and hasattr(m.topic.section, "course")
+        ):
+            course_title = (
+                m.topic.section.course.title if m.topic.section.course else None
+            )
 
         response_list.append(
             LessonCourseMaterialResponse(
@@ -1055,7 +1240,9 @@ async def get_lesson_course_materials(
                 topic_id=m.topic_id,
                 topic_title=m.topic.title if m.topic else None,
                 interactive_lesson_id=m.interactive_lesson_id,
-                interactive_lesson_title=m.interactive_lesson.title if m.interactive_lesson else None,
+                interactive_lesson_title=m.interactive_lesson.title
+                if m.interactive_lesson
+                else None,
                 attached_at=m.attached_at,
                 attached_by=m.attached_by,
                 attacher_name=m.attacher.name if m.attacher else "",
@@ -1065,7 +1252,9 @@ async def get_lesson_course_materials(
     return response_list
 
 
-@router.post("/{lesson_id}/course-materials", response_model=LessonCourseMaterialResponse)
+@router.post(
+    "/{lesson_id}/course-materials", response_model=LessonCourseMaterialResponse
+)
 async def attach_course_material(
     lesson_id: int,
     data: LessonCourseMaterialAttach,
@@ -1081,7 +1270,9 @@ async def attach_course_material(
     - Interactive lesson (material_type='lesson', interactive_lesson_id=X)
     """
     try:
-        logger.info(f"Attaching material to lesson {lesson_id}: type={data.material_type}, course_id={data.course_id}, section_id={data.section_id}, topic_id={data.topic_id}, interactive_lesson_id={data.interactive_lesson_id}")
+        logger.info(
+            f"Attaching material to lesson {lesson_id}: type={data.material_type}, course_id={data.course_id}, section_id={data.section_id}, topic_id={data.topic_id}, interactive_lesson_id={data.interactive_lesson_id}"
+        )
 
         lesson = await db.get(Lesson, lesson_id)
         if not lesson:
@@ -1128,8 +1319,9 @@ async def attach_course_material(
                 select(InteractiveLesson)
                 .where(InteractiveLesson.id == data.interactive_lesson_id)
                 .options(
-                    selectinload(InteractiveLesson.section)
-                    .selectinload(CourseSection.course),
+                    selectinload(InteractiveLesson.section).selectinload(
+                        CourseSection.course
+                    ),
                     selectinload(InteractiveLesson.topic)
                     .selectinload(CourseTopic.section)
                     .selectinload(CourseSection.course),
@@ -1162,7 +1354,9 @@ async def attach_course_material(
         elif data.material_type == CourseMaterialType.TOPIC:
             stmt = stmt.where(LessonCourseMaterial.topic_id == data.topic_id)
         elif data.material_type == CourseMaterialType.LESSON:
-            stmt = stmt.where(LessonCourseMaterial.interactive_lesson_id == data.interactive_lesson_id)
+            stmt = stmt.where(
+                LessonCourseMaterial.interactive_lesson_id == data.interactive_lesson_id
+            )
 
         result = await db.execute(stmt)
         if result.scalar_one_or_none():
@@ -1172,10 +1366,18 @@ async def attach_course_material(
         material = LessonCourseMaterial(
             lesson_id=lesson_id,
             material_type=data.material_type,
-            course_id=data.course_id if data.material_type == CourseMaterialType.COURSE else None,
-            section_id=data.section_id if data.material_type == CourseMaterialType.SECTION else None,
-            topic_id=data.topic_id if data.material_type == CourseMaterialType.TOPIC else None,
-            interactive_lesson_id=data.interactive_lesson_id if data.material_type == CourseMaterialType.LESSON else None,
+            course_id=data.course_id
+            if data.material_type == CourseMaterialType.COURSE
+            else None,
+            section_id=data.section_id
+            if data.material_type == CourseMaterialType.SECTION
+            else None,
+            topic_id=data.topic_id
+            if data.material_type == CourseMaterialType.TOPIC
+            else None,
+            interactive_lesson_id=data.interactive_lesson_id
+            if data.material_type == CourseMaterialType.LESSON
+            else None,
             attached_by=current_user.id,
         )
         db.add(material)
@@ -1188,31 +1390,56 @@ async def attach_course_material(
             .where(LessonCourseMaterial.id == material.id)
             .options(
                 selectinload(LessonCourseMaterial.course),
-                selectinload(LessonCourseMaterial.section).selectinload(CourseSection.course),
-                selectinload(LessonCourseMaterial.topic).selectinload(CourseTopic.section).selectinload(CourseSection.course),
+                selectinload(LessonCourseMaterial.section).selectinload(
+                    CourseSection.course
+                ),
+                selectinload(LessonCourseMaterial.topic)
+                .selectinload(CourseTopic.section)
+                .selectinload(CourseSection.course),
                 selectinload(LessonCourseMaterial.interactive_lesson),
                 selectinload(LessonCourseMaterial.attacher),
             )
         )
         material = result.scalar_one()
 
-        logger.info(f"Successfully attached material {material.id} to lesson {lesson_id}")
+        logger.info(
+            f"Successfully attached material {material.id} to lesson {lesson_id}"
+        )
 
         # Get course_id - prioritize direct link, then through relationships
         course_id = material.course_id
-        if not course_id and material.section and hasattr(material.section, 'course_id'):
+        if (
+            not course_id
+            and material.section
+            and hasattr(material.section, "course_id")
+        ):
             course_id = material.section.course_id
-        elif not course_id and material.topic and hasattr(material.topic, 'section') and hasattr(material.topic.section, 'course_id'):
+        elif (
+            not course_id
+            and material.topic
+            and hasattr(material.topic, "section")
+            and hasattr(material.topic.section, "course_id")
+        ):
             course_id = material.topic.section.course_id
 
         # Get course_title
         course_title = None
         if material.course:
             course_title = material.course.title
-        elif material.section and hasattr(material.section, 'course'):
-            course_title = material.section.course.title if material.section.course else None
-        elif material.topic and hasattr(material.topic, 'section') and hasattr(material.topic.section, 'course'):
-            course_title = material.topic.section.course.title if material.topic.section.course else None
+        elif material.section and hasattr(material.section, "course"):
+            course_title = (
+                material.section.course.title if material.section.course else None
+            )
+        elif (
+            material.topic
+            and hasattr(material.topic, "section")
+            and hasattr(material.topic.section, "course")
+        ):
+            course_title = (
+                material.topic.section.course.title
+                if material.topic.section.course
+                else None
+            )
 
         return LessonCourseMaterialResponse(
             id=material.id,
@@ -1224,7 +1451,9 @@ async def attach_course_material(
             topic_id=material.topic_id,
             topic_title=material.topic.title if material.topic else None,
             interactive_lesson_id=material.interactive_lesson_id,
-            interactive_lesson_title=material.interactive_lesson.title if material.interactive_lesson else None,
+            interactive_lesson_title=material.interactive_lesson.title
+            if material.interactive_lesson
+            else None,
             attached_at=material.attached_at,
             attached_by=material.attached_by,
             attacher_name=material.attacher.name if material.attacher else "",

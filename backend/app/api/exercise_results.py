@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, status
-from sqlalchemy import select, func as sa_func
+from sqlalchemy import func as sa_func
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import selectinload
 
@@ -16,11 +17,19 @@ from app.schemas.exercise_result import (
     StudentLessonDetailResponse,
     StudentLessonSummary,
 )
-from app.utils.grading import grade_answer
+from app.utils.grading import grade_answer, grade_answer_detailed
 
 router = APIRouter()
-
-INTERACTIVE_TYPES = {"fill_gaps", "test", "true_false", "word_order", "matching", "image_choice", "essay", "flashcards"}
+INTERACTIVE_TYPES = {
+    "fill_gaps",
+    "test",
+    "true_false",
+    "word_order",
+    "matching",
+    "image_choice",
+    "essay",
+    "flashcards",
+}
 
 
 @router.post(
@@ -37,9 +46,13 @@ async def submit_answer(
     # Verify block belongs to lesson
     block = await db.get(ExerciseBlock, data.block_id)
     if not block or block.lesson_id != lesson_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Block not found in this lesson")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Block not found in this lesson",
+        )
 
     is_correct = grade_answer(block.block_type, block.content, data.answer)
+    details = grade_answer_detailed(block.block_type, block.content, data.answer)
 
     # Wrap answer in dict for JSONB storage
     answer_value = {"value": data.answer}
@@ -75,8 +88,11 @@ async def submit_answer(
         student_id=row.student_id,
         block_id=row.block_id,
         lesson_id=row.lesson_id,
-        answer=row.answer.get("value") if isinstance(row.answer, dict) and "value" in row.answer else row.answer,
+        answer=row.answer.get("value")
+        if isinstance(row.answer, dict) and "value" in row.answer
+        else row.answer,
         is_correct=row.is_correct,
+        details=details,
         updated_at=row.updated_at,
     )
 
@@ -103,16 +119,22 @@ async def get_my_results(
     score = 0
     total = 0
     for r in rows:
-        answer_val = r.answer.get("value") if isinstance(r.answer, dict) and "value" in r.answer else r.answer
-        results.append(ExerciseResultResponse(
-            id=r.id,
-            student_id=r.student_id,
-            block_id=r.block_id,
-            lesson_id=r.lesson_id,
-            answer=answer_val,
-            is_correct=r.is_correct,
-            updated_at=r.updated_at,
-        ))
+        answer_val = (
+            r.answer.get("value")
+            if isinstance(r.answer, dict) and "value" in r.answer
+            else r.answer
+        )
+        results.append(
+            ExerciseResultResponse(
+                id=r.id,
+                student_id=r.student_id,
+                block_id=r.block_id,
+                lesson_id=r.lesson_id,
+                answer=answer_val,
+                is_correct=r.is_correct,
+                updated_at=r.updated_at,
+            )
+        )
         if r.is_correct is not None:
             total += 1
             if r.is_correct:
@@ -160,7 +182,12 @@ async def get_lesson_student_summaries(
     student_data: dict[int, dict] = {}
     for r in rows:
         if r.student_id not in student_data:
-            student_data[r.student_id] = {"score": 0, "total": 0, "answered": 0, "last_activity": None}
+            student_data[r.student_id] = {
+                "score": 0,
+                "total": 0,
+                "answered": 0,
+                "last_activity": None,
+            }
         sd = student_data[r.student_id]
         sd["answered"] += 1
         if r.is_correct is not None:
@@ -182,15 +209,17 @@ async def get_lesson_student_summaries(
     students = []
     for sid, sd in student_data.items():
         u = users.get(sid)
-        students.append(StudentLessonSummary(
-            student_id=sid,
-            student_name=u.name if u else f"User #{sid}",
-            score=sd["score"],
-            total=sd["total"],
-            answered=sd["answered"],
-            total_blocks=total_blocks,
-            last_activity=sd["last_activity"],
-        ))
+        students.append(
+            StudentLessonSummary(
+                student_id=sid,
+                student_name=u.name if u else f"User #{sid}",
+                score=sd["score"],
+                total=sd["total"],
+                answered=sd["answered"],
+                total_blocks=total_blocks,
+                last_activity=sd["last_activity"],
+            )
+        )
 
     students.sort(key=lambda s: s.student_name)
 
@@ -245,7 +274,11 @@ async def get_student_lesson_detail(
         is_correct = None
         updated_at = None
         if r:
-            answer_val = r.answer.get("value") if isinstance(r.answer, dict) and "value" in r.answer else r.answer
+            answer_val = (
+                r.answer.get("value")
+                if isinstance(r.answer, dict) and "value" in r.answer
+                else r.answer
+            )
             is_correct = r.is_correct
             updated_at = r.updated_at
             if r.is_correct is not None:
@@ -253,15 +286,17 @@ async def get_student_lesson_detail(
                 if r.is_correct:
                     score += 1
 
-        blocks.append(StudentBlockResult(
-            block_id=block.id,
-            block_type=block.block_type,
-            block_title=block.title,
-            block_content=block.content,
-            answer=answer_val,
-            is_correct=is_correct,
-            updated_at=updated_at,
-        ))
+        blocks.append(
+            StudentBlockResult(
+                block_id=block.id,
+                block_type=block.block_type,
+                block_title=block.title,
+                block_content=block.content,
+                answer=answer_val,
+                is_correct=is_correct,
+                updated_at=updated_at,
+            )
+        )
 
     return StudentLessonDetailResponse(
         student_id=student_id,
