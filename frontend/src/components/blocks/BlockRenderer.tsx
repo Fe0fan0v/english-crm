@@ -77,6 +77,10 @@ export default function BlockRenderer({
         // Dividers don't need headers
         return <DividerRenderer style={(content.style as string) || "line"} />;
 
+      case "page_break":
+        // Page breaks are invisible in preview (consumed by pagination logic)
+        return null;
+
       case "image":
         return (
           <ImageRenderer
@@ -229,7 +233,11 @@ export default function BlockRenderer({
   const isInteractive = INTERACTIVE_TYPES.includes(block.block_type);
 
   // For divider and teaching_guide, don't add header
-  if (block.block_type === "divider" || block.block_type === "teaching_guide") {
+  if (
+    block.block_type === "divider" ||
+    block.block_type === "teaching_guide" ||
+    block.block_type === "page_break"
+  ) {
     return <>{blockContent}</>;
   }
 

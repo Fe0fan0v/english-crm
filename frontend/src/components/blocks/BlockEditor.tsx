@@ -1,7 +1,7 @@
-import { useState, useRef } from 'react';
-import type { ExerciseBlock } from '../../types/course';
-import { courseUploadApi } from '../../services/courseApi';
-import HtmlEditor from '../HtmlEditor';
+import { useState, useRef } from "react";
+import type { ExerciseBlock } from "../../types/course";
+import { courseUploadApi } from "../../services/courseApi";
+import HtmlEditor from "../HtmlEditor";
 
 interface BlockEditorProps {
   block: ExerciseBlock;
@@ -10,213 +10,234 @@ interface BlockEditorProps {
   saving: boolean;
 }
 
-export default function BlockEditor({ block, onSave, onCancel, saving }: BlockEditorProps) {
-  const [content, setContent] = useState<Record<string, unknown>>(block.content);
-  const [title, setTitle] = useState<string>(block.title || '');
+export default function BlockEditor({
+  block,
+  onSave,
+  onCancel,
+  saving,
+}: BlockEditorProps) {
+  const [content, setContent] = useState<Record<string, unknown>>(
+    block.content,
+  );
+  const [title, setTitle] = useState<string>(block.title || "");
 
   const handleSave = () => {
     onSave(content, title || null);
   };
 
   const updateField = (field: string, value: unknown) => {
-    setContent(prev => ({ ...prev, [field]: value }));
+    setContent((prev) => ({ ...prev, [field]: value }));
   };
 
   const renderEditor = () => {
     switch (block.block_type) {
-      case 'text':
+      case "text":
         return (
           <TextEditor
-            html={(content.html as string) || ''}
-            onChange={(html) => updateField('html', html)}
+            html={(content.html as string) || ""}
+            onChange={(html) => updateField("html", html)}
           />
         );
 
-      case 'video':
+      case "video":
         return (
           <VideoEditor
-            url={(content.url as string) || ''}
-            title={(content.title as string) || ''}
-            onUrlChange={(url) => updateField('url', url)}
-            onTitleChange={(title) => updateField('title', title)}
+            url={(content.url as string) || ""}
+            title={(content.title as string) || ""}
+            onUrlChange={(url) => updateField("url", url)}
+            onTitleChange={(title) => updateField("title", title)}
           />
         );
 
-      case 'audio':
+      case "audio":
         return (
           <AudioEditor
-            url={(content.url as string) || ''}
-            title={(content.title as string) || ''}
-            onUrlChange={(url) => updateField('url', url)}
-            onTitleChange={(title) => updateField('title', title)}
+            url={(content.url as string) || ""}
+            title={(content.title as string) || ""}
+            onUrlChange={(url) => updateField("url", url)}
+            onTitleChange={(title) => updateField("title", title)}
           />
         );
 
-      case 'article':
+      case "article":
         return (
           <ArticleEditor
-            html={(content.html as string) || ''}
-            imageUrl={(content.image_url as string) || ''}
-            imagePosition={(content.image_position as string) || 'right'}
-            onHtmlChange={(html) => updateField('html', html)}
-            onImageUrlChange={(url) => updateField('image_url', url)}
-            onImagePositionChange={(pos) => updateField('image_position', pos)}
+            html={(content.html as string) || ""}
+            imageUrl={(content.image_url as string) || ""}
+            imagePosition={(content.image_position as string) || "right"}
+            onHtmlChange={(html) => updateField("html", html)}
+            onImageUrlChange={(url) => updateField("image_url", url)}
+            onImagePositionChange={(pos) => updateField("image_position", pos)}
           />
         );
 
-      case 'divider':
+      case "divider":
         return (
           <DividerEditor
-            style={(content.style as string) || 'line'}
-            onChange={(style) => updateField('style', style)}
+            style={(content.style as string) || "line"}
+            onChange={(style) => updateField("style", style)}
           />
         );
 
-      case 'fill_gaps':
+      case "page_break":
+        return (
+          <PageBreakEditor
+            label={(content.label as string) || ""}
+            onChange={(label) => updateField("label", label)}
+          />
+        );
+
+      case "fill_gaps":
         return (
           <FillGapsEditor
-            text={(content.text as string) || ''}
+            text={(content.text as string) || ""}
             gaps={(content.gaps as GapItem[]) || []}
-            onTextChange={(text) => updateField('text', text)}
-            onGapsChange={(gaps) => updateField('gaps', gaps)}
+            onTextChange={(text) => updateField("text", text)}
+            onGapsChange={(gaps) => updateField("gaps", gaps)}
           />
         );
 
-      case 'test':
+      case "test":
         return (
           <TestEditor
-            question={(content.question as string) || ''}
+            question={(content.question as string) || ""}
             options={(content.options as TestOption[]) || []}
             multipleAnswers={(content.multiple_answers as boolean) || false}
-            explanation={(content.explanation as string) || ''}
-            onQuestionChange={(q) => updateField('question', q)}
-            onOptionsChange={(opts) => updateField('options', opts)}
-            onMultipleAnswersChange={(m) => updateField('multiple_answers', m)}
-            onExplanationChange={(e) => updateField('explanation', e)}
+            explanation={(content.explanation as string) || ""}
+            onQuestionChange={(q) => updateField("question", q)}
+            onOptionsChange={(opts) => updateField("options", opts)}
+            onMultipleAnswersChange={(m) => updateField("multiple_answers", m)}
+            onExplanationChange={(e) => updateField("explanation", e)}
           />
         );
 
-      case 'true_false':
+      case "true_false":
         return (
           <TrueFalseEditor
-            statement={(content.statement as string) || ''}
+            statement={(content.statement as string) || ""}
             isTrue={(content.is_true as boolean) ?? true}
-            explanation={(content.explanation as string) || ''}
-            onStatementChange={(s) => updateField('statement', s)}
-            onIsTrueChange={(t) => updateField('is_true', t)}
-            onExplanationChange={(e) => updateField('explanation', e)}
+            explanation={(content.explanation as string) || ""}
+            onStatementChange={(s) => updateField("statement", s)}
+            onIsTrueChange={(t) => updateField("is_true", t)}
+            onExplanationChange={(e) => updateField("explanation", e)}
           />
         );
 
-      case 'word_order':
+      case "word_order":
         return (
           <WordOrderEditor
-            correctSentence={(content.correct_sentence as string) || ''}
-            hint={(content.hint as string) || ''}
-            onCorrectSentenceChange={(s) => updateField('correct_sentence', s)}
-            onHintChange={(h) => updateField('hint', h)}
-            onShuffledWordsChange={(w) => updateField('shuffled_words', w)}
+            correctSentence={(content.correct_sentence as string) || ""}
+            hint={(content.hint as string) || ""}
+            onCorrectSentenceChange={(s) => updateField("correct_sentence", s)}
+            onHintChange={(h) => updateField("hint", h)}
+            onShuffledWordsChange={(w) => updateField("shuffled_words", w)}
           />
         );
 
-      case 'matching':
+      case "matching":
         return (
           <MatchingEditor
             pairs={(content.pairs as MatchingPair[]) || []}
             shuffleRight={(content.shuffle_right as boolean) ?? true}
-            onPairsChange={(p) => updateField('pairs', p)}
-            onShuffleRightChange={(s) => updateField('shuffle_right', s)}
+            onPairsChange={(p) => updateField("pairs", p)}
+            onShuffleRightChange={(s) => updateField("shuffle_right", s)}
           />
         );
 
-      case 'essay':
+      case "essay":
         return (
           <EssayEditor
-            prompt={(content.prompt as string) || ''}
+            prompt={(content.prompt as string) || ""}
             minWords={content.min_words as number | null}
             maxWords={content.max_words as number | null}
-            sampleAnswer={(content.sample_answer as string) || ''}
-            onPromptChange={(p) => updateField('prompt', p)}
-            onMinWordsChange={(m) => updateField('min_words', m)}
-            onMaxWordsChange={(m) => updateField('max_words', m)}
-            onSampleAnswerChange={(s) => updateField('sample_answer', s)}
+            sampleAnswer={(content.sample_answer as string) || ""}
+            onPromptChange={(p) => updateField("prompt", p)}
+            onMinWordsChange={(m) => updateField("min_words", m)}
+            onMaxWordsChange={(m) => updateField("max_words", m)}
+            onSampleAnswerChange={(s) => updateField("sample_answer", s)}
           />
         );
 
-      case 'image':
+      case "image":
         return (
           <ImageEditor
-            url={(content.url as string) || ''}
-            caption={(content.caption as string) || ''}
-            onUrlChange={(url) => updateField('url', url)}
-            onCaptionChange={(caption) => updateField('caption', caption)}
+            url={(content.url as string) || ""}
+            caption={(content.caption as string) || ""}
+            onUrlChange={(url) => updateField("url", url)}
+            onCaptionChange={(caption) => updateField("caption", caption)}
           />
         );
 
-      case 'teaching_guide':
+      case "teaching_guide":
         return (
           <TeachingGuideEditor
-            html={(content.html as string) || ''}
-            onChange={(html) => updateField('html', html)}
+            html={(content.html as string) || ""}
+            onChange={(html) => updateField("html", html)}
           />
         );
 
-      case 'remember':
+      case "remember":
         return (
           <RememberEditor
-            html={(content.html as string) || ''}
-            icon={(content.icon as string) || ''}
-            onHtmlChange={(html) => updateField('html', html)}
-            onIconChange={(icon) => updateField('icon', icon)}
+            html={(content.html as string) || ""}
+            icon={(content.icon as string) || ""}
+            onHtmlChange={(html) => updateField("html", html)}
+            onIconChange={(icon) => updateField("icon", icon)}
           />
         );
 
-      case 'table':
+      case "table":
         return (
           <TableEditor
             rows={(content.rows as TableRow[]) || []}
             hasHeader={(content.has_header as boolean) ?? true}
-            onRowsChange={(rows) => updateField('rows', rows)}
-            onHasHeaderChange={(h) => updateField('has_header', h)}
+            onRowsChange={(rows) => updateField("rows", rows)}
+            onHasHeaderChange={(h) => updateField("has_header", h)}
           />
         );
 
-      case 'image_choice':
+      case "image_choice":
         return (
           <ImageChoiceEditor
-            question={(content.question as string) || ''}
+            question={(content.question as string) || ""}
             options={(content.options as ImageOption[]) || []}
-            explanation={(content.explanation as string) || ''}
-            onQuestionChange={(q) => updateField('question', q)}
-            onOptionsChange={(opts) => updateField('options', opts)}
-            onExplanationChange={(e) => updateField('explanation', e)}
+            explanation={(content.explanation as string) || ""}
+            onQuestionChange={(q) => updateField("question", q)}
+            onOptionsChange={(opts) => updateField("options", opts)}
+            onExplanationChange={(e) => updateField("explanation", e)}
           />
         );
 
-      case 'flashcards':
+      case "flashcards":
         return (
           <FlashcardsEditor
-            title={(content.title as string) || ''}
+            title={(content.title as string) || ""}
             cards={(content.cards as FlashcardItem[]) || []}
             shuffle={(content.shuffle as boolean) ?? true}
-            onTitleChange={(t) => updateField('title', t)}
-            onCardsChange={(c) => updateField('cards', c)}
-            onShuffleChange={(s) => updateField('shuffle', s)}
+            onTitleChange={(t) => updateField("title", t)}
+            onCardsChange={(c) => updateField("cards", c)}
+            onShuffleChange={(s) => updateField("shuffle", s)}
           />
         );
 
-      case 'vocabulary':
+      case "vocabulary":
         return (
           <VocabularyEditor
             words={(content.words as VocabularyWord[]) || []}
             showTranscription={(content.show_transcription as boolean) ?? false}
-            onWordsChange={(w) => updateField('words', w)}
-            onShowTranscriptionChange={(s) => updateField('show_transcription', s)}
+            onWordsChange={(w) => updateField("words", w)}
+            onShowTranscriptionChange={(s) =>
+              updateField("show_transcription", s)
+            }
           />
         );
 
       default:
-        return <div className="text-gray-500">Редактор для этого типа блока не реализован</div>;
+        return (
+          <div className="text-gray-500">
+            Редактор для этого типа блока не реализован
+          </div>
+        );
     }
   };
 
@@ -225,7 +246,8 @@ export default function BlockEditor({ block, onSave, onCancel, saving }: BlockEd
       {/* Block Title Input */}
       <div className="mb-4">
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Название блока <span className="text-gray-400 font-normal">(необязательно)</span>
+          Название блока{" "}
+          <span className="text-gray-400 font-normal">(необязательно)</span>
         </label>
         <input
           type="text"
@@ -235,7 +257,8 @@ export default function BlockEditor({ block, onSave, onCancel, saving }: BlockEd
           placeholder="Например: Introduce yourself"
         />
         <p className="text-xs text-gray-400 mt-1">
-          Название отображается над блоком (как на Edvibe: "1.1 Introduce yourself")
+          Название отображается над блоком (как на Edvibe: "1.1 Introduce
+          yourself")
         </p>
       </div>
 
@@ -253,7 +276,7 @@ export default function BlockEditor({ block, onSave, onCancel, saving }: BlockEd
           disabled={saving}
           className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
         >
-          {saving ? 'Сохранение...' : 'Сохранить'}
+          {saving ? "Сохранение..." : "Сохранить"}
         </button>
       </div>
     </div>
@@ -334,13 +357,14 @@ function FileUploadButton({
       const result = await courseUploadApi.upload(file);
       onUpload(result.file_url);
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Ошибка загрузки';
+      const errorMessage =
+        err instanceof Error ? err.message : "Ошибка загрузки";
       setError(errorMessage);
     } finally {
       setUploading(false);
       // Reset input
       if (inputRef.current) {
-        inputRef.current.value = '';
+        inputRef.current.value = "";
       }
     }
   };
@@ -358,21 +382,46 @@ function FileUploadButton({
       <label
         htmlFor={`file-upload-${label}`}
         className={`inline-flex items-center gap-1 px-3 py-1.5 text-sm border border-purple-300 text-purple-600 rounded-lg cursor-pointer hover:bg-purple-50 ${
-          uploading ? 'opacity-50 cursor-wait' : ''
+          uploading ? "opacity-50 cursor-wait" : ""
         }`}
       >
         {uploading ? (
           <>
-            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            <svg
+              className="w-4 h-4 animate-spin"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+              />
             </svg>
             Загрузка...
           </>
         ) : (
           <>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+              />
             </svg>
             {label}
           </>
@@ -385,11 +434,23 @@ function FileUploadButton({
 
 // Individual Editors
 
-function TextEditor({ html, onChange }: { html: string; onChange: (html: string) => void }) {
+function TextEditor({
+  html,
+  onChange,
+}: {
+  html: string;
+  onChange: (html: string) => void;
+}) {
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">Текст</label>
-      <HtmlEditor html={html} onChange={onChange} placeholder="Введите текст..." />
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        Текст
+      </label>
+      <HtmlEditor
+        html={html}
+        onChange={onChange}
+        placeholder="Введите текст..."
+      />
     </div>
   );
 }
@@ -408,7 +469,9 @@ function VideoEditor({
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">URL видео</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          URL видео
+        </label>
         <input
           type="url"
           value={url}
@@ -418,7 +481,9 @@ function VideoEditor({
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Название (необязательно)</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Название (необязательно)
+        </label>
         <input
           type="text"
           value={title}
@@ -445,7 +510,9 @@ function AudioEditor({
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Аудио файл</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Аудио файл
+        </label>
         <div className="flex items-center gap-3 mb-2">
           <FileUploadButton
             onUpload={onUrlChange}
@@ -469,7 +536,9 @@ function AudioEditor({
         )}
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Название (необязательно)</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Название (необязательно)
+        </label>
         <input
           type="text"
           value={title}
@@ -500,11 +569,15 @@ function ArticleEditor({
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Текст</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Текст
+        </label>
         <HtmlEditor html={html} onChange={onHtmlChange} />
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Изображение</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Изображение
+        </label>
         <div className="flex items-center gap-3 mb-2">
           <FileUploadButton
             onUpload={onImageUrlChange}
@@ -521,11 +594,17 @@ function ArticleEditor({
           placeholder="https://..."
         />
         {imageUrl && (
-          <img src={imageUrl} alt="Preview" className="mt-2 max-w-full h-auto rounded-lg max-h-32 object-contain" />
+          <img
+            src={imageUrl}
+            alt="Preview"
+            className="mt-2 max-w-full h-auto rounded-lg max-h-32 object-contain"
+          />
         )}
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Позиция изображения</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Позиция изображения
+        </label>
         <select
           value={imagePosition}
           onChange={(e) => onImagePositionChange(e.target.value)}
@@ -541,10 +620,18 @@ function ArticleEditor({
   );
 }
 
-function DividerEditor({ style, onChange }: { style: string; onChange: (style: string) => void }) {
+function DividerEditor({
+  style,
+  onChange,
+}: {
+  style: string;
+  onChange: (style: string) => void;
+}) {
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">Стиль разделителя</label>
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        Стиль разделителя
+      </label>
       <select
         value={style}
         onChange={(e) => onChange(e.target.value)}
@@ -554,6 +641,33 @@ function DividerEditor({ style, onChange }: { style: string; onChange: (style: s
         <option value="space">Отступ</option>
         <option value="dots">Точки</option>
       </select>
+    </div>
+  );
+}
+
+function PageBreakEditor({
+  label,
+  onChange,
+}: {
+  label: string;
+  onChange: (label: string) => void;
+}) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        Метка страницы (необязательно)
+      </label>
+      <input
+        type="text"
+        value={label}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Например: Listening, Grammar..."
+        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+      />
+      <p className="mt-2 text-xs text-gray-500">
+        Разделяет урок на страницы. Студенты переключают страницы кнопками
+        «Назад» / «Вперёд».
+      </p>
     </div>
   );
 }
@@ -571,11 +685,20 @@ function FillGapsEditor({
 }) {
   const addGap = () => {
     const newIndex = gaps.length;
-    onGapsChange([...gaps, { index: newIndex, answer: '', hint: '', alternatives: [] }]);
+    onGapsChange([
+      ...gaps,
+      { index: newIndex, answer: "", hint: "", alternatives: [] },
+    ]);
   };
 
-  const updateGap = (index: number, field: keyof GapItem, value: string | string[]) => {
-    const newGaps = gaps.map((g, i) => (i === index ? { ...g, [field]: value } : g));
+  const updateGap = (
+    index: number,
+    field: keyof GapItem,
+    value: string | string[],
+  ) => {
+    const newGaps = gaps.map((g, i) =>
+      i === index ? { ...g, [field]: value } : g,
+    );
     onGapsChange(newGaps);
   };
 
@@ -587,14 +710,16 @@ function FillGapsEditor({
     <div className="space-y-4">
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Текст с пропусками (используйте {'{0}'}, {'{1}'} и т.д.)
+          Текст с пропусками (используйте {"{0}"}, {"{1}"} и т.д.)
         </label>
         <textarea
           value={text}
           onChange={(e) => onTextChange(e.target.value)}
           className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
           rows={6}
-          placeholder={"1. I'm not Tom. I'm Tony.\n2. {0} in class 5. You're in class 4.\n3. {1} in room 6. You're in room 7."}
+          placeholder={
+            "1. I'm not Tom. I'm Tony.\n2. {0} in class 5. You're in class 4.\n3. {1} in room 6. You're in room 7."
+          }
         />
         <p className="text-xs text-gray-400 mt-1">
           Нажмите Enter для переноса на новую строку
@@ -614,31 +739,37 @@ function FillGapsEditor({
         </div>
         <div className="space-y-2">
           {gaps.map((gap, index) => (
-            <div key={index} className="flex items-start gap-2 p-3 bg-gray-50 rounded-lg">
+            <div
+              key={index}
+              className="flex items-start gap-2 p-3 bg-gray-50 rounded-lg"
+            >
               <span className="text-sm text-gray-500 mt-2">{`{${index}}`}</span>
               <div className="flex-1 space-y-2">
                 <input
                   type="text"
                   value={gap.answer}
-                  onChange={(e) => updateGap(index, 'answer', e.target.value)}
+                  onChange={(e) => updateGap(index, "answer", e.target.value)}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                   placeholder="Правильный ответ"
                 />
                 <input
                   type="text"
-                  value={gap.hint || ''}
-                  onChange={(e) => updateGap(index, 'hint', e.target.value)}
+                  value={gap.hint || ""}
+                  onChange={(e) => updateGap(index, "hint", e.target.value)}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                   placeholder="Подсказка (необязательно)"
                 />
                 <input
                   type="text"
-                  value={(gap.alternatives || []).join(', ')}
+                  value={(gap.alternatives || []).join(", ")}
                   onChange={(e) => {
                     const alts = e.target.value
-                      ? e.target.value.split(',').map((a: string) => a.trim()).filter(Boolean)
+                      ? e.target.value
+                          .split(",")
+                          .map((a: string) => a.trim())
+                          .filter(Boolean)
                       : [];
-                    updateGap(index, 'alternatives', alts);
+                    updateGap(index, "alternatives", alts);
                   }}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                   placeholder="Альтернативные ответы через запятую (необязательно)"
@@ -649,8 +780,18 @@ function FillGapsEditor({
                 onClick={() => removeGap(index)}
                 className="p-1 text-red-500 hover:bg-red-50 rounded"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </div>
@@ -681,11 +822,20 @@ function TestEditor({
   onExplanationChange: (e: string) => void;
 }) {
   const addOption = () => {
-    onOptionsChange([...options, { id: crypto.randomUUID(), text: '', is_correct: false }]);
+    onOptionsChange([
+      ...options,
+      { id: crypto.randomUUID(), text: "", is_correct: false },
+    ]);
   };
 
-  const updateOption = (id: string, field: keyof TestOption, value: string | boolean) => {
-    onOptionsChange(options.map((o) => (o.id === id ? { ...o, [field]: value } : o)));
+  const updateOption = (
+    id: string,
+    field: keyof TestOption,
+    value: string | boolean,
+  ) => {
+    onOptionsChange(
+      options.map((o) => (o.id === id ? { ...o, [field]: value } : o)),
+    );
   };
 
   const removeOption = (id: string) => {
@@ -695,7 +845,9 @@ function TestEditor({
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Вопрос</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Вопрос
+        </label>
         <textarea
           value={question}
           onChange={(e) => onQuestionChange(e.target.value)}
@@ -720,8 +872,14 @@ function TestEditor({
 
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="text-sm font-medium text-gray-700">Варианты ответа</label>
-          <button type="button" onClick={addOption} className="text-sm text-purple-600 hover:text-purple-700">
+          <label className="text-sm font-medium text-gray-700">
+            Варианты ответа
+          </label>
+          <button
+            type="button"
+            onClick={addOption}
+            className="text-sm text-purple-600 hover:text-purple-700"
+          >
             + Добавить
           </button>
         </div>
@@ -731,14 +889,18 @@ function TestEditor({
               <input
                 type="checkbox"
                 checked={option.is_correct}
-                onChange={(e) => updateOption(option.id, 'is_correct', e.target.checked)}
+                onChange={(e) =>
+                  updateOption(option.id, "is_correct", e.target.checked)
+                }
                 className="w-4 h-4 rounded border-gray-300 text-green-600"
                 title="Правильный ответ"
               />
               <input
                 type="text"
                 value={option.text}
-                onChange={(e) => updateOption(option.id, 'text', e.target.value)}
+                onChange={(e) =>
+                  updateOption(option.id, "text", e.target.value)
+                }
                 className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"
                 placeholder="Вариант ответа"
               />
@@ -747,8 +909,18 @@ function TestEditor({
                 onClick={() => removeOption(option.id)}
                 className="p-1 text-red-500 hover:bg-red-50 rounded"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </div>
@@ -757,7 +929,9 @@ function TestEditor({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Пояснение (показывается после ответа)</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Пояснение (показывается после ответа)
+        </label>
         <textarea
           value={explanation}
           onChange={(e) => onExplanationChange(e.target.value)}
@@ -788,7 +962,9 @@ function TrueFalseEditor({
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Утверждение</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Утверждение
+        </label>
         <textarea
           value={statement}
           onChange={(e) => onStatementChange(e.target.value)}
@@ -799,7 +975,9 @@ function TrueFalseEditor({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Правильный ответ</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Правильный ответ
+        </label>
         <div className="flex gap-4">
           <label className="flex items-center gap-2">
             <input
@@ -823,7 +1001,9 @@ function TrueFalseEditor({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Пояснение</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Пояснение
+        </label>
         <textarea
           value={explanation}
           onChange={(e) => onExplanationChange(e.target.value)}
@@ -858,7 +1038,9 @@ function WordOrderEditor({
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Правильное предложение</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Правильное предложение
+        </label>
         <textarea
           value={correctSentence}
           onChange={(e) => onCorrectSentenceChange(e.target.value)}
@@ -876,7 +1058,9 @@ function WordOrderEditor({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Подсказка (необязательно)</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Подсказка (необязательно)
+        </label>
         <input
           type="text"
           value={hint}
@@ -901,11 +1085,17 @@ function MatchingEditor({
   onShuffleRightChange: (s: boolean) => void;
 }) {
   const addPair = () => {
-    onPairsChange([...pairs, { left: '', right: '' }]);
+    onPairsChange([...pairs, { left: "", right: "" }]);
   };
 
-  const updatePair = (index: number, field: 'left' | 'right', value: string) => {
-    const newPairs = pairs.map((p, i) => (i === index ? { ...p, [field]: value } : p));
+  const updatePair = (
+    index: number,
+    field: "left" | "right",
+    value: string,
+  ) => {
+    const newPairs = pairs.map((p, i) =>
+      i === index ? { ...p, [field]: value } : p,
+    );
     onPairsChange(newPairs);
   };
 
@@ -930,20 +1120,29 @@ function MatchingEditor({
 
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="text-sm font-medium text-gray-700">Пары для сопоставления</label>
-          <button type="button" onClick={addPair} className="text-sm text-purple-600 hover:text-purple-700">
+          <label className="text-sm font-medium text-gray-700">
+            Пары для сопоставления
+          </label>
+          <button
+            type="button"
+            onClick={addPair}
+            className="text-sm text-purple-600 hover:text-purple-700"
+          >
             + Добавить
           </button>
         </div>
         <div className="space-y-2">
           {pairs.map((pair, index) => {
-            const rightIsImage = /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(pair.right);
+            const rightIsImage =
+              /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(
+                pair.right,
+              );
             return (
               <div key={index} className="flex items-center gap-2">
                 <input
                   type="text"
                   value={pair.left}
-                  onChange={(e) => updatePair(index, 'left', e.target.value)}
+                  onChange={(e) => updatePair(index, "left", e.target.value)}
                   className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"
                   placeholder="Левая часть"
                 />
@@ -952,12 +1151,16 @@ function MatchingEditor({
                   <input
                     type="text"
                     value={pair.right}
-                    onChange={(e) => updatePair(index, 'right', e.target.value)}
+                    onChange={(e) => updatePair(index, "right", e.target.value)}
                     className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"
                     placeholder="Правая часть (текст или URL картинки)"
                   />
                   {rightIsImage && (
-                    <img src={pair.right} alt="" className="h-10 w-10 object-contain rounded border border-gray-200" />
+                    <img
+                      src={pair.right}
+                      alt=""
+                      className="h-10 w-10 object-contain rounded border border-gray-200"
+                    />
                   )}
                 </div>
                 <button
@@ -965,8 +1168,18 @@ function MatchingEditor({
                   onClick={() => removePair(index)}
                   className="p-1 text-red-500 hover:bg-red-50 rounded"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                 </button>
               </div>
@@ -1000,7 +1213,9 @@ function EssayEditor({
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Задание</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Задание
+        </label>
         <textarea
           value={prompt}
           onChange={(e) => onPromptChange(e.target.value)}
@@ -1012,21 +1227,29 @@ function EssayEditor({
 
       <div className="flex gap-4">
         <div className="flex-1">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Мин. слов</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Мин. слов
+          </label>
           <input
             type="number"
-            value={minWords ?? ''}
-            onChange={(e) => onMinWordsChange(e.target.value ? Number(e.target.value) : null)}
+            value={minWords ?? ""}
+            onChange={(e) =>
+              onMinWordsChange(e.target.value ? Number(e.target.value) : null)
+            }
             className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             min="0"
           />
         </div>
         <div className="flex-1">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Макс. слов</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Макс. слов
+          </label>
           <input
             type="number"
-            value={maxWords ?? ''}
-            onChange={(e) => onMaxWordsChange(e.target.value ? Number(e.target.value) : null)}
+            value={maxWords ?? ""}
+            onChange={(e) =>
+              onMaxWordsChange(e.target.value ? Number(e.target.value) : null)
+            }
             className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             min="0"
           />
@@ -1034,7 +1257,9 @@ function EssayEditor({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Примерный ответ (для преподавателя)</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Примерный ответ (для преподавателя)
+        </label>
         <textarea
           value={sampleAnswer}
           onChange={(e) => onSampleAnswerChange(e.target.value)}
@@ -1061,7 +1286,9 @@ function ImageEditor({
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Изображение</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Изображение
+        </label>
         <div className="flex items-center gap-3 mb-2">
           <FileUploadButton
             onUpload={onUrlChange}
@@ -1080,11 +1307,17 @@ function ImageEditor({
       </div>
       {url && (
         <div className="mt-2">
-          <img src={url} alt="Preview" className="max-w-full h-auto rounded-lg max-h-48 object-contain" />
+          <img
+            src={url}
+            alt="Preview"
+            className="max-w-full h-auto rounded-lg max-h-48 object-contain"
+          />
         </div>
       )}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Подпись (необязательно)</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Подпись (необязательно)
+        </label>
         <input
           type="text"
           value={caption}
@@ -1109,8 +1342,14 @@ function TeachingGuideEditor({
       <div className="mb-2 p-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
         Этот блок виден только преподавателю
       </div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">Заметка для учителя</label>
-      <HtmlEditor html={html} onChange={onChange} placeholder="Инструкции для проведения урока..." />
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        Заметка для учителя
+      </label>
+      <HtmlEditor
+        html={html}
+        onChange={onChange}
+        placeholder="Инструкции для проведения урока..."
+      />
     </div>
   );
 }
@@ -1129,7 +1368,9 @@ function RememberEditor({
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Иконка</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Иконка
+        </label>
         <select
           value={icon}
           onChange={(e) => onIconChange(e.target.value)}
@@ -1143,8 +1384,14 @@ function RememberEditor({
         </select>
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Текст</label>
-        <HtmlEditor html={html} onChange={onHtmlChange} placeholder="Важная информация для запоминания..." />
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Текст
+        </label>
+        <HtmlEditor
+          html={html}
+          onChange={onHtmlChange}
+          placeholder="Важная информация для запоминания..."
+        />
       </div>
     </div>
   );
@@ -1163,14 +1410,23 @@ function TableEditor({
 }) {
   const addRow = () => {
     const cellCount = rows[0]?.cells.length || 3;
-    onRowsChange([...rows, { cells: Array(cellCount).fill(null).map(() => ({ text: '' })) }]);
+    onRowsChange([
+      ...rows,
+      {
+        cells: Array(cellCount)
+          .fill(null)
+          .map(() => ({ text: "" })),
+      },
+    ]);
   };
 
   const addColumn = () => {
-    onRowsChange(rows.map(row => ({
-      ...row,
-      cells: [...row.cells, { text: '' }]
-    })));
+    onRowsChange(
+      rows.map((row) => ({
+        ...row,
+        cells: [...row.cells, { text: "" }],
+      })),
+    );
   };
 
   const updateCell = (rowIndex: number, cellIndex: number, text: string) => {
@@ -1178,7 +1434,9 @@ function TableEditor({
       if (ri !== rowIndex) return row;
       return {
         ...row,
-        cells: row.cells.map((cell, ci) => ci === cellIndex ? { ...cell, text } : cell)
+        cells: row.cells.map((cell, ci) =>
+          ci === cellIndex ? { ...cell, text } : cell,
+        ),
       };
     });
     onRowsChange(newRows);
@@ -1189,17 +1447,19 @@ function TableEditor({
   };
 
   const removeColumn = (index: number) => {
-    onRowsChange(rows.map(row => ({
-      ...row,
-      cells: row.cells.filter((_, i) => i !== index)
-    })));
+    onRowsChange(
+      rows.map((row) => ({
+        ...row,
+        cells: row.cells.filter((_, i) => i !== index),
+      })),
+    );
   };
 
   // Initialize with empty table if needed
   if (rows.length === 0) {
     onRowsChange([
-      { cells: [{ text: '' }, { text: '' }, { text: '' }] },
-      { cells: [{ text: '' }, { text: '' }, { text: '' }] },
+      { cells: [{ text: "" }, { text: "" }, { text: "" }] },
+      { cells: [{ text: "" }, { text: "" }, { text: "" }] },
     ]);
     return null;
   }
@@ -1229,9 +1489,13 @@ function TableEditor({
                     <input
                       type="text"
                       value={cell.text}
-                      onChange={(e) => updateCell(rowIndex, cellIndex, e.target.value)}
-                      className={`w-full px-2 py-1 text-sm ${hasHeader && rowIndex === 0 ? 'font-semibold bg-gray-50' : ''}`}
-                      placeholder={hasHeader && rowIndex === 0 ? 'Заголовок' : 'Текст'}
+                      onChange={(e) =>
+                        updateCell(rowIndex, cellIndex, e.target.value)
+                      }
+                      className={`w-full px-2 py-1 text-sm ${hasHeader && rowIndex === 0 ? "font-semibold bg-gray-50" : ""}`}
+                      placeholder={
+                        hasHeader && rowIndex === 0 ? "Заголовок" : "Текст"
+                      }
                     />
                   </td>
                 ))}
@@ -1242,8 +1506,18 @@ function TableEditor({
                     className="p-1 text-red-500 hover:bg-red-50 rounded"
                     title="Удалить строку"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
                     </svg>
                   </button>
                 </td>
@@ -1303,11 +1577,20 @@ function ImageChoiceEditor({
   onExplanationChange: (e: string) => void;
 }) {
   const addOption = () => {
-    onOptionsChange([...options, { id: crypto.randomUUID(), url: '', caption: '', is_correct: false }]);
+    onOptionsChange([
+      ...options,
+      { id: crypto.randomUUID(), url: "", caption: "", is_correct: false },
+    ]);
   };
 
-  const updateOption = (id: string, field: keyof ImageOption, value: string | boolean) => {
-    onOptionsChange(options.map((o) => (o.id === id ? { ...o, [field]: value } : o)));
+  const updateOption = (
+    id: string,
+    field: keyof ImageOption,
+    value: string | boolean,
+  ) => {
+    onOptionsChange(
+      options.map((o) => (o.id === id ? { ...o, [field]: value } : o)),
+    );
   };
 
   const removeOption = (id: string) => {
@@ -1317,7 +1600,9 @@ function ImageChoiceEditor({
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Вопрос</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Вопрос
+        </label>
         <textarea
           value={question}
           onChange={(e) => onQuestionChange(e.target.value)}
@@ -1329,17 +1614,26 @@ function ImageChoiceEditor({
 
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="text-sm font-medium text-gray-700">Варианты изображений</label>
-          <button type="button" onClick={addOption} className="text-sm text-purple-600 hover:text-purple-700">
+          <label className="text-sm font-medium text-gray-700">
+            Варианты изображений
+          </label>
+          <button
+            type="button"
+            onClick={addOption}
+            className="text-sm text-purple-600 hover:text-purple-700"
+          >
             + Добавить
           </button>
         </div>
         <div className="grid grid-cols-2 gap-3">
           {options.map((option) => (
-            <div key={option.id} className={`p-3 border rounded-lg ${option.is_correct ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}>
+            <div
+              key={option.id}
+              className={`p-3 border rounded-lg ${option.is_correct ? "border-green-500 bg-green-50" : "border-gray-200"}`}
+            >
               <div className="mb-2">
                 <FileUploadButton
-                  onUpload={(url) => updateOption(option.id, 'url', url)}
+                  onUpload={(url) => updateOption(option.id, "url", url)}
                   accept="image/*"
                   label="Загрузить"
                 />
@@ -1347,17 +1641,23 @@ function ImageChoiceEditor({
               <input
                 type="url"
                 value={option.url}
-                onChange={(e) => updateOption(option.id, 'url', e.target.value)}
+                onChange={(e) => updateOption(option.id, "url", e.target.value)}
                 className="w-full px-2 py-1 border border-gray-200 rounded text-sm mb-2"
                 placeholder="или URL изображения"
               />
               {option.url && (
-                <img src={option.url} alt="" className="w-full h-24 object-cover rounded mb-2" />
+                <img
+                  src={option.url}
+                  alt=""
+                  className="w-full h-24 object-cover rounded mb-2"
+                />
               )}
               <input
                 type="text"
-                value={option.caption || ''}
-                onChange={(e) => updateOption(option.id, 'caption', e.target.value)}
+                value={option.caption || ""}
+                onChange={(e) =>
+                  updateOption(option.id, "caption", e.target.value)
+                }
                 className="w-full px-2 py-1 border border-gray-200 rounded text-sm mb-2"
                 placeholder="Подпись (необязательно)"
               />
@@ -1366,7 +1666,9 @@ function ImageChoiceEditor({
                   <input
                     type="checkbox"
                     checked={option.is_correct}
-                    onChange={(e) => updateOption(option.id, 'is_correct', e.target.checked)}
+                    onChange={(e) =>
+                      updateOption(option.id, "is_correct", e.target.checked)
+                    }
                     className="w-4 h-4 rounded border-gray-300 text-green-600"
                   />
                   Правильный
@@ -1376,8 +1678,18 @@ function ImageChoiceEditor({
                   onClick={() => removeOption(option.id)}
                   className="p-1 text-red-500 hover:bg-red-50 rounded"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                 </button>
               </div>
@@ -1387,7 +1699,9 @@ function ImageChoiceEditor({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Пояснение</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Пояснение
+        </label>
         <textarea
           value={explanation}
           onChange={(e) => onExplanationChange(e.target.value)}
@@ -1416,11 +1730,17 @@ function FlashcardsEditor({
   onShuffleChange: (s: boolean) => void;
 }) {
   const addCard = () => {
-    onCardsChange([...cards, { front: '', back: '', image_url: '' }]);
+    onCardsChange([...cards, { front: "", back: "", image_url: "" }]);
   };
 
-  const updateCard = (index: number, field: keyof FlashcardItem, value: string) => {
-    const newCards = cards.map((c, i) => (i === index ? { ...c, [field]: value } : c));
+  const updateCard = (
+    index: number,
+    field: keyof FlashcardItem,
+    value: string,
+  ) => {
+    const newCards = cards.map((c, i) =>
+      i === index ? { ...c, [field]: value } : c,
+    );
     onCardsChange(newCards);
   };
 
@@ -1431,7 +1751,9 @@ function FlashcardsEditor({
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Название набора</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Название набора
+        </label>
         <input
           type="text"
           value={title}
@@ -1457,7 +1779,11 @@ function FlashcardsEditor({
       <div>
         <div className="flex items-center justify-between mb-2">
           <label className="text-sm font-medium text-gray-700">Карточки</label>
-          <button type="button" onClick={addCard} className="text-sm text-purple-600 hover:text-purple-700">
+          <button
+            type="button"
+            onClick={addCard}
+            className="text-sm text-purple-600 hover:text-purple-700"
+          >
             + Добавить
           </button>
         </div>
@@ -1465,33 +1791,49 @@ function FlashcardsEditor({
           {cards.map((card, index) => (
             <div key={index} className="p-3 border border-gray-200 rounded-lg">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-500">Карточка {index + 1}</span>
+                <span className="text-sm font-medium text-gray-500">
+                  Карточка {index + 1}
+                </span>
                 <button
                   type="button"
                   onClick={() => removeCard(index)}
                   className="p-1 text-red-500 hover:bg-red-50 rounded"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                 </button>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Лицевая сторона</label>
+                  <label className="block text-xs text-gray-500 mb-1">
+                    Лицевая сторона
+                  </label>
                   <textarea
                     value={card.front}
-                    onChange={(e) => updateCard(index, 'front', e.target.value)}
+                    onChange={(e) => updateCard(index, "front", e.target.value)}
                     className="w-full px-2 py-1 border border-gray-200 rounded text-sm"
                     rows={2}
                     placeholder="Вопрос/слово"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Обратная сторона</label>
+                  <label className="block text-xs text-gray-500 mb-1">
+                    Обратная сторона
+                  </label>
                   <textarea
                     value={card.back}
-                    onChange={(e) => updateCard(index, 'back', e.target.value)}
+                    onChange={(e) => updateCard(index, "back", e.target.value)}
                     className="w-full px-2 py-1 border border-gray-200 rounded text-sm"
                     rows={2}
                     placeholder="Ответ/перевод"
@@ -1499,23 +1841,31 @@ function FlashcardsEditor({
                 </div>
               </div>
               <div className="mt-2">
-                <label className="block text-xs text-gray-500 mb-1">Изображение (необязательно)</label>
+                <label className="block text-xs text-gray-500 mb-1">
+                  Изображение (необязательно)
+                </label>
                 <div className="flex items-center gap-2 mb-1">
                   <FileUploadButton
-                    onUpload={(url) => updateCard(index, 'image_url', url)}
+                    onUpload={(url) => updateCard(index, "image_url", url)}
                     accept="image/*"
                     label="Загрузить"
                   />
                 </div>
                 <input
                   type="url"
-                  value={card.image_url || ''}
-                  onChange={(e) => updateCard(index, 'image_url', e.target.value)}
+                  value={card.image_url || ""}
+                  onChange={(e) =>
+                    updateCard(index, "image_url", e.target.value)
+                  }
                   className="w-full px-2 py-1 border border-gray-200 rounded text-sm"
                   placeholder="или URL изображения"
                 />
                 {card.image_url && (
-                  <img src={card.image_url} alt="" className="mt-1 max-w-full h-16 object-contain rounded" />
+                  <img
+                    src={card.image_url}
+                    alt=""
+                    className="mt-1 max-w-full h-16 object-contain rounded"
+                  />
                 )}
               </div>
             </div>
@@ -1538,11 +1888,17 @@ function VocabularyEditor({
   onShowTranscriptionChange: (show: boolean) => void;
 }) {
   const addWord = () => {
-    onWordsChange([...words, { word: '', translation: '', transcription: '' }]);
+    onWordsChange([...words, { word: "", translation: "", transcription: "" }]);
   };
 
-  const updateWord = (index: number, field: keyof VocabularyWord, value: string) => {
-    const newWords = words.map((w, i) => (i === index ? { ...w, [field]: value } : w));
+  const updateWord = (
+    index: number,
+    field: keyof VocabularyWord,
+    value: string,
+  ) => {
+    const newWords = words.map((w, i) =>
+      i === index ? { ...w, [field]: value } : w,
+    );
     onWordsChange(newWords);
   };
 
@@ -1568,7 +1924,11 @@ function VocabularyEditor({
       <div>
         <div className="flex items-center justify-between mb-2">
           <label className="text-sm font-medium text-gray-700">Слова</label>
-          <button type="button" onClick={addWord} className="text-sm text-purple-600 hover:text-purple-700">
+          <button
+            type="button"
+            onClick={addWord}
+            className="text-sm text-purple-600 hover:text-purple-700"
+          >
             + Добавить слово
           </button>
         </div>
@@ -1576,34 +1936,52 @@ function VocabularyEditor({
           {words.map((word, index) => (
             <div key={index} className="p-3 border border-gray-200 rounded-lg">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-500">Слово {index + 1}</span>
+                <span className="text-sm font-medium text-gray-500">
+                  Слово {index + 1}
+                </span>
                 <button
                   type="button"
                   onClick={() => removeWord(index)}
                   className="p-1 text-red-500 hover:bg-red-50 rounded"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                 </button>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Слово (англ.)</label>
+                  <label className="block text-xs text-gray-500 mb-1">
+                    Слово (англ.)
+                  </label>
                   <input
                     type="text"
                     value={word.word}
-                    onChange={(e) => updateWord(index, 'word', e.target.value)}
+                    onChange={(e) => updateWord(index, "word", e.target.value)}
                     className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm"
                     placeholder="manufacturing"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Перевод</label>
+                  <label className="block text-xs text-gray-500 mb-1">
+                    Перевод
+                  </label>
                   <input
                     type="text"
                     value={word.translation}
-                    onChange={(e) => updateWord(index, 'translation', e.target.value)}
+                    onChange={(e) =>
+                      updateWord(index, "translation", e.target.value)
+                    }
                     className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm"
                     placeholder="производство"
                   />
@@ -1611,11 +1989,15 @@ function VocabularyEditor({
               </div>
               {showTranscription && (
                 <div className="mt-2">
-                  <label className="block text-xs text-gray-500 mb-1">Транскрипция</label>
+                  <label className="block text-xs text-gray-500 mb-1">
+                    Транскрипция
+                  </label>
                   <input
                     type="text"
-                    value={word.transcription || ''}
-                    onChange={(e) => updateWord(index, 'transcription', e.target.value)}
+                    value={word.transcription || ""}
+                    onChange={(e) =>
+                      updateWord(index, "transcription", e.target.value)
+                    }
                     className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm"
                     placeholder="[ˌmænjʊˈfæktʃərɪŋ]"
                   />

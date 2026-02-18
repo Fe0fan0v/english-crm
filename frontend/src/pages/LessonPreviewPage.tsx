@@ -29,6 +29,7 @@ const BLOCK_TYPE_ICONS: Record<string, string> = {
   remember: "",
   teaching_guide: "",
   divider: "",
+  page_break: "",
 };
 
 interface NavItem {
@@ -53,6 +54,7 @@ export default function LessonPreviewPage() {
   const [activeBlockId, setActiveBlockId] = useState<number | null>(null);
   const blockRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
 
   const isStudent = user?.role === "student";
 
@@ -164,21 +166,58 @@ export default function LessonPreviewPage() {
     });
   };
 
-  // Build navigation items from blocks with titles
+  // Split blocks into pages at page_break boundaries
+  const pages: ExerciseBlock[][] = useMemo(() => {
+    if (!lesson) return [[]];
+    const hasPageBreaks = lesson.blocks.some(
+      (b) => b.block_type === "page_break",
+    );
+    if (!hasPageBreaks) return [lesson.blocks];
+
+    const result: ExerciseBlock[][] = [];
+    let current: ExerciseBlock[] = [];
+    for (const block of lesson.blocks) {
+      if (block.block_type === "page_break") {
+        result.push(current);
+        current = [];
+      } else {
+        current.push(block);
+      }
+    }
+    result.push(current);
+    return result.filter((page) => page.length > 0);
+  }, [lesson]);
+
+  const totalPages = pages.length;
+  const currentPageBlocks = pages[currentPage] || [];
+
+  const handlePageChange = useCallback(
+    (page: number) => {
+      if (page >= 0 && page < totalPages) {
+        setCurrentPage(page);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    },
+    [totalPages],
+  );
+
+  // Build navigation items from blocks with titles (current page only if paginated)
   const navItems: NavItem[] = useMemo(() => {
     if (!lesson) return [];
-    return lesson.blocks
-      .map((block, index) => ({
+    const blocksForNav = totalPages > 1 ? currentPageBlocks : lesson.blocks;
+    return blocksForNav
+      .map((block) => ({
         id: block.id,
         title: block.title || "",
         blockType: block.block_type,
-        index,
+        index: lesson.blocks.findIndex((b) => b.id === block.id),
       }))
       .filter(
         (item) =>
-          item.title && !["teaching_guide", "divider"].includes(item.blockType),
+          item.title &&
+          !["teaching_guide", "divider", "page_break"].includes(item.blockType),
       );
-  }, [lesson]);
+  }, [lesson, totalPages, currentPageBlocks]);
 
   const scrollToBlock = useCallback((blockId: number) => {
     const el = blockRefs.current[blockId];
@@ -262,38 +301,153 @@ export default function LessonPreviewPage() {
       <div className={`${showSidebar ? "flex gap-6" : ""}`}>
         {/* Main content */}
         <div className="flex-1 min-w-0">
+          {/* Page navigation - top */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mb-6 px-1">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 0}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-gray-600 hover:bg-gray-100"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 19l-7-7 7-7"
+                  />
+                </svg>
+                Назад
+              </button>
+              <div className="flex items-center gap-1.5">
+                {Array.from({ length: totalPages }, (_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => handlePageChange(i)}
+                    className={`w-7 h-7 rounded-full text-xs font-medium transition-colors ${
+                      i === currentPage
+                        ? "bg-purple-600 text-white"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages - 1}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-gray-600 hover:bg-gray-100"
+              >
+                Вперёд
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </button>
+            </div>
+          )}
+
           {/* Blocks */}
           <div className="space-y-6">
-            {lesson.blocks.length === 0 ? (
+            {currentPageBlocks.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
                 В этом уроке пока нет контента
               </div>
             ) : (
-              lesson.blocks.map((block, index) => (
-                <div
-                  key={block.id}
-                  ref={(el) => {
-                    blockRefs.current[block.id] = el;
-                  }}
-                  data-block-id={block.id}
-                  className="scroll-mt-4"
-                >
-                  <BlockRenderer
-                    block={block}
-                    blockNumber={getBlockNumber(lesson.blocks, index)}
-                    answer={answers[block.id]}
-                    onAnswerChange={(answer) =>
-                      handleAnswerChange(block.id, answer)
-                    }
-                    isChecked={checked[block.id] || false}
-                    onCheck={() => handleCheck(block.id)}
-                    onReset={() => handleReset(block.id)}
-                    serverDetails={serverDetails[block.id]}
-                  />
-                </div>
-              ))
+              currentPageBlocks.map((block) => {
+                const globalIndex = lesson.blocks.findIndex(
+                  (b) => b.id === block.id,
+                );
+                return (
+                  <div
+                    key={block.id}
+                    ref={(el) => {
+                      blockRefs.current[block.id] = el;
+                    }}
+                    data-block-id={block.id}
+                    className="scroll-mt-4"
+                  >
+                    <BlockRenderer
+                      block={block}
+                      blockNumber={getBlockNumber(lesson.blocks, globalIndex)}
+                      answer={answers[block.id]}
+                      onAnswerChange={(answer) =>
+                        handleAnswerChange(block.id, answer)
+                      }
+                      isChecked={checked[block.id] || false}
+                      onCheck={() => handleCheck(block.id)}
+                      onReset={() => handleReset(block.id)}
+                      serverDetails={serverDetails[block.id]}
+                    />
+                  </div>
+                );
+              })
             )}
           </div>
+
+          {/* Page navigation - bottom */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 0}
+                className="flex items-center gap-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-gray-600 hover:bg-gray-100"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 19l-7-7 7-7"
+                  />
+                </svg>
+                Назад
+              </button>
+              <span className="text-sm text-gray-500">
+                Страница {currentPage + 1} из {totalPages}
+              </span>
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages - 1}
+                className="flex items-center gap-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-purple-600 hover:bg-purple-50"
+              >
+                Вперёд
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </button>
+            </div>
+          )}
 
           {/* Progress */}
           {lesson.blocks.length > 0 && (
@@ -424,7 +578,12 @@ function getInteractiveBlocksCount(blocks: ExerciseBlock[]): number {
 }
 
 // Block types that should not be numbered (informational/instructional blocks)
-const NON_NUMBERED_TYPES = ["teaching_guide", "divider", "remember"];
+const NON_NUMBERED_TYPES = [
+  "teaching_guide",
+  "divider",
+  "remember",
+  "page_break",
+];
 
 function getBlockNumber(
   blocks: ExerciseBlock[],

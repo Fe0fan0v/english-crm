@@ -17,7 +17,8 @@ export type ExerciseBlockType =
   | "matching"
   | "image_choice"
   | "flashcards"
-  | "essay";
+  | "essay"
+  | "page_break";
 
 // Content type interfaces for each block type
 
@@ -167,6 +168,10 @@ export interface VocabularyBlockContent {
   show_transcription?: boolean;
 }
 
+export interface PageBreakBlockContent {
+  label?: string;
+}
+
 // Union type for all block content types
 export type BlockContent =
   | TextBlockContent
@@ -186,7 +191,8 @@ export type BlockContent =
   | MatchingBlockContent
   | ImageChoiceBlockContent
   | FlashcardsBlockContent
-  | EssayBlockContent;
+  | EssayBlockContent
+  | PageBreakBlockContent;
 
 // Exercise Block
 export interface ExerciseBlock {
@@ -350,6 +356,7 @@ export const BLOCK_TYPE_LABELS: Record<ExerciseBlockType, string> = {
   image_choice: "Выбор изображения",
   flashcards: "Карточки",
   essay: "Эссе",
+  page_break: "Разрыв страницы",
 };
 
 export const CONTENT_BLOCK_TYPES: ExerciseBlockType[] = [
@@ -363,6 +370,7 @@ export const CONTENT_BLOCK_TYPES: ExerciseBlockType[] = [
   "remember",
   "table",
   "vocabulary",
+  "page_break",
 ];
 export const INTERACTIVE_BLOCK_TYPES: ExerciseBlockType[] = [
   "fill_gaps",
