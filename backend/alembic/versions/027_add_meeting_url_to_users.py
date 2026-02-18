@@ -1,7 +1,7 @@
 """add_meeting_url_to_users
 
-Revision ID: 025
-Revises: 024
+Revision ID: 027_add_meeting_url_to_users
+Revises: 026_add_exercise_results
 Create Date: 2026-02-18 12:00:00.000000
 
 """
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = "025"
-down_revision: Union[str, None] = "024"
+revision: str = "027_add_meeting_url_to_users"
+down_revision: Union[str, None] = "026_add_exercise_results"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
