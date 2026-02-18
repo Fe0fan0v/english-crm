@@ -17,7 +17,7 @@ backend/
 │   ├── schemas/       # Pydantic схемы
 │   ├── utils/         # Утилиты (grading.py — серверная проверка ответов)
 │   └── database.py    # Подключение к БД
-├── alembic/versions/  # Миграции (000-024)
+├── alembic/versions/  # Миграции (000-028)
 └── requirements.txt
 
 frontend/
@@ -56,6 +56,7 @@ backup/                 # Автобэкапы PostgreSQL в S3
 - Статусы: `pending`, `present`, `absent_excused`, `absent_unexcused`
 - Кнопки: "Не отмечен", "Был", "Отмена", "Неявка"
 - `present` или `absent_unexcused` → списание с баланса; `absent_excused` → без списания
+- Оба endpoint-а (teacher и manager) выполняют полную логику: списание баланса, начисление зарплаты, уведомление о низком балансе, статус COMPLETED
 
 ### Уроки и расписание
 - Проверка конфликтов: `check_teacher_conflict()`, `check_students_conflict()` в `lessons.py`
@@ -87,12 +88,12 @@ backup/                 # Автобэкапы PostgreSQL в S3
 ### Конструктор курсов
 **Курс → Секции → Топики → Уроки → Блоки упражнений**
 
-**Типы блоков (18 шт.):**
-| Контентные (10) | Интерактивные (8) |
+**Типы блоков (19 шт.):**
+| Контентные (11) | Интерактивные (8) |
 |-----------------|-------------------|
 | text, video, audio, image, article | fill_gaps, test, true_false |
 | divider, teaching_guide, remember, table | word_order, matching, image_choice |
-| vocabulary | flashcards, essay |
+| vocabulary, page_break | flashcards, essay |
 
 **Ключевые модели:** Course, CourseSection, CourseTopic, InteractiveLesson, ExerciseBlock, LessonCourseMaterial
 
@@ -105,7 +106,10 @@ backup/                 # Автобэкапы PostgreSQL в S3
 **Подсказки ответов:** tooltip при наведении для admin/manager/teacher. Студенты НЕ видят:
 - Правильные ответы в fill_gaps, правильные варианты в test/image_choice
 - Правильный ответ true_false, правильное предложение word_order, пары matching
-- Реализовано через `canSeeAnswers` проверку в `BlockRenderer.tsx`
+- **Серверная защита**: `strip_answers_from_content()` в `courses.py` удаляет ответы из JSON для студентов
+- **Серверная проверка**: `grade_answer_detailed()` в `grading.py` возвращает результаты по каждому элементу
+- Frontend использует `serverDetails` от сервера вместо локальной проверки для студентов
+- Блоки `teaching_guide` скрыты от студентов на уровне API
 
 **Результаты упражнений:**
 - API: `POST /api/exercise-results/lessons/{id}/submit` → серверная проверка через `grade_answer()`
@@ -115,6 +119,12 @@ backup/                 # Автобэкапы PostgreSQL в S3
 **Fill_gaps без gaps:** если массив `gaps` пустой — отображается textarea для свободного ответа
 
 **Навигация по уроку:** sidebar "Содержание" (если >= 3 блока с title), IntersectionObserver для активного блока
+
+**Разбивка на страницы (page_break):** блок `page_break` разделяет урок на страницы
+- В редакторе: оранжевая пунктирная линия с необязательной меткой
+- В превью: блоки разделены на страницы, навигация кнопками «Назад»/«Вперёд» + номера страниц
+- Нумерация блоков сквозная (глобальная по всему уроку), ответы сохраняются между страницами
+- Без page_break — урок отображается как раньше (полная обратная совместимость)
 
 **Прикрепление материалов:** `AttachCourseMaterialModal` с поиском, auto-expand дерева, подсветка совпадений, confirmation при прикреплении целого курса/секции
 
@@ -159,7 +169,7 @@ backup/                 # Автобэкапы PostgreSQL в S3
 - Frontend: загрузка студентов через `usersApi.list(1, 10000, undefined, "student")`
 
 ## Миграции (Alembic)
-Текущая версия: **024**. Применяются автоматически при деплое.
+Текущая версия: **028**. Применяются автоматически при деплое.
 
 ## Полезные команды
 ```bash
