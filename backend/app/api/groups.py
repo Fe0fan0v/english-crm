@@ -1,8 +1,11 @@
+from datetime import datetime
+
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import func, or_, select
 
 from app.api.deps import DBSession, ManagerUser, TeacherUser
 from app.models.group import Group, GroupStudent
+from app.models.lesson import AttendanceStatus, Lesson, LessonStatus, LessonStudent
 from app.models.teacher_student import TeacherStudent
 from app.models.user import User, UserRole
 from app.schemas.group import (
@@ -17,6 +20,58 @@ from app.schemas.group import (
 )
 
 router = APIRouter()
+
+
+async def sync_group_students_to_future_lessons(
+    db,
+    group_id: int,
+    added_student_ids: list[int],
+    removed_student_ids: list[int],
+    teacher_id: int | None,
+) -> None:
+    """Sync group student changes to all future scheduled lessons of the group."""
+    # Find all future scheduled lessons for this group
+    future_lessons_result = await db.execute(
+        select(Lesson).where(
+            Lesson.group_id == group_id,
+            Lesson.status == LessonStatus.SCHEDULED,
+            Lesson.scheduled_at > datetime.now(),
+        )
+    )
+    future_lessons = future_lessons_result.scalars().all()
+
+    if not future_lessons:
+        return
+
+    for lesson in future_lessons:
+        # Add new students to future lessons
+        for student_id in added_student_ids:
+            # Check if already in this lesson
+            existing = await db.execute(
+                select(LessonStudent).where(
+                    LessonStudent.lesson_id == lesson.id,
+                    LessonStudent.student_id == student_id,
+                )
+            )
+            if not existing.scalar_one_or_none():
+                db.add(LessonStudent(lesson_id=lesson.id, student_id=student_id))
+
+            # Ensure teacher-student assignment
+            if teacher_id:
+                await ensure_teacher_student_assignment(db, teacher_id, student_id)
+
+        # Remove students from future lessons (only if attendance not yet marked)
+        for student_id in removed_student_ids:
+            existing = await db.execute(
+                select(LessonStudent).where(
+                    LessonStudent.lesson_id == lesson.id,
+                    LessonStudent.student_id == student_id,
+                    LessonStudent.attendance_status == AttendanceStatus.PENDING,
+                )
+            )
+            lesson_student = existing.scalar_one_or_none()
+            if lesson_student:
+                await db.delete(lesson_student)
 
 
 async def ensure_teacher_student_assignment(
@@ -361,8 +416,10 @@ async def add_students_to_group(
     existing_student_ids = {row[0] for row in existing_result.all()}
 
     # Add new students and create teacher-student assignments
+    new_student_ids = []
     for student_id in data.student_ids:
         if student_id not in existing_student_ids:
+            new_student_ids.append(student_id)
             group_student = GroupStudent(
                 group_id=group_id,
                 student_id=student_id,
@@ -373,6 +430,13 @@ async def add_students_to_group(
                 await ensure_teacher_student_assignment(db, group.teacher_id, student_id)
 
     await db.flush()
+
+    # Sync new students to future scheduled lessons
+    if new_student_ids:
+        await sync_group_students_to_future_lessons(
+            db, group_id, added_student_ids=new_student_ids, removed_student_ids=[], teacher_id=group.teacher_id
+        )
+        await db.flush()
 
     # Return updated group details
     return await get_group(group_id, db, current_user)
@@ -404,10 +468,18 @@ async def remove_students_from_group(
     )
     group_students = group_students_result.scalars().all()
 
+    removed_ids = [gs.student_id for gs in group_students]
     for gs in group_students:
         await db.delete(gs)
 
     await db.flush()
+
+    # Remove students from future scheduled lessons (only if attendance is pending)
+    if removed_ids:
+        await sync_group_students_to_future_lessons(
+            db, group_id, added_student_ids=[], removed_student_ids=removed_ids, teacher_id=group.teacher_id
+        )
+        await db.flush()
 
     # Return updated group details
     return await get_group(group_id, db, current_user)
