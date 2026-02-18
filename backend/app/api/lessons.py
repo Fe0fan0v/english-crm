@@ -481,6 +481,7 @@ async def get_schedule(
     date_to: datetime,
     teacher_id: int | None = None,
     group_id: int | None = None,
+    student_id: int | None = None,
     db: AsyncSession = Depends(get_db),
     _: ManagerUser = None,
 ):
@@ -504,6 +505,9 @@ async def get_schedule(
         conditions.append(Lesson.teacher_id == teacher_id)
     if group_id:
         conditions.append(Lesson.group_id == group_id)
+    if student_id:
+        query = query.join(LessonStudent, Lesson.id == LessonStudent.lesson_id)
+        conditions.append(LessonStudent.student_id == student_id)
 
     query = query.where(and_(*conditions)).order_by(Lesson.scheduled_at)
 

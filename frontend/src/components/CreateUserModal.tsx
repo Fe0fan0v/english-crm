@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { levelsApi, usersApi } from "../services/api";
 import type { UserRole, Level, User } from "../types";
+import SearchableSelect, { type SearchableSelectOption } from "./SearchableSelect";
 
 interface CreateUserModalProps {
   isOpen: boolean;
@@ -61,6 +62,11 @@ export default function CreateUserModal({
       usersApi.list(1, 100, undefined, "teacher").then((data) => setTeachers(data.items)).catch(console.error);
     }
   }, [isOpen]);
+
+  const teacherOptions: SearchableSelectOption[] = useMemo(
+    () => teachers.map((t) => ({ value: t.id, label: t.name })),
+    [teachers]
+  );
 
   const validate = (): boolean => {
     const newErrors: Partial<Record<keyof CreateUserData, string>> = {};
@@ -280,23 +286,17 @@ export default function CreateUserModal({
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Преподаватель
               </label>
-              <select
-                value={formData.teacher_id || ""}
-                onChange={(e) =>
+              <SearchableSelect
+                options={teacherOptions}
+                value={formData.teacher_id ?? null}
+                onChange={(val) =>
                   setFormData((prev) => ({
                     ...prev,
-                    teacher_id: e.target.value ? parseInt(e.target.value) : null,
+                    teacher_id: val as number | null,
                   }))
                 }
-                className="input w-full"
-              >
-                <option value="">Не назначен</option>
-                {teachers.map((teacher) => (
-                  <option key={teacher.id} value={teacher.id}>
-                    {teacher.name}
-                  </option>
-                ))}
-              </select>
+                placeholder="Поиск преподавателя..."
+              />
             </div>
           )}
 

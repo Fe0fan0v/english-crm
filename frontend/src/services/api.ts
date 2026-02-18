@@ -462,13 +462,15 @@ export const lessonsApi = {
   getSchedule: async (
     dateFrom: string,
     dateTo: string,
-    teacherId?: number
+    teacherId?: number,
+    studentId?: number
   ): Promise<ScheduleLesson[]> => {
     const params = new URLSearchParams({
       date_from: dateFrom,
       date_to: dateTo,
     });
     if (teacherId) params.append("teacher_id", String(teacherId));
+    if (studentId) params.append("student_id", String(studentId));
     const response = await api.get<ScheduleLesson[]>(`/lessons/schedule?${params}`);
     return response.data;
   },

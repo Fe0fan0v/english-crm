@@ -162,7 +162,13 @@ export default function UsersPage() {
               key={user.id}
               user={user}
               onProfile={() => navigate(`/users/${user.id}`)}
-              onSchedule={user.role === "teacher" ? () => navigate(`/teachers/${user.id}`) : undefined}
+              onSchedule={
+                user.role === "teacher"
+                  ? () => navigate(`/teachers/${user.id}`)
+                  : user.role === "student"
+                    ? () => navigate(`/students/${user.id}`)
+                    : undefined
+              }
               onDelete={() => handleDeleteUser(user.id, user.name)}
               levelName={getLevelName(user.level_id)}
             />
@@ -273,8 +279,8 @@ function UserCard({ user, onProfile, onSchedule, onDelete, levelName }: UserCard
       </div>
 
       <div className="flex items-center gap-2">
-        {/* Schedule button for teachers */}
-        {user.role === "teacher" && onSchedule && (
+        {/* Schedule button for teachers and students */}
+        {(user.role === "teacher" || user.role === "student") && onSchedule && (
           <button onClick={onSchedule} className="btn btn-secondary">
             <svg
               className="w-4 h-4"

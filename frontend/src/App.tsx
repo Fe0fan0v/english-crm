@@ -31,6 +31,7 @@ import LessonEditorPage from "./pages/LessonEditorPage";
 import LessonPreviewPage from "./pages/LessonPreviewPage";
 import LessonResultsPage from "./pages/LessonResultsPage";
 import StudentCourseMaterialPage from "./pages/StudentCourseMaterialPage";
+import StudentSchedulePage from "./pages/StudentSchedulePage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { token, user, fetchUser, logout } = useAuthStore();
@@ -246,6 +247,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <TeacherDashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/students/:id"
+        element={
+          <ProtectedRoute>
+            <StudentSchedulePage />
           </ProtectedRoute>
         }
       />

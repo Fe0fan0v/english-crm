@@ -12,6 +12,7 @@ interface LessonCreateModalProps {
   teachers?: User[]; // List of teachers (for admin/manager)
   prefillDate?: string; // Pre-fill date (YYYY-MM-DD)
   prefillTime?: string; // Pre-fill time (HH:mm)
+  prefillStudentIds?: number[]; // Pre-selected students
 }
 
 export interface LessonFormData {
@@ -88,6 +89,7 @@ export default function LessonCreateModal({
   teachers,
   prefillDate,
   prefillTime,
+  prefillStudentIds,
 }: LessonCreateModalProps) {
   const { user } = useAuthStore();
   const [selectedTeacherId, setSelectedTeacherId] = useState<number | undefined>(teacherId);
@@ -96,7 +98,7 @@ export default function LessonCreateModal({
   const [scheduledTime, setScheduledTime] = useState(prefillTime || "10:00");
   const [durationMinutes, setDurationMinutes] = useState(60);
   const [groupId, setGroupId] = useState<number | null>(null);
-  const [selectedStudentIds, setSelectedStudentIds] = useState<number[]>([]);
+  const [selectedStudentIds, setSelectedStudentIds] = useState<number[]>(prefillStudentIds || []);
 
   // Recurring lessons state
   const [isRecurring, setIsRecurring] = useState(false);
