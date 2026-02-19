@@ -166,26 +166,49 @@ export default function LessonPreviewPage() {
     });
   };
 
-  // Split blocks into pages at page_break boundaries
-  const pages: ExerciseBlock[][] = useMemo(() => {
-    if (!lesson) return [[]];
+  // Split blocks into pages at page_break boundaries or auto-paginate by titles
+  const { pages, isAutoPaginated } = useMemo(() => {
+    if (!lesson) return { pages: [[]] as ExerciseBlock[][], isAutoPaginated: false };
     const hasPageBreaks = lesson.blocks.some(
       (b) => b.block_type === "page_break",
     );
-    if (!hasPageBreaks) return [lesson.blocks];
 
-    const result: ExerciseBlock[][] = [];
-    let current: ExerciseBlock[] = [];
-    for (const block of lesson.blocks) {
-      if (block.block_type === "page_break") {
-        result.push(current);
-        current = [];
-      } else {
-        current.push(block);
+    if (hasPageBreaks) {
+      const result: ExerciseBlock[][] = [];
+      let current: ExerciseBlock[] = [];
+      for (const block of lesson.blocks) {
+        if (block.block_type === "page_break") {
+          result.push(current);
+          current = [];
+        } else {
+          current.push(block);
+        }
       }
+      result.push(current);
+      return { pages: result.filter((page) => page.length > 0), isAutoPaginated: false };
     }
-    result.push(current);
-    return result.filter((page) => page.length > 0);
+
+    // Auto-paginate: if >= 3 blocks have titles, split by titled blocks
+    const excludedTypes = ["teaching_guide", "divider", "page_break"];
+    const titledBlockIndices = lesson.blocks
+      .map((b, i) => (b.title && !excludedTypes.includes(b.block_type) ? i : -1))
+      .filter((i) => i !== -1);
+
+    if (titledBlockIndices.length >= 3) {
+      const result: ExerciseBlock[][] = [];
+      for (let i = 0; i < titledBlockIndices.length; i++) {
+        const start = titledBlockIndices[i];
+        const end = i + 1 < titledBlockIndices.length ? titledBlockIndices[i + 1] : lesson.blocks.length;
+        result.push(lesson.blocks.slice(start, end));
+      }
+      // Blocks before first titled block go to first page
+      if (titledBlockIndices[0] > 0) {
+        result[0] = [...lesson.blocks.slice(0, titledBlockIndices[0]), ...result[0]];
+      }
+      return { pages: result.filter((page) => page.length > 0), isAutoPaginated: true };
+    }
+
+    return { pages: [lesson.blocks], isAutoPaginated: false };
   }, [lesson]);
 
   const totalPages = pages.length;
@@ -201,9 +224,23 @@ export default function LessonPreviewPage() {
     [totalPages],
   );
 
-  // Build navigation items from blocks with titles (current page only if paginated)
+  // Build navigation items from blocks with titles
   const navItems: NavItem[] = useMemo(() => {
     if (!lesson) return [];
+    const excludedTypes = ["teaching_guide", "divider", "page_break"];
+
+    if (isAutoPaginated) {
+      // Show all titled blocks across all pages; clicking switches page
+      return lesson.blocks
+        .map((block, idx) => ({
+          id: block.id,
+          title: block.title || "",
+          blockType: block.block_type,
+          index: idx,
+        }))
+        .filter((item) => item.title && !excludedTypes.includes(item.blockType));
+    }
+
     const blocksForNav = totalPages > 1 ? currentPageBlocks : lesson.blocks;
     return blocksForNav
       .map((block) => ({
@@ -212,20 +249,43 @@ export default function LessonPreviewPage() {
         blockType: block.block_type,
         index: lesson.blocks.findIndex((b) => b.id === block.id),
       }))
-      .filter(
-        (item) =>
-          item.title &&
-          !["teaching_guide", "divider", "page_break"].includes(item.blockType),
-      );
-  }, [lesson, totalPages, currentPageBlocks]);
+      .filter((item) => item.title && !excludedTypes.includes(item.blockType));
+  }, [lesson, totalPages, currentPageBlocks, isAutoPaginated]);
 
-  const scrollToBlock = useCallback((blockId: number) => {
-    const el = blockRefs.current[blockId];
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
+  // Find which page a block belongs to
+  const findPageForBlock = useCallback(
+    (blockId: number): number => {
+      for (let p = 0; p < pages.length; p++) {
+        if (pages[p].some((b) => b.id === blockId)) return p;
+      }
+      return 0;
+    },
+    [pages],
+  );
+
+  const scrollToBlock = useCallback(
+    (blockId: number) => {
+      if (isAutoPaginated) {
+        const targetPage = findPageForBlock(blockId);
+        if (targetPage !== currentPage) {
+          setCurrentPage(targetPage);
+          // Scroll after page renders
+          setTimeout(() => {
+            const el = blockRefs.current[blockId];
+            if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+          }, 50);
+        } else {
+          const el = blockRefs.current[blockId];
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      } else {
+        const el = blockRefs.current[blockId];
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
       setSidebarOpen(false);
-    }
-  }, []);
+    },
+    [isAutoPaginated, currentPage, findPageForBlock],
+  );
 
   if (loading) {
     return (
@@ -486,27 +546,32 @@ export default function LessonPreviewPage() {
         {showSidebar && (
           <>
             {/* Desktop sidebar */}
-            <nav className="hidden lg:block w-56 flex-shrink-0">
+            <nav className="hidden lg:block w-56 flex-shrink-0 self-start">
               <div className="sticky top-4">
                 <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
                   Содержание
                 </h3>
                 <div className="space-y-0.5 max-h-[calc(100vh-120px)] overflow-y-auto">
-                  {navItems.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => scrollToBlock(item.id)}
-                      className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors truncate ${
-                        activeBlockId === item.id
-                          ? "bg-purple-100 text-purple-700 font-medium"
-                          : "text-gray-600 hover:bg-gray-100 hover:text-gray-800"
-                      }`}
-                      title={item.title}
-                    >
-                      {BLOCK_TYPE_ICONS[item.blockType]}
-                      {item.title}
-                    </button>
-                  ))}
+                  {navItems.map((item) => {
+                    const isActive = isAutoPaginated
+                      ? findPageForBlock(item.id) === currentPage
+                      : activeBlockId === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => scrollToBlock(item.id)}
+                        className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors truncate ${
+                          isActive
+                            ? "bg-purple-100 text-purple-700 font-medium"
+                            : "text-gray-600 hover:bg-gray-100 hover:text-gray-800"
+                        }`}
+                        title={item.title}
+                      >
+                        {BLOCK_TYPE_ICONS[item.blockType]}
+                        {item.title}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </nav>
@@ -541,19 +606,24 @@ export default function LessonPreviewPage() {
                     </button>
                   </div>
                   <div className="space-y-1">
-                    {navItems.map((item) => (
+                    {navItems.map((item) => {
+                      const isActive = isAutoPaginated
+                        ? findPageForBlock(item.id) === currentPage
+                        : activeBlockId === item.id;
+                      return (
                       <button
                         key={item.id}
                         onClick={() => scrollToBlock(item.id)}
                         className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                          activeBlockId === item.id
+                          isActive
                             ? "bg-purple-100 text-purple-700 font-medium"
                             : "text-gray-600 hover:bg-gray-100"
                         }`}
                       >
                         {item.title}
                       </button>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>

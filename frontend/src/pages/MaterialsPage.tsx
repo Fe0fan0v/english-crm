@@ -1,26 +1,51 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { materialsApi } from "../services/api";
-import type { Material, MaterialListResponse } from "../types";
+import { useAuthStore } from "../store/authStore";
+import type { Material, MaterialFolder } from "../types";
 
 interface MaterialFormData {
   title: string;
   file_url: string;
+  folder_id?: number | null;
 }
 
 export default function MaterialsPage() {
-  const [data, setData] = useState<MaterialListResponse | null>(null);
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === "admin";
+
+  const [materials, setMaterials] = useState<Material[]>([]);
+  const [folders, setFolders] = useState<MaterialFolder[]>([]);
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
-  const [activeFolder, setActiveFolder] = useState<string | null>(null);
+  const [activeFolderId, setActiveFolderId] = useState<number | null>(null);
+
+  // Folder management state
+  const [showCreateFolder, setShowCreateFolder] = useState(false);
+  const [newFolderTitle, setNewFolderTitle] = useState("");
+  const [renamingFolderId, setRenamingFolderId] = useState<number | null>(null);
+  const [renameFolderTitle, setRenameFolderTitle] = useState("");
+  const [deleteFolderConfirm, setDeleteFolderConfirm] = useState<number | null>(null);
+
+  const fetchFolders = async () => {
+    try {
+      const data = await materialsApi.listFolders();
+      setFolders(data);
+    } catch (error) {
+      console.error("Failed to fetch folders:", error);
+    }
+  };
 
   const fetchMaterials = async () => {
     setIsLoading(true);
     try {
-      const response = await materialsApi.list(search || undefined);
-      setData(response);
+      const response = await materialsApi.list(
+        search || undefined,
+        activeFolderId ?? undefined
+      );
+      setMaterials(response.items);
     } catch (error) {
       console.error("Failed to fetch materials:", error);
     } finally {
@@ -29,11 +54,19 @@ export default function MaterialsPage() {
   };
 
   useEffect(() => {
+    fetchFolders();
+  }, []);
+
+  useEffect(() => {
     fetchMaterials();
-  }, [search]);
+  }, [search, activeFolderId]);
 
   const handleCreate = async (formData: MaterialFormData) => {
-    await materialsApi.create(formData);
+    await materialsApi.create({
+      title: formData.title,
+      file_url: formData.file_url,
+      folder_id: activeFolderId,
+    });
     await fetchMaterials();
   };
 
@@ -64,69 +97,220 @@ export default function MaterialsPage() {
     setEditingMaterial(null);
   };
 
-  const handleFolderClick = (folderName: string) => {
-    if (folderName === "База PDF") {
-      setActiveFolder("pdf_base");
-    } else {
-      alert(`Папка "${folderName}" в разработке`);
+  // Folder actions
+  const handleCreateFolder = async () => {
+    if (!newFolderTitle.trim()) return;
+    try {
+      await materialsApi.createFolder({
+        title: newFolderTitle.trim(),
+        position: folders.length,
+      });
+      setNewFolderTitle("");
+      setShowCreateFolder(false);
+      await fetchFolders();
+    } catch (error) {
+      console.error("Failed to create folder:", error);
     }
   };
 
-  // Filter materials based on active folder
-  const displayedMaterials = useMemo(() => {
-    if (!data?.items) return [];
-
-    if (activeFolder === "pdf_base") {
-      return data.items.filter((m) =>
-        m.file_url.toLowerCase().endsWith(".pdf")
-      );
+  const handleRenameFolder = async (id: number) => {
+    if (!renameFolderTitle.trim()) return;
+    try {
+      await materialsApi.updateFolder(id, { title: renameFolderTitle.trim() });
+      setRenamingFolderId(null);
+      setRenameFolderTitle("");
+      await fetchFolders();
+    } catch (error) {
+      console.error("Failed to rename folder:", error);
     }
+  };
 
-    return data.items;
-  }, [data, activeFolder]);
+  const handleDeleteFolder = async (id: number) => {
+    try {
+      await materialsApi.deleteFolder(id);
+      setDeleteFolderConfirm(null);
+      if (activeFolderId === id) setActiveFolderId(null);
+      await fetchFolders();
+      await fetchMaterials();
+    } catch (error) {
+      console.error("Failed to delete folder:", error);
+    }
+  };
 
-  const folders = [
-    { name: "База PDF", icon: "📄", color: "bg-red-100 text-red-600" },
-    { name: "Каталог курсов", icon: "📚", color: "bg-blue-100 text-blue-600" },
-    { name: "Доска", icon: "📋", color: "bg-green-100 text-green-600" },
-    { name: "Методист", icon: "👨‍🏫", color: "bg-purple-100 text-purple-600" },
-  ];
+  const activeFolderTitle = activeFolderId
+    ? folders.find((f) => f.id === activeFolderId)?.title
+    : null;
 
   return (
     <div>
-      <h1 className="page-title">Методические материалы</h1>
+      <h1 className="page-title">Материалы</h1>
 
       {/* Folders */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {folders.map((folder, index) => (
-          <button
-            key={index}
-            onClick={() => handleFolderClick(folder.name)}
-            className="card hover:shadow-lg transition-all duration-200 cursor-pointer group"
-          >
-            <div className="flex flex-col items-center py-6">
-              <div className={`w-16 h-16 rounded-2xl ${folder.color} flex items-center justify-center text-3xl mb-3 group-hover:scale-110 transition-transform`}>
-                {folder.icon}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
+        {folders.map((folder) => (
+          <div key={folder.id} className="relative group">
+            {renamingFolderId === folder.id ? (
+              <div className="card p-4">
+                <input
+                  type="text"
+                  value={renameFolderTitle}
+                  onChange={(e) => setRenameFolderTitle(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleRenameFolder(folder.id);
+                    if (e.key === "Escape") setRenamingFolderId(null);
+                  }}
+                  className="input w-full mb-2"
+                  autoFocus
+                />
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => handleRenameFolder(folder.id)}
+                    className="btn btn-primary btn-sm flex-1"
+                  >
+                    OK
+                  </button>
+                  <button
+                    onClick={() => setRenamingFolderId(null)}
+                    className="btn btn-secondary btn-sm flex-1"
+                  >
+                    Отмена
+                  </button>
+                </div>
               </div>
-              <h3 className="font-semibold text-gray-800 text-center">
-                {folder.name}
-              </h3>
-            </div>
-          </button>
+            ) : deleteFolderConfirm === folder.id ? (
+              <div className="card p-4 text-center">
+                <p className="text-sm text-gray-600 mb-2">Удалить папку?</p>
+                <p className="text-xs text-gray-400 mb-3">Материалы останутся без папки</p>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => handleDeleteFolder(folder.id)}
+                    className="px-3 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 flex-1"
+                  >
+                    Да
+                  </button>
+                  <button
+                    onClick={() => setDeleteFolderConfirm(null)}
+                    className="px-3 py-1 text-xs bg-gray-300 text-gray-700 rounded hover:bg-gray-400 flex-1"
+                  >
+                    Нет
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setActiveFolderId(folder.id)}
+                className={`card hover:shadow-lg transition-all duration-200 cursor-pointer group w-full ${
+                  activeFolderId === folder.id ? "ring-2 ring-cyan-400" : ""
+                }`}
+              >
+                <div className="flex flex-col items-center py-6">
+                  <div className="w-16 h-16 rounded-2xl bg-cyan-100 text-cyan-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                    </svg>
+                  </div>
+                  <h3 className="font-semibold text-gray-800 text-center text-sm">
+                    {folder.title}
+                  </h3>
+                </div>
+              </button>
+            )}
+
+            {/* Folder actions (admin only) */}
+            {isAdmin && renamingFolderId !== folder.id && deleteFolderConfirm !== folder.id && (
+              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setRenamingFolderId(folder.id);
+                    setRenameFolderTitle(folder.title);
+                  }}
+                  className="p-1 bg-white rounded shadow hover:bg-gray-100"
+                  title="Переименовать"
+                >
+                  <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeleteFolderConfirm(folder.id);
+                  }}
+                  className="p-1 bg-white rounded shadow hover:bg-gray-100"
+                  title="Удалить"
+                >
+                  <svg className="w-3.5 h-3.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+            )}
+          </div>
         ))}
+
+        {/* Create folder button (admin only) */}
+        {isAdmin && (
+          showCreateFolder ? (
+            <div className="card p-4">
+              <input
+                type="text"
+                value={newFolderTitle}
+                onChange={(e) => setNewFolderTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleCreateFolder();
+                  if (e.key === "Escape") setShowCreateFolder(false);
+                }}
+                placeholder="Название папки"
+                className="input w-full mb-2"
+                autoFocus
+              />
+              <div className="flex gap-1">
+                <button
+                  onClick={handleCreateFolder}
+                  className="btn btn-primary btn-sm flex-1"
+                >
+                  Создать
+                </button>
+                <button
+                  onClick={() => { setShowCreateFolder(false); setNewFolderTitle(""); }}
+                  className="btn btn-secondary btn-sm flex-1"
+                >
+                  Отмена
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowCreateFolder(true)}
+              className="card hover:shadow-lg transition-all duration-200 cursor-pointer border-2 border-dashed border-gray-300 hover:border-cyan-400"
+            >
+              <div className="flex flex-col items-center py-6">
+                <div className="w-16 h-16 rounded-2xl bg-gray-100 text-gray-400 flex items-center justify-center mb-3">
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </div>
+                <h3 className="font-semibold text-gray-400 text-center text-sm">
+                  Создать папку
+                </h3>
+              </div>
+            </button>
+          )
+        )}
       </div>
 
       <div className="border-t border-gray-200 pt-8">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-800">
-            {activeFolder === "pdf_base" ? "База PDF" : "Все материалы"}
+            {activeFolderTitle || "Все материалы"}
           </h2>
-          {activeFolder && (
+          {activeFolderId && (
             <button
-              onClick={() => setActiveFolder(null)}
+              onClick={() => setActiveFolderId(null)}
               className="btn btn-secondary btn-sm"
             >
-              ← Показать все материалы
+              Все материалы
             </button>
           )}
         </div>
@@ -157,28 +341,30 @@ export default function MaterialsPage() {
           </div>
         </div>
 
-        {/* Create button */}
-        <div className="card mb-6 flex justify-center">
-          <button
-            onClick={openCreateModal}
-            className="flex items-center gap-2 text-cyan-500 font-medium hover:text-cyan-600 transition-colors py-2"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+        {/* Create button (admin only) */}
+        {isAdmin && (
+          <div className="card mb-6 flex justify-center">
+            <button
+              onClick={openCreateModal}
+              className="flex items-center gap-2 text-cyan-500 font-medium hover:text-cyan-600 transition-colors py-2"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
-            Добавить материал PDF
-          </button>
-        </div>
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
+              Добавить материал PDF
+            </button>
+          </div>
+        )}
 
         {/* Table */}
         {isLoading ? (
@@ -194,13 +380,15 @@ export default function MaterialsPage() {
                 <th className="text-center py-4 px-6 font-medium text-gray-600">
                   Открыть
                 </th>
-                <th className="text-center py-4 px-6 font-medium text-gray-600">
-                  Действия
-                </th>
+                {isAdmin && (
+                  <th className="text-center py-4 px-6 font-medium text-gray-600">
+                    Действия
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
-              {displayedMaterials.map((material) => (
+              {materials.map((material) => (
                 <tr
                   key={material.id}
                   className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors"
@@ -231,47 +419,13 @@ export default function MaterialsPage() {
                       Открыть
                     </a>
                   </td>
-                  <td className="py-4 px-6">
-                    <div className="flex justify-center gap-2">
-                      <button
-                        onClick={() => openEditModal(material)}
-                        className="p-2 text-gray-400 hover:text-cyan-500 transition-colors"
-                        title="Редактировать"
-                      >
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                          />
-                        </svg>
-                      </button>
-                      {deleteConfirm === material.id ? (
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => handleDelete(material.id)}
-                            className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
-                          >
-                            Да
-                          </button>
-                          <button
-                            onClick={() => setDeleteConfirm(null)}
-                            className="px-2 py-1 text-xs bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
-                          >
-                            Нет
-                          </button>
-                        </div>
-                      ) : (
+                  {isAdmin && (
+                    <td className="py-4 px-6">
+                      <div className="flex justify-center gap-2">
                         <button
-                          onClick={() => setDeleteConfirm(material.id)}
-                          className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                          title="Удалить"
+                          onClick={() => openEditModal(material)}
+                          className="p-2 text-gray-400 hover:text-cyan-500 transition-colors"
+                          title="Редактировать"
                         >
                           <svg
                             className="w-5 h-5"
@@ -283,18 +437,54 @@ export default function MaterialsPage() {
                               strokeLinecap="round"
                               strokeLinejoin="round"
                               strokeWidth={2}
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
                             />
                           </svg>
                         </button>
-                      )}
-                    </div>
-                  </td>
+                        {deleteConfirm === material.id ? (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleDelete(material.id)}
+                              className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
+                            >
+                              Да
+                            </button>
+                            <button
+                              onClick={() => setDeleteConfirm(null)}
+                              className="px-2 py-1 text-xs bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                            >
+                              Нет
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setDeleteConfirm(material.id)}
+                            className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                            title="Удалить"
+                          >
+                            <svg
+                              className="w-5 h-5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                              />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
-              {data?.items.length === 0 && (
+              {materials.length === 0 && (
                 <tr>
-                  <td colSpan={3} className="py-12 text-center text-gray-500">
+                  <td colSpan={isAdmin ? 3 : 2} className="py-12 text-center text-gray-500">
                     Материалы не найдены
                   </td>
                 </tr>

@@ -224,15 +224,7 @@ export default function AttachCourseMaterialModal({ isOpen, onClose, lessonId, o
     }
   };
 
-  const handleAttach = async (type: CourseMaterialType, id: number, title?: string) => {
-    // Warn when attaching course or section (not a specific lesson)
-    if (type === 'course' || type === 'section') {
-      const typeLabel = type === 'course' ? 'весь курс' : 'всю секцию';
-      if (!confirm(`Прикрепить ${typeLabel} "${title}"?\nУченик получит доступ ко всем урокам внутри.\n\nЕсли нужен один урок — раскройте дерево и выберите конкретный урок.`)) {
-        return;
-      }
-    }
-
+  const handleAttach = async (type: CourseMaterialType, id: number) => {
     try {
       setAttaching(true);
       setError(null);
@@ -393,14 +385,6 @@ export default function AttachCourseMaterialModal({ isOpen, onClose, lessonId, o
                       <ChevronIcon expanded={expandedCourses.has(course.id)} />
                       <span className="font-medium truncate">{highlightMatch(course.title, searchQuery)}</span>
                     </button>
-                    <button
-                      onClick={() => handleAttach('course', course.id, course.title)}
-                      disabled={attaching}
-                      className="ml-2 text-xs px-2 py-1 text-gray-500 border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 flex-shrink-0"
-                      title="Прикрепить весь курс"
-                    >
-                      Весь курс
-                    </button>
                   </div>
 
                   {/* Sections */}
@@ -421,14 +405,6 @@ export default function AttachCourseMaterialModal({ isOpen, onClose, lessonId, o
                                   : ''
                                 }
                               </span>
-                            </button>
-                            <button
-                              onClick={() => handleAttach('section', section.id, section.title)}
-                              disabled={attaching}
-                              className="ml-2 text-xs px-2 py-1 text-gray-500 border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 flex-shrink-0"
-                              title="Прикрепить всю секцию"
-                            >
-                              Вся секция
                             </button>
                           </div>
 
@@ -484,14 +460,6 @@ export default function AttachCourseMaterialModal({ isOpen, onClose, lessonId, o
                                       <span className="text-xs text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded flex-shrink-0">
                                         {topic.children.length} ур.
                                       </span>
-                                    </button>
-                                    <button
-                                      onClick={() => handleAttach('topic', topic.id, topic.title)}
-                                      disabled={attaching}
-                                      className="ml-2 text-xs px-2 py-1 text-gray-500 border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 flex-shrink-0"
-                                      title="Прикрепить весь топик"
-                                    >
-                                      Топик
                                     </button>
                                   </div>
 

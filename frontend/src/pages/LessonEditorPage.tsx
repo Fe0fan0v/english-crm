@@ -114,22 +114,40 @@ export default function LessonEditorPage() {
     newType: ExerciseBlockType,
   ) => {
     if (!lesson || newType === block.block_type) return;
-    const htmlTypes = ["text", "teaching_guide", "remember", "article"];
-    const canPreserveHtml =
-      htmlTypes.includes(block.block_type) && htmlTypes.includes(newType);
+
+    // Groups of compatible types with preservable fields
+    const compatibilityGroups: { types: string[]; fields: string[] }[] = [
+      { types: ["text", "teaching_guide", "remember", "article"], fields: ["html"] },
+      { types: ["video", "audio"], fields: ["url", "title"] },
+      { types: ["test", "true_false", "image_choice"], fields: ["explanation"] },
+    ];
+
+    const oldContent = block.content as Record<string, unknown>;
+    const preservedFields: Record<string, unknown> = {};
+
+    for (const group of compatibilityGroups) {
+      if (group.types.includes(block.block_type) && group.types.includes(newType)) {
+        for (const field of group.fields) {
+          if (oldContent[field]) {
+            preservedFields[field] = oldContent[field];
+          }
+        }
+        break;
+      }
+    }
+
+    const hasPreservable = Object.keys(preservedFields).length > 0;
     if (
-      !canPreserveHtml &&
+      !hasPreservable &&
       !confirm("Содержимое блока будет сброшено. Продолжить?")
     )
       return;
     try {
       setSaving(true);
       const defaultContent = getDefaultContent(newType);
-      const oldContent = block.content as Record<string, unknown>;
-      const newContent =
-        canPreserveHtml && oldContent.html
-          ? { ...defaultContent, html: oldContent.html }
-          : defaultContent;
+      const newContent = hasPreservable
+        ? { ...defaultContent, ...preservedFields }
+        : defaultContent;
       const updated = await blockApi.update(block.id, {
         block_type: newType,
         content: newContent,

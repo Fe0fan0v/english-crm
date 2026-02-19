@@ -116,8 +116,11 @@ async def create_user(
             detail="Менеджер может создавать только учителей и учеников",
         )
 
+    # Normalize email
+    normalized_email = user_data.email.strip().lower()
+
     # Check if email already exists
-    result = await db.execute(select(User).where(User.email == user_data.email))
+    result = await db.execute(select(User).where(User.email == normalized_email))
     existing_user = result.scalar_one_or_none()
 
     if existing_user:
@@ -128,6 +131,7 @@ async def create_user(
             )
         # Reactivate deleted user with new data
         existing_user.name = user_data.name
+        existing_user.email = normalized_email
         existing_user.phone = user_data.phone
         existing_user.password_hash = get_password_hash(user_data.password)
         existing_user.role = user_data.role
@@ -138,7 +142,7 @@ async def create_user(
     else:
         user = User(
             name=user_data.name,
-            email=user_data.email,
+            email=normalized_email,
             phone=user_data.phone,
             password_hash=get_password_hash(user_data.password),
             role=user_data.role,
@@ -176,6 +180,10 @@ async def update_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found",
         )
+
+    # Normalize email if provided
+    if user_data.email:
+        user_data.email = user_data.email.strip().lower()
 
     # Check email uniqueness if changing
     if user_data.email and user_data.email != user.email:

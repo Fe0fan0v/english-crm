@@ -20,7 +20,8 @@ async def login(
         f"Login attempt: email={credentials.email}, password='{credentials.password}'"
     )
 
-    result = await db.execute(select(User).where(User.email == credentials.email))
+    email = credentials.email.strip().lower()
+    result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
 
     print(f"User found: {user is not None}")

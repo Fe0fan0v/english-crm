@@ -11,6 +11,7 @@ import type {
   LevelPaymentMatrix,
   LevelPaymentUpdate,
   Material,
+  MaterialFolder,
   MaterialListResponse,
   Test,
   TestListResponse,
@@ -344,9 +345,10 @@ export const levelsApi = {
 
 // Materials
 export const materialsApi = {
-  list: async (search?: string): Promise<MaterialListResponse> => {
+  list: async (search?: string, folderId?: number): Promise<MaterialListResponse> => {
     const params = new URLSearchParams();
     if (search) params.append("search", search);
+    if (folderId !== undefined) params.append("folder_id", String(folderId));
     const response = await api.get<MaterialListResponse>(`/materials?${params}`);
     return response.data;
   },
@@ -356,14 +358,14 @@ export const materialsApi = {
     return response.data;
   },
 
-  create: async (data: { title: string; file_url: string }): Promise<Material> => {
+  create: async (data: { title: string; file_url: string; folder_id?: number | null }): Promise<Material> => {
     const response = await api.post<Material>("/materials", data);
     return response.data;
   },
 
   update: async (
     id: number,
-    data: { title?: string; file_url?: string }
+    data: { title?: string; file_url?: string; folder_id?: number | null }
   ): Promise<Material> => {
     const response = await api.put<Material>(`/materials/${id}`, data);
     return response.data;
@@ -371,6 +373,26 @@ export const materialsApi = {
 
   delete: async (id: number): Promise<void> => {
     await api.delete(`/materials/${id}`);
+  },
+
+  // Folders
+  listFolders: async (): Promise<MaterialFolder[]> => {
+    const response = await api.get<MaterialFolder[]>("/materials/folders");
+    return response.data;
+  },
+
+  createFolder: async (data: { title: string; position?: number }): Promise<MaterialFolder> => {
+    const response = await api.post<MaterialFolder>("/materials/folders", data);
+    return response.data;
+  },
+
+  updateFolder: async (id: number, data: { title?: string; position?: number }): Promise<MaterialFolder> => {
+    const response = await api.put<MaterialFolder>(`/materials/folders/${id}`, data);
+    return response.data;
+  },
+
+  deleteFolder: async (id: number): Promise<void> => {
+    await api.delete(`/materials/folders/${id}`);
   },
 };
 

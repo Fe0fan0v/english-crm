@@ -331,9 +331,10 @@ export default function DirectChat({ partnerId, partnerName, onClose }: DirectCh
 // Conversation List Component
 interface ConversationListProps {
   onSelectConversation: (userId: number, userName: string) => void;
+  selectedUserId?: number;
 }
 
-export function ConversationList({ onSelectConversation }: ConversationListProps) {
+export function ConversationList({ onSelectConversation, selectedUserId }: ConversationListProps) {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -369,7 +370,9 @@ export function ConversationList({ onSelectConversation }: ConversationListProps
         <button
           key={conv.user_id}
           onClick={() => onSelectConversation(conv.user_id, conv.user_name)}
-          className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors text-left"
+          className={`w-full flex items-center gap-3 p-3 rounded-xl transition-colors text-left ${
+            selectedUserId === conv.user_id ? "bg-cyan-50" : "hover:bg-gray-50"
+          }`}
         >
           <Avatar name={conv.user_name} size="sm" />
           <div className="flex-1 min-w-0">

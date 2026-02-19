@@ -91,10 +91,18 @@ export interface Lesson {
   updated_at: string;
 }
 
+export interface MaterialFolder {
+  id: number;
+  title: string;
+  position: number;
+  created_at: string;
+}
+
 export interface Material {
   id: number;
   title: string;
   file_url: string;
+  folder_id: number | null;
   created_at: string;
   updated_at: string;
 }

@@ -366,7 +366,7 @@ export default function StudentDashboardPage() {
       <div className="flex gap-2 mb-4 lg:mb-6 overflow-x-auto scrollbar-hide pb-2 lg:pb-0 -mx-4 px-4 lg:mx-0 lg:px-0">
         {[
           { key: "info" as TabType, label: "Моя страница" },
-          { key: "lessons" as TabType, label: "Уроки" },
+          { key: "lessons" as TabType, label: "Материалы" },
           { key: "tests" as TabType, label: "Тесты" },
           { key: "homework" as TabType, label: "Домашнее задание" },
           { key: "messages" as TabType, label: "Сообщения" },
