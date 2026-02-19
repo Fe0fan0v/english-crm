@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState, useCallback } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { usersApi, levelsApi } from "../services/api";
 import { useAuthStore } from "../store/authStore";
 import type { User, UserListResponse, Level } from "../types";
@@ -10,15 +10,31 @@ import clsx from "clsx";
 type TabType = "students" | "staff";
 
 export default function UsersPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [data, setData] = useState<UserListResponse | null>(null);
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<TabType>("students");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [levels, setLevels] = useState<Level[]>([]);
   const navigate = useNavigate();
   const { user: currentUser } = useAuthStore();
+
+  const page = Number(searchParams.get("page")) || 1;
+  const search = searchParams.get("search") || "";
+  const activeTab: TabType = (searchParams.get("tab") as TabType) || "students";
+
+  const updateParams = useCallback((updates: Record<string, string | null>) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      for (const [key, value] of Object.entries(updates)) {
+        if (value === null || value === "" || value === "1" && key === "page" || value === "students" && key === "tab") {
+          next.delete(key);
+        } else {
+          next.set(key, value);
+        }
+      }
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
 
   useEffect(() => {
     levelsApi.list().then((data) => setLevels(data.items)).catch(console.error);
@@ -79,13 +95,13 @@ export default function UsersPage() {
       {/* Tabs */}
       <div className="flex gap-6 mb-6 border-b border-gray-200">
         <button
-          onClick={() => setActiveTab("students")}
+          onClick={() => updateParams({ tab: "students", page: null, search: null })}
           className={clsx("tab pb-3", activeTab === "students" && "tab-active")}
         >
           Ученики
         </button>
         <button
-          onClick={() => setActiveTab("staff")}
+          onClick={() => updateParams({ tab: "staff", page: null, search: null })}
           className={clsx("tab pb-3", activeTab === "staff" && "tab-active")}
         >
           Сотрудники
@@ -115,8 +131,7 @@ export default function UsersPage() {
             }
             value={search}
             onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
+              updateParams({ search: e.target.value, page: null });
             }}
             className="input pl-12"
           />
@@ -171,6 +186,7 @@ export default function UsersPage() {
               }
               onDelete={() => handleDeleteUser(user.id, user.name)}
               levelName={getLevelName(user.level_id)}
+              showBalance={activeTab === "students"}
             />
           ))}
 
@@ -188,7 +204,7 @@ export default function UsersPage() {
       {data && data.pages > 1 && (
         <div className="flex justify-center gap-2 mt-6">
           <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            onClick={() => updateParams({ page: String(Math.max(1, page - 1)) })}
             disabled={page === 1}
             className="btn btn-secondary disabled:opacity-50"
           >
@@ -198,7 +214,7 @@ export default function UsersPage() {
             {page} из {data.pages}
           </span>
           <button
-            onClick={() => setPage((p) => Math.min(data.pages, p + 1))}
+            onClick={() => updateParams({ page: String(Math.min(data.pages, page + 1)) })}
             disabled={page === data.pages}
             className="btn btn-secondary disabled:opacity-50"
           >
@@ -225,15 +241,34 @@ interface UserCardProps {
   onSchedule?: () => void;
   onDelete: () => void;
   levelName?: string | null;
+  showBalance?: boolean;
 }
 
-function UserCard({ user, onProfile, onSchedule, onDelete, levelName }: UserCardProps) {
+function UserCard({ user, onProfile, onSchedule, onDelete, levelName, showBalance }: UserCardProps) {
+  const balanceNum = showBalance ? Number(user.balance) : 0;
+
   return (
     <div className="card card-hover flex items-center gap-4 py-4">
       <Avatar name={user.name} photo={user.photo_url} size="lg" />
 
       <div className="flex-1 min-w-0">
-        <h3 className="font-semibold text-gray-800">{user.name}</h3>
+        <div className="flex items-center gap-3">
+          <h3 className="font-semibold text-gray-800">{user.name}</h3>
+          {showBalance && (
+            <span
+              className={clsx(
+                "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold",
+                balanceNum > 0
+                  ? "bg-green-100 text-green-700"
+                  : balanceNum < 0
+                    ? "bg-red-100 text-red-700"
+                    : "bg-gray-100 text-gray-600"
+              )}
+            >
+              {balanceNum.toLocaleString("ru-RU")} тг
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-4 text-sm text-gray-500 mt-1">
           {/* Phone */}
           <span className="flex items-center gap-1">
