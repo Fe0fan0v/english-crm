@@ -17,7 +17,7 @@ backend/
 │   ├── schemas/       # Pydantic схемы
 │   ├── utils/         # Утилиты (grading.py — серверная проверка ответов)
 │   └── database.py    # Подключение к БД
-├── alembic/versions/  # Миграции (000-028)
+├── alembic/versions/  # Миграции (000-029)
 └── requirements.txt
 
 frontend/
@@ -80,6 +80,7 @@ backup/                 # Автобэкапы PostgreSQL в S3
 - Teacher ↔ Student, Manager ↔ Student, Student → Manager (поддержка)
 - Поддержка файлов (до 10 МБ): jpg, png, pdf, doc, xls, zip и др.
 - Email-уведомления при новом сообщении (SMTP Gmail, production активно)
+- **Менеджер**: табы "Активные чаты" (ConversationList) и "Все ученики" в `/messages`
 
 ### Уведомления
 - Типы: `lesson_cancelled`, `low_balance`. Компонент `NotificationBell`
@@ -95,7 +96,7 @@ backup/                 # Автобэкапы PostgreSQL в S3
 | divider, teaching_guide, remember, table | word_order, matching, image_choice |
 | vocabulary, page_break | flashcards, essay |
 
-**Ключевые модели:** Course, CourseSection, CourseTopic, InteractiveLesson, ExerciseBlock, LessonCourseMaterial
+**Ключевые модели:** Course, CourseSection, CourseTopic, InteractiveLesson, ExerciseBlock, LessonCourseMaterial, MaterialFolder
 
 **Права:** admin — полный CRUD; teacher — read-only + прикрепление; student — просмотр прикреплённой части
 
@@ -118,7 +119,7 @@ backup/                 # Автобэкапы PostgreSQL в S3
 
 **Fill_gaps без gaps:** если массив `gaps` пустой — отображается textarea для свободного ответа
 
-**Навигация по уроку:** sidebar "Содержание" (если >= 3 блока с title), IntersectionObserver для активного блока
+**Навигация по уроку:** sidebar "Содержание" (если >= 3 блока с title), IntersectionObserver для активного блока, sticky sidebar (`self-start`)
 
 **Разбивка на страницы (page_break):** блок `page_break` разделяет урок на страницы
 - В редакторе: оранжевая пунктирная линия с необязательной меткой
@@ -126,11 +127,21 @@ backup/                 # Автобэкапы PostgreSQL в S3
 - Нумерация блоков сквозная (глобальная по всему уроку), ответы сохраняются между страницами
 - Без page_break — урок отображается как раньше (полная обратная совместимость)
 
-**Прикрепление материалов:** `AttachCourseMaterialModal` с поиском, auto-expand дерева, подсветка совпадений, confirmation при прикреплении целого курса/секции
+**Авто-пагинация по заголовкам:** если нет блоков `page_break` и >= 3 блоков с title — автоматическая разбивка
+- Каждый блок с title начинает новую страницу
+- Sidebar показывает все заголовки, клик переключает страницу
+- Подсветка активного пункта по текущей странице
+
+**Прикрепление материалов:** `AttachCourseMaterialModal` с поиском, auto-expand дерева, подсветка совпадений. Кнопки прикрепления только на отдельных уроках (без массового прикрепления курса/секции/топика)
 
 **Кнопка сброса:** после проверки упражнения — кнопка "Сбросить" для повторной попытки
 
-**Домашнее задание:** вкладка на дашборде студента с постоянным доступом ко всем курсовым материалам (без лимита 30 дней). Endpoint: `GET /api/student/homework`. Вкладка «Уроки» показывает PDF-файлы (30 дней), «Домашнее задание» — курсовые материалы (всё время)
+**Домашнее задание:** вкладка на дашборде студента с постоянным доступом ко всем курсовым материалам (без лимита 30 дней). Endpoint: `GET /api/student/homework`. Вкладка «Материалы» показывает PDF-файлы (30 дней), «Домашнее задание» — курсовые материалы (всё время)
+
+**Смена типа блока с сохранением контента:** при смене типа блока сохраняются совместимые поля:
+- HTML-группа (text, teaching_guide, remember, article) → сохраняет `html`
+- Медиа-группа (video, audio) → сохраняет `url`, `title`
+- Тесты-группа (test, true_false, image_choice) → сохраняет `explanation`
 
 ### Импортированные курсы
 - English File 4th (ID: 10) — 7 уровней, 292 урока, 10168 блоков
@@ -144,7 +155,9 @@ backup/                 # Автобэкапы PostgreSQL в S3
 - **Новости**: admin CRUD, ученики видят опубликованные с баннерами
 - **Настройки**: key-value, `whatsapp_manager_phone` → WhatsApp кнопка
 - **Неправильные глаголы**: ~137 шт., Web Speech API, student/teacher
+- **Материалы с папками**: `MaterialFolder` модель, динамические папки (CRUD API), фильтрация по `folder_id`
 - **PDF материалы**: загрузка до 50 МБ, прикрепление к урокам через `AttachMaterialModal`
+- **Нормализация email**: `.strip().lower()` при логине, создании и обновлении пользователя
 - **Мобильная версия**: брейкпоинт `lg:` (1024px), гамбургер-меню, адаптивные сетки
 
 ## Production
@@ -169,7 +182,7 @@ backup/                 # Автобэкапы PostgreSQL в S3
 - Frontend: загрузка студентов через `usersApi.list(1, 10000, undefined, "student")`
 
 ## Миграции (Alembic)
-Текущая версия: **028**. Применяются автоматически при деплое.
+Текущая версия: **029**. Применяются автоматически при деплое.
 
 ## Полезные команды
 ```bash
