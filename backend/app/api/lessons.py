@@ -383,6 +383,29 @@ async def create_lessons_batch(
 
     await db.commit()
 
+    # Notify teacher about students with low balance (once for the whole batch)
+    if created_lessons:
+        price = lesson_type.price
+        low_balance_students = []
+        for sid in student_ids:
+            student = await db.get(User, sid)
+            if student and student.balance < price:
+                low_balance_students.append({
+                    "id": student.id,
+                    "name": student.name,
+                    "balance": str(student.balance),
+                })
+        if low_balance_students:
+            names = ", ".join(f"{s['name']} ({s['balance']} тг)" for s in low_balance_students)
+            db.add(Notification(
+                user_id=data.teacher_id,
+                type=NotificationType.LOW_BALANCE.value,
+                title="Низкий баланс учеников",
+                message=f"У следующих учеников недостаточно средств для оплаты урока ({price:,.0f} тг): {names}",
+                data={"students": low_balance_students, "price": str(price)},
+            ))
+            await db.commit()
+
     # Reload lessons with relationships to build response
     created_schedule_lessons = []
     for lesson in created_lessons:
@@ -702,6 +725,28 @@ async def create_lesson(
             await ensure_teacher_student_assignment(db, data.teacher_id, student_id)
 
     await db.commit()
+
+    # Notify teacher about students with low balance
+    price = lesson_type.price
+    low_balance_students = []
+    for sid in student_ids:
+        student = await db.get(User, sid)
+        if student and student.balance < price:
+            low_balance_students.append({
+                "id": student.id,
+                "name": student.name,
+                "balance": str(student.balance),
+            })
+    if low_balance_students:
+        names = ", ".join(f"{s['name']} ({s['balance']} тг)" for s in low_balance_students)
+        db.add(Notification(
+            user_id=data.teacher_id,
+            type=NotificationType.LOW_BALANCE.value,
+            title="Низкий баланс учеников",
+            message=f"У следующих учеников недостаточно средств для оплаты урока ({price:,.0f} тг): {names}",
+            data={"students": low_balance_students, "price": str(price)},
+        ))
+        await db.commit()
 
     # Reload with relationships
     result = await db.execute(
