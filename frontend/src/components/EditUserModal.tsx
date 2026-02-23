@@ -100,9 +100,13 @@ export default function EditUserModal({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+    // Strip invisible Unicode characters from email (pasted from messengers)
+    const cleanValue = name === "email"
+      ? value.replace(/[\u200B-\u200D\u00AD\uFEFF\u00A0\u2060\u180E]/g, "").trim()
+      : value;
     setFormData((prev) => ({
       ...prev,
-      [name]: value || null,
+      [name]: cleanValue || null,
     }));
     if (errors[name as keyof EditUserData]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));

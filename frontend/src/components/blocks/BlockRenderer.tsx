@@ -10,6 +10,7 @@ const INTERACTIVE_TYPES = [
   "matching",
   "essay",
   "image_choice",
+  "drag_words",
 ];
 
 interface BlockRendererProps {
@@ -87,6 +88,7 @@ export default function BlockRenderer({
             url={(content.url as string) || ""}
             caption={(content.caption as string) || ""}
             alt={(content.alt as string) || ""}
+            images={(content.images as CarouselImageItem[]) || []}
           />
         );
 
@@ -212,6 +214,20 @@ export default function BlockRenderer({
             onAnswerChange={onAnswerChange}
             isChecked={isChecked}
             onCheck={onCheck}
+          />
+        );
+
+      case "drag_words":
+        return (
+          <DragWordsRenderer
+            text={(content.text as string) || ""}
+            words={(content.words as DragWordItem[]) || []}
+            distractors={(content.distractors as string[]) || []}
+            answer={answer as Record<number, string>}
+            onAnswerChange={onAnswerChange}
+            isChecked={isChecked}
+            onCheck={onCheck}
+            serverDetails={serverDetails}
           />
         );
 
@@ -347,27 +363,103 @@ interface VocabularyWordItem {
   transcription?: string | null;
 }
 
+interface CarouselImageItem {
+  url: string;
+  caption?: string | null;
+}
+
+interface DragWordItem {
+  index: number;
+  word: string;
+}
+
 // Video Renderer
 function VideoRenderer({ url, title }: { url: string; title: string }) {
-  const embedUrl = useMemo(() => {
+  const videoInfo = useMemo(() => {
     if (!url) return null;
-    // YouTube
-    const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/);
-    if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}`;
+    const trimmed = url.trim();
+
+    // YouTube — extract video ID from various URL formats
+    let ytId: string | null = null;
+
+    // youtube.com/watch?v=XXX (v param can be anywhere in query string)
+    const ytWatchMatch = trimmed.match(/youtube\.com\/watch\?.*[?&]v=([^&]+)/);
+    if (!ytWatchMatch) {
+      // Simpler pattern: watch?v= as first param
+      const ytSimple = trimmed.match(/youtube\.com\/watch\?v=([^&]+)/);
+      if (ytSimple) ytId = ytSimple[1];
+    } else {
+      ytId = ytWatchMatch[1];
+    }
+
+    // youtu.be/XXX
+    if (!ytId) {
+      const ytShortMatch = trimmed.match(/youtu\.be\/([^?&]+)/);
+      if (ytShortMatch) ytId = ytShortMatch[1];
+    }
+
+    // youtube.com/shorts/XXX
+    if (!ytId) {
+      const ytShortsMatch = trimmed.match(/youtube\.com\/shorts\/([^?&]+)/);
+      if (ytShortsMatch) ytId = ytShortsMatch[1];
+    }
+
+    // youtube.com/embed/XXX
+    if (!ytId) {
+      const ytEmbedMatch = trimmed.match(/youtube\.com\/embed\/([^?&]+)/);
+      if (ytEmbedMatch) ytId = ytEmbedMatch[1];
+    }
+
+    // youtube.com/live/XXX
+    if (!ytId) {
+      const ytLiveMatch = trimmed.match(/youtube\.com\/live\/([^?&]+)/);
+      if (ytLiveMatch) ytId = ytLiveMatch[1];
+    }
+
+    if (ytId) {
+      return { type: "iframe" as const, src: `https://www.youtube.com/embed/${ytId}` };
+    }
+
     // Vimeo
-    const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
-    if (vimeoMatch) return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+    const vimeoMatch = trimmed.match(/vimeo\.com\/(\d+)/);
+    if (vimeoMatch) {
+      return { type: "iframe" as const, src: `https://player.vimeo.com/video/${vimeoMatch[1]}` };
+    }
+
+    // Direct video file (mp4, webm, ogg)
+    if (/\.(mp4|webm|ogg)(\?.*)?$/i.test(trimmed)) {
+      return { type: "video" as const, src: trimmed };
+    }
+
     return null;
   }, [url]);
 
-  if (!embedUrl) {
-    return <div className="text-gray-500">Неверный URL видео</div>;
+  if (!videoInfo) {
+    return (
+      <div className="text-gray-500">
+        Неверный URL видео. Поддерживаются: YouTube, Vimeo, прямые ссылки на .mp4
+      </div>
+    );
+  }
+
+  if (videoInfo.type === "video") {
+    return (
+      <div className="aspect-video rounded-lg overflow-hidden bg-gray-100">
+        <video
+          src={videoInfo.src}
+          title={title || "Видео"}
+          className="w-full h-full"
+          controls
+          controlsList="nodownload"
+        />
+      </div>
+    );
   }
 
   return (
     <div className="aspect-video rounded-lg overflow-hidden bg-gray-100">
       <iframe
-        src={embedUrl}
+        src={videoInfo.src}
         title={title || "Видео"}
         className="w-full h-full"
         allowFullScreen
@@ -1254,30 +1346,112 @@ function EssayRenderer({
   );
 }
 
-// Image Renderer
+// Image Renderer (with carousel support)
 function ImageRenderer({
   url,
   caption,
   alt,
+  images,
 }: {
   url: string;
   caption: string;
   alt: string;
+  images: CarouselImageItem[];
 }) {
-  if (!url) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  // Build effective images list: use images array if available, fallback to single url
+  const effectiveImages: CarouselImageItem[] = useMemo(() => {
+    if (images && images.length > 0) return images;
+    if (url) return [{ url, caption: caption || null }];
+    return [];
+  }, [images, url, caption]);
+
+  if (effectiveImages.length === 0) {
     return <div className="text-gray-500">URL изображения не указан</div>;
   }
 
+  // Single image — simple render
+  if (effectiveImages.length === 1) {
+    const img = effectiveImages[0];
+    return (
+      <figure className="text-center my-6">
+        <img
+          src={img.url}
+          alt={alt || img.caption || "Изображение"}
+          className="w-full max-w-4xl h-auto rounded-lg mx-auto shadow-md"
+        />
+        {img.caption && (
+          <figcaption className="mt-3 text-base text-gray-700 italic max-w-4xl mx-auto">
+            {img.caption}
+          </figcaption>
+        )}
+      </figure>
+    );
+  }
+
+  // Carousel — multiple images
+  const current = effectiveImages[currentIndex] || effectiveImages[0];
+  const goTo = (idx: number) => {
+    if (idx < 0) setCurrentIndex(effectiveImages.length - 1);
+    else if (idx >= effectiveImages.length) setCurrentIndex(0);
+    else setCurrentIndex(idx);
+  };
+
   return (
-    <figure className="text-center my-6">
-      <img
-        src={url}
-        alt={alt || caption || "Изображение"}
-        className="w-full max-w-4xl h-auto rounded-lg mx-auto shadow-md"
-      />
-      {caption && (
+    <figure className="text-center my-6 relative">
+      <div className="relative max-w-4xl mx-auto">
+        <img
+          src={current.url}
+          alt={alt || current.caption || `Изображение ${currentIndex + 1}`}
+          className="w-full h-auto rounded-lg shadow-md transition-opacity duration-300"
+        />
+
+        {/* Left arrow */}
+        <button
+          onClick={() => goTo(currentIndex - 1)}
+          className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full p-2 transition-colors"
+          aria-label="Предыдущее"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+
+        {/* Right arrow */}
+        <button
+          onClick={() => goTo(currentIndex + 1)}
+          className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full p-2 transition-colors"
+          aria-label="Следующее"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+
+        {/* Counter */}
+        <div className="absolute top-3 right-3 bg-black/50 text-white text-xs px-2 py-1 rounded-full">
+          {currentIndex + 1} / {effectiveImages.length}
+        </div>
+      </div>
+
+      {/* Dots */}
+      <div className="flex justify-center gap-2 mt-3">
+        {effectiveImages.map((_, idx) => (
+          <button
+            key={idx}
+            onClick={() => goTo(idx)}
+            className={`w-2.5 h-2.5 rounded-full transition-colors ${
+              idx === currentIndex ? "bg-purple-600" : "bg-gray-300 hover:bg-gray-400"
+            }`}
+            aria-label={`Изображение ${idx + 1}`}
+          />
+        ))}
+      </div>
+
+      {current.caption && (
         <figcaption className="mt-3 text-base text-gray-700 italic max-w-4xl mx-auto">
-          {caption}
+          {current.caption}
         </figcaption>
       )}
     </figure>
@@ -1725,6 +1899,190 @@ function FlashcardsRenderer({
       <div className="mt-4 text-center text-sm text-gray-500">
         {currentIndex + 1} / {shuffledCards.length}
       </div>
+    </div>
+  );
+}
+
+// Drag Words Renderer
+function DragWordsRenderer({
+  text,
+  words,
+  distractors,
+  answer,
+  onAnswerChange,
+  isChecked,
+  onCheck,
+  serverDetails,
+}: {
+  text: string;
+  words: DragWordItem[];
+  distractors: string[];
+  answer: Record<number, string>;
+  onAnswerChange: (answer: Record<number, string>) => void;
+  isChecked: boolean;
+  onCheck: () => void;
+  serverDetails?: ExerciseResultDetails;
+}) {
+  const { user } = useAuthStore();
+  const canSeeAnswers =
+    user?.role === "admin" ||
+    user?.role === "manager" ||
+    user?.role === "teacher";
+  const [selectedWord, setSelectedWord] = useState<string | null>(null);
+  const answers = answer || {};
+
+  // Build shuffled pool: correct words + distractors
+  const wordPool = useMemo(() => {
+    const correctWords = words.map((w) => w.word).filter(Boolean);
+    const all = [...correctWords, ...(distractors || [])];
+    return [...all].sort(() => Math.random() - 0.5);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [words.length, distractors?.length]);
+
+  // Which words are already placed
+  const placedWords = Object.values(answers);
+
+  const handleWordClick = (word: string) => {
+    if (isChecked) return;
+    setSelectedWord(selectedWord === word ? null : word);
+  };
+
+  const handleGapClick = (gapIndex: number) => {
+    if (isChecked) return;
+
+    if (selectedWord) {
+      // Place selected word into gap
+      // Remove the word from any other gap it was in
+      const newAnswers = { ...answers };
+      for (const [key, val] of Object.entries(newAnswers)) {
+        if (val === selectedWord) {
+          delete newAnswers[Number(key)];
+        }
+      }
+      newAnswers[gapIndex] = selectedWord;
+      onAnswerChange(newAnswers);
+      setSelectedWord(null);
+    } else if (answers[gapIndex]) {
+      // Click on filled gap — remove the word back to pool
+      const newAnswers = { ...answers };
+      delete newAnswers[gapIndex];
+      onAnswerChange(newAnswers);
+    }
+  };
+
+  const isGapCorrect = (gapIndex: number): boolean | null => {
+    if (!isChecked) return null;
+    if (serverDetails?.drag_results) {
+      return serverDetails.drag_results[String(gapIndex)] ?? null;
+    }
+    // Fallback for admin/teacher
+    const word = words.find((w) => w.index === gapIndex);
+    if (!word) return null;
+    return (answers[gapIndex] || "").toLowerCase().trim() === word.word.toLowerCase().trim();
+  };
+
+  const allCorrect =
+    isChecked &&
+    (serverDetails?.drag_results
+      ? Object.values(serverDetails.drag_results).every(Boolean)
+      : words.every(
+          (w) =>
+            (answers[w.index] || "").toLowerCase().trim() ===
+            w.word.toLowerCase().trim(),
+        ));
+
+  // Parse text and render with gaps
+  const renderText = () => {
+    // Split text by {N} placeholders
+    const parts = text.split(/(\{\d+\})/g);
+    return parts.map((part, i) => {
+      const match = part.match(/^\{(\d+)\}$/);
+      if (!match) {
+        return <span key={i}>{part}</span>;
+      }
+      const gapIndex = parseInt(match[1], 10);
+      const placedWord = answers[gapIndex];
+      const result = isGapCorrect(gapIndex);
+      const wordForTooltip = words.find((w) => w.index === gapIndex);
+
+      return (
+        <button
+          key={i}
+          onClick={() => handleGapClick(gapIndex)}
+          disabled={isChecked}
+          title={canSeeAnswers && wordForTooltip ? `✓ ${wordForTooltip.word}` : undefined}
+          className={`inline-flex items-center justify-center min-w-[80px] px-3 py-1 mx-1 rounded-lg border-2 border-dashed transition-colors align-baseline ${
+            result === true
+              ? "border-green-500 bg-green-50 text-green-700"
+              : result === false
+                ? "border-red-500 bg-red-50 text-red-700"
+                : placedWord
+                  ? "border-blue-400 bg-blue-50 text-blue-700"
+                  : selectedWord
+                    ? "border-purple-400 bg-purple-50 cursor-pointer hover:border-purple-500"
+                    : "border-gray-300 bg-gray-50 text-gray-400"
+          }`}
+        >
+          {placedWord || "\u00A0___\u00A0"}
+        </button>
+      );
+    });
+  };
+
+  const allFilled = words.length > 0 && words.every((w) => answers[w.index]);
+
+  return (
+    <div className="bg-white p-4 rounded-lg border border-gray-100">
+      {/* Word pool */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        {wordPool.map((word, idx) => {
+          const isPlaced = placedWords.includes(word);
+          const isSelected = selectedWord === word;
+          return (
+            <button
+              key={`${word}-${idx}`}
+              onClick={() => handleWordClick(word)}
+              disabled={isChecked || isPlaced}
+              className={`px-3 py-1.5 rounded-lg border-2 text-sm font-medium transition-colors ${
+                isPlaced
+                  ? "border-gray-200 bg-gray-100 text-gray-400 line-through"
+                  : isSelected
+                    ? "border-purple-500 bg-purple-100 text-purple-700"
+                    : "border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50"
+              }`}
+            >
+              {word}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Text with gaps */}
+      <div className="text-base leading-relaxed mb-4">{renderText()}</div>
+
+      {/* Check button */}
+      {!isChecked && (
+        <button
+          onClick={onCheck}
+          disabled={!allFilled}
+          className="mt-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+        >
+          Проверить
+        </button>
+      )}
+
+      {/* Result */}
+      {isChecked && (
+        <div
+          className={`mt-3 p-3 rounded-lg text-sm font-medium ${
+            allCorrect
+              ? "bg-green-50 text-green-700 border border-green-200"
+              : "bg-red-50 text-red-700 border border-red-200"
+          }`}
+        >
+          {allCorrect ? "Правильно!" : "Есть ошибки. Попробуйте ещё раз."}
+        </div>
+      )}
     </div>
   );
 }

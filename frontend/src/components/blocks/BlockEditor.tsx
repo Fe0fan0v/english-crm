@@ -163,8 +163,10 @@ export default function BlockEditor({
           <ImageEditor
             url={(content.url as string) || ""}
             caption={(content.caption as string) || ""}
+            images={(content.images as CarouselImageItem[]) || []}
             onUrlChange={(url) => updateField("url", url)}
             onCaptionChange={(caption) => updateField("caption", caption)}
+            onImagesChange={(images) => updateField("images", images)}
           />
         );
 
@@ -229,6 +231,18 @@ export default function BlockEditor({
             onShowTranscriptionChange={(s) =>
               updateField("show_transcription", s)
             }
+          />
+        );
+
+      case "drag_words":
+        return (
+          <DragWordsEditor
+            text={(content.text as string) || ""}
+            words={(content.words as DragWordItem[]) || []}
+            distractors={(content.distractors as string[]) || []}
+            onTextChange={(text) => updateField("text", text)}
+            onWordsChange={(words) => updateField("words", words)}
+            onDistractorsChange={(d) => updateField("distractors", d)}
           />
         );
 
@@ -330,6 +344,16 @@ interface VocabularyWord {
   word: string;
   translation: string;
   transcription?: string;
+}
+
+interface CarouselImageItem {
+  url: string;
+  caption?: string | null;
+}
+
+interface DragWordItem {
+  index: number;
+  word: string;
 }
 
 // File Upload Button Component
@@ -1275,20 +1299,75 @@ function EssayEditor({
 function ImageEditor({
   url,
   caption,
+  images,
   onUrlChange,
   onCaptionChange,
+  onImagesChange,
 }: {
   url: string;
   caption: string;
+  images: CarouselImageItem[];
   onUrlChange: (url: string) => void;
   onCaptionChange: (caption: string) => void;
+  onImagesChange: (images: CarouselImageItem[]) => void;
 }) {
-  return (
-    <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Изображение
-        </label>
+  const useCarousel = images.length > 0;
+
+  const switchToCarousel = () => {
+    // Migrate single image to carousel
+    const initial: CarouselImageItem[] = url
+      ? [{ url, caption: caption || "" }]
+      : [];
+    onImagesChange(initial);
+  };
+
+  const switchToSingle = () => {
+    // Take first image back to single mode
+    if (images.length > 0) {
+      onUrlChange(images[0].url);
+      onCaptionChange(images[0].caption || "");
+    }
+    onImagesChange([]);
+  };
+
+  const addImage = () => {
+    onImagesChange([...images, { url: "", caption: "" }]);
+  };
+
+  const removeImage = (index: number) => {
+    onImagesChange(images.filter((_, i) => i !== index));
+  };
+
+  const updateImage = (index: number, field: string, value: string) => {
+    const updated = images.map((img, i) =>
+      i === index ? { ...img, [field]: value } : img,
+    );
+    onImagesChange(updated);
+  };
+
+  const moveImage = (index: number, direction: -1 | 1) => {
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= images.length) return;
+    const updated = [...images];
+    [updated[index], updated[newIndex]] = [updated[newIndex], updated[index]];
+    onImagesChange(updated);
+  };
+
+  if (!useCarousel) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <label className="block text-sm font-medium text-gray-700">
+            Изображение
+          </label>
+          <button
+            type="button"
+            onClick={switchToCarousel}
+            className="text-xs text-purple-600 hover:text-purple-800"
+          >
+            Карусель (несколько)
+          </button>
+        </div>
         <div className="flex items-center gap-3 mb-2">
           <FileUploadButton
             onUpload={onUrlChange}
@@ -1304,28 +1383,129 @@ function ImageEditor({
           className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
           placeholder="https://..."
         />
-      </div>
-      {url && (
-        <div className="mt-2">
-          <img
-            src={url}
-            alt="Preview"
-            className="max-w-full h-auto rounded-lg max-h-48 object-contain"
+        {url && (
+          <div className="mt-2">
+            <img
+              src={url}
+              alt="Preview"
+              className="max-w-full h-auto rounded-lg max-h-48 object-contain"
+            />
+          </div>
+        )}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Подпись (необязательно)
+          </label>
+          <input
+            type="text"
+            value={caption}
+            onChange={(e) => onCaptionChange(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            placeholder="Подпись к изображению"
           />
         </div>
-      )}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Подпись (необязательно)
-        </label>
-        <input
-          type="text"
-          value={caption}
-          onChange={(e) => onCaptionChange(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-          placeholder="Подпись к изображению"
-        />
       </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <label className="block text-sm font-medium text-gray-700">
+          Карусель изображений ({images.length})
+        </label>
+        <button
+          type="button"
+          onClick={switchToSingle}
+          className="text-xs text-gray-500 hover:text-gray-700"
+        >
+          Одно изображение
+        </button>
+      </div>
+
+      <div className="space-y-3">
+        {images.map((img, index) => (
+          <div
+            key={index}
+            className="border border-gray-200 rounded-lg p-3 space-y-2"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-600">
+                Изображение {index + 1}
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => moveImage(index, -1)}
+                  disabled={index === 0}
+                  className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                  title="Вверх"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => moveImage(index, 1)}
+                  disabled={index === images.length - 1}
+                  className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                  title="Вниз"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeImage(index)}
+                  className="p-1 text-red-500 hover:bg-red-50 rounded"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <FileUploadButton
+                onUpload={(u) => updateImage(index, "url", u)}
+                accept="image/*"
+                label="Загрузить"
+              />
+              <input
+                type="url"
+                value={img.url}
+                onChange={(e) => updateImage(index, "url", e.target.value)}
+                className="flex-1 px-2 py-1.5 border border-gray-200 rounded text-sm"
+                placeholder="https://..."
+              />
+            </div>
+            {img.url && (
+              <img
+                src={img.url}
+                alt={`Preview ${index + 1}`}
+                className="max-w-full h-auto rounded max-h-32 object-contain"
+              />
+            )}
+            <input
+              type="text"
+              value={img.caption || ""}
+              onChange={(e) => updateImage(index, "caption", e.target.value)}
+              className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm"
+              placeholder="Подпись (необязательно)"
+            />
+          </div>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={addImage}
+        className="w-full py-2 border-2 border-dashed border-gray-300 text-gray-500 rounded-lg hover:border-purple-400 hover:text-purple-600 transition-colors text-sm"
+      >
+        + Добавить изображение
+      </button>
     </div>
   );
 }
@@ -1871,6 +2051,127 @@ function FlashcardsEditor({
             </div>
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function DragWordsEditor({
+  text,
+  words,
+  distractors,
+  onTextChange,
+  onWordsChange,
+  onDistractorsChange,
+}: {
+  text: string;
+  words: DragWordItem[];
+  distractors: string[];
+  onTextChange: (text: string) => void;
+  onWordsChange: (words: DragWordItem[]) => void;
+  onDistractorsChange: (distractors: string[]) => void;
+}) {
+  const addGap = () => {
+    const nextIndex = words.length > 0 ? Math.max(...words.map((w) => w.index)) + 1 : 0;
+    const placeholder = `{${nextIndex}}`;
+    onTextChange(text + placeholder);
+    onWordsChange([...words, { index: nextIndex, word: "" }]);
+  };
+
+  const updateWord = (idx: number, value: string) => {
+    onWordsChange(words.map((w) => (w.index === idx ? { ...w, word: value } : w)));
+  };
+
+  const removeWord = (idx: number) => {
+    onWordsChange(words.filter((w) => w.index !== idx));
+    // Remove placeholder from text
+    onTextChange(text.replace(`{${idx}}`, ""));
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <label className="block text-sm font-medium text-gray-700">
+            Текст с пропусками
+          </label>
+          <button
+            type="button"
+            onClick={addGap}
+            className="text-xs text-purple-600 hover:text-purple-800 font-medium"
+          >
+            + Добавить пропуск
+          </button>
+        </div>
+        <textarea
+          value={text}
+          onChange={(e) => onTextChange(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono text-sm"
+          rows={4}
+          placeholder="The {0} sat on the {1}. Используйте {N} для пропусков."
+        />
+        <p className="text-xs text-gray-400 mt-1">
+          Используйте {"{0}"}, {"{1}"}, {"{2}"} и т.д. для обозначения мест, куда нужно перетащить слово
+        </p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Слова для пропусков
+        </label>
+        <div className="space-y-2">
+          {words.map((w) => (
+            <div key={w.index} className="flex items-center gap-2">
+              <span className="text-xs text-gray-400 w-8 text-right font-mono">
+                {`{${w.index}}`}
+              </span>
+              <input
+                type="text"
+                value={w.word}
+                onChange={(e) => updateWord(w.index, e.target.value)}
+                className="flex-1 px-2 py-1.5 border border-gray-200 rounded text-sm"
+                placeholder="Правильное слово"
+              />
+              <button
+                type="button"
+                onClick={() => removeWord(w.index)}
+                className="p-1 text-red-500 hover:bg-red-50 rounded"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          ))}
+          {words.length === 0 && (
+            <div className="text-center py-3 text-gray-400 text-sm">
+              Нажмите "Добавить пропуск" чтобы начать
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Слова-ловушки (необязательно)
+        </label>
+        <input
+          type="text"
+          value={distractors.join(", ")}
+          onChange={(e) =>
+            onDistractorsChange(
+              e.target.value
+                .split(",")
+                .map((s) => s.trim())
+                .filter(Boolean),
+            )
+          }
+          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+          placeholder="dog, tree, sky (через запятую)"
+        />
+        <p className="text-xs text-gray-400 mt-1">
+          Дополнительные слова для усложнения задания
+        </p>
       </div>
     </div>
   );

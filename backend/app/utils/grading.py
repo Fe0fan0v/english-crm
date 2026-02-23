@@ -21,6 +21,8 @@ def grade_answer(block_type: str, content: dict[str, Any], answer: Any) -> bool 
             return _grade_matching(content, answer)
         elif block_type == "image_choice":
             return _grade_image_choice(content, answer)
+        elif block_type == "drag_words":
+            return _grade_drag_words(content, answer)
         elif block_type == "essay":
             return None
         elif block_type == "flashcards":
@@ -99,6 +101,20 @@ def _grade_image_choice(content: dict, answer: Any) -> bool:
         if str(opt.get("id")) == answer:
             return opt.get("is_correct", False)
     return False
+
+
+def _grade_drag_words(content: dict, answer: Any) -> bool:
+    """Check drag_words: each gap must have the correct word placed."""
+    words = content.get("words", [])
+    if not words or not isinstance(answer, dict):
+        return False
+    for word_item in words:
+        idx = word_item.get("index")
+        correct = word_item.get("word", "").lower().strip()
+        user_answer = str(answer.get(str(idx), answer.get(idx, ""))).lower().strip()
+        if user_answer != correct:
+            return False
+    return True
 
 
 def grade_answer_detailed(
@@ -192,6 +208,20 @@ def grade_answer_detailed(
                 else:
                     option_results[oid] = "default"
             return {"option_results": option_results}
+
+        if block_type == "drag_words":
+            words = content.get("words", [])
+            if not words or not isinstance(answer, dict):
+                return {"drag_results": {}}
+            drag_results = {}
+            for word_item in words:
+                idx = word_item.get("index")
+                correct = word_item.get("word", "").lower().strip()
+                user_answer = (
+                    str(answer.get(str(idx), answer.get(idx, ""))).lower().strip()
+                )
+                drag_results[str(idx)] = user_answer == correct
+            return {"drag_results": drag_results}
 
         return None
     except Exception:

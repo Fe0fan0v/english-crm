@@ -18,7 +18,8 @@ export type ExerciseBlockType =
   | "image_choice"
   | "flashcards"
   | "essay"
-  | "page_break";
+  | "page_break"
+  | "drag_words";
 
 // Content type interfaces for each block type
 
@@ -101,10 +102,16 @@ export interface EssayBlockContent {
   sample_answer?: string | null;
 }
 
+export interface CarouselImage {
+  url: string;
+  caption?: string | null;
+}
+
 export interface ImageBlockContent {
   url: string;
   caption?: string | null;
   alt?: string | null;
+  images?: CarouselImage[];
 }
 
 export interface TeachingGuideBlockContent {
@@ -172,6 +179,17 @@ export interface PageBreakBlockContent {
   label?: string;
 }
 
+export interface DragWord {
+  index: number;
+  word: string;
+}
+
+export interface DragWordsBlockContent {
+  text: string;
+  words: DragWord[];
+  distractors?: string[];
+}
+
 // Union type for all block content types
 export type BlockContent =
   | TextBlockContent
@@ -192,7 +210,8 @@ export type BlockContent =
   | ImageChoiceBlockContent
   | FlashcardsBlockContent
   | EssayBlockContent
-  | PageBreakBlockContent;
+  | PageBreakBlockContent
+  | DragWordsBlockContent;
 
 // Exercise Block
 export interface ExerciseBlock {
@@ -357,6 +376,7 @@ export const BLOCK_TYPE_LABELS: Record<ExerciseBlockType, string> = {
   flashcards: "Карточки",
   essay: "Эссе",
   page_break: "Разрыв страницы",
+  drag_words: "Перетаскивание слов",
 };
 
 export const CONTENT_BLOCK_TYPES: ExerciseBlockType[] = [
@@ -381,6 +401,7 @@ export const INTERACTIVE_BLOCK_TYPES: ExerciseBlockType[] = [
   "image_choice",
   "flashcards",
   "essay",
+  "drag_words",
 ];
 
 // ============== Exercise Results ==============
@@ -394,6 +415,7 @@ export interface ExerciseResultDetails {
   gap_results?: Record<string, boolean>;
   option_results?: Record<string, "correct" | "incorrect" | "default">;
   pair_results?: Record<string, boolean>;
+  drag_results?: Record<string, boolean>;
   is_correct?: boolean;
 }
 

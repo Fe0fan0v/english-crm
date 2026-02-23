@@ -36,6 +36,7 @@ class ExerciseBlockType(str, PyEnum):
     IMAGE_CHOICE = "image_choice"  # Choose correct image
     FLASHCARDS = "flashcards"  # Interactive flashcards
     ESSAY = "essay"
+    DRAG_WORDS = "drag_words"  # Drag words into gaps
 
 
 class Course(Base):

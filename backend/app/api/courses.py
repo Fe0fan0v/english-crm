@@ -140,6 +140,15 @@ def strip_answers_from_content(block_type: str, content: dict) -> dict:
         content.pop("sample_answer", None)
         return content
 
+    if block_type == "drag_words":
+        content = dict(content)
+        # Strip correct words, keep only indices so student sees gap count
+        stripped_words = []
+        for w in content.get("words", []):
+            stripped_words.append({"index": w.get("index")})
+        content["words"] = stripped_words
+        return content
+
     return content
 
 

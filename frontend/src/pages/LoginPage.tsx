@@ -88,7 +88,7 @@ export default function LoginPage() {
                   id="email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => setEmail(e.target.value.replace(/[\u200B-\u200D\u00AD\uFEFF\u00A0\u2060\u180E]/g, "").trim())}
                   className="input pl-12"
                   placeholder="Введите email"
                   required

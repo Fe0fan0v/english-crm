@@ -101,11 +101,18 @@ class EssayBlockContent(BaseModel):
     sample_answer: str | None = None
 
 
+class CarouselImage(BaseModel):
+    """Single image in carousel."""
+    url: str = ""
+    caption: str | None = None
+
+
 class ImageBlockContent(BaseModel):
     """Content for image block."""
     url: str = ""
     caption: str | None = None
     alt: str | None = None
+    images: list[CarouselImage] = []
 
 
 class TeachingGuideBlockContent(BaseModel):
@@ -178,6 +185,19 @@ class VocabularyBlockContent(BaseModel):
     """Content for vocabulary/word list block."""
     words: list[VocabularyWord] = []
     show_transcription: bool = False  # Whether to show transcription
+
+
+class DragWord(BaseModel):
+    """Single word for drag_words exercise."""
+    index: int
+    word: str = ""
+
+
+class DragWordsBlockContent(BaseModel):
+    """Content for drag_words exercise. Text with {0}, {1} placeholders."""
+    text: str = ""
+    words: list[DragWord] = []
+    distractors: list[str] = []
 
 
 # ============== Exercise Block Schemas ==============

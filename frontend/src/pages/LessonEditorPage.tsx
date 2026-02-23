@@ -886,6 +886,8 @@ function getDefaultContent(
       return { words: [], show_transcription: false };
     case "page_break":
       return { label: "" };
+    case "drag_words":
+      return { text: "", words: [], distractors: [] };
     default:
       return {};
   }
@@ -900,7 +902,7 @@ function getBlockDescription(blockType: ExerciseBlockType): string {
     case "audio":
       return "Аудиофайл";
     case "image":
-      return "Одно изображение";
+      return "Изображение или карусель";
     case "article":
       return "Текст с изображением";
     case "divider":
@@ -931,6 +933,8 @@ function getBlockDescription(blockType: ExerciseBlockType): string {
       return "Свободный текст";
     case "page_break":
       return "Разделяет урок на страницы";
+    case "drag_words":
+      return "Перетащить слова на места";
     default:
       return "";
   }

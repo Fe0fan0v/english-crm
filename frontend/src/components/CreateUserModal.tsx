@@ -130,7 +130,11 @@ export default function CreateUserModal({
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    // Strip invisible Unicode characters from email (pasted from messengers)
+    const cleanValue = name === "email"
+      ? value.replace(/[\u200B-\u200D\u00AD\uFEFF\u00A0\u2060\u180E]/g, "").trim()
+      : value;
+    setFormData((prev) => ({ ...prev, [name]: cleanValue }));
     // Clear error when user starts typing
     if (errors[name as keyof CreateUserData]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
