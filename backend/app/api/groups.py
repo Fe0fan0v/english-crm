@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import func, or_, select
 
@@ -30,12 +28,14 @@ async def sync_group_students_to_future_lessons(
     teacher_id: int | None,
 ) -> None:
     """Sync group student changes to all future scheduled lessons of the group."""
-    # Find all future scheduled lessons for this group
+    # Find all scheduled lessons for this group
+    # Note: rely on status=SCHEDULED rather than datetime comparison,
+    # because DB stores naive local time (Kazakhstan UTC+5) while
+    # server datetime.now() returns UTC, causing timezone mismatch.
     future_lessons_result = await db.execute(
         select(Lesson).where(
             Lesson.group_id == group_id,
             Lesson.status == LessonStatus.SCHEDULED,
-            Lesson.scheduled_at > datetime.now(),
         )
     )
     future_lessons = future_lessons_result.scalars().all()
