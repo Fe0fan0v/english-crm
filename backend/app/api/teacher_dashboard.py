@@ -879,7 +879,7 @@ async def create_teacher_lesson(
 
     # Check teacher conflict
     teacher_conflict = await check_teacher_conflict(
-        db, current_user.id, data.scheduled_at
+        db, current_user.id, data.scheduled_at, data.duration_minutes
     )
     if teacher_conflict:
         raise HTTPException(
@@ -908,7 +908,7 @@ async def create_teacher_lesson(
     # Check students conflicts
     if student_ids:
         student_conflicts = await check_students_conflict(
-            db, student_ids, data.scheduled_at
+            db, student_ids, data.scheduled_at, data.duration_minutes
         )
         if student_conflicts:
             conflict_details = ", ".join(
@@ -1084,7 +1084,7 @@ async def create_teacher_lessons_batch(
     for scheduled_at in lesson_dates:
         # Check teacher conflict
         teacher_conflict = await check_teacher_conflict(
-            db, current_user.id, scheduled_at
+            db, current_user.id, scheduled_at, data.duration_minutes
         )
         if teacher_conflict:
             conflicts.append(
@@ -1097,7 +1097,7 @@ async def create_teacher_lessons_batch(
 
         # Check students conflicts
         student_conflicts = await check_students_conflict(
-            db, student_ids, scheduled_at
+            db, student_ids, scheduled_at, data.duration_minutes
         )
         if student_conflicts:
             conflict_names = ", ".join(
@@ -1219,9 +1219,10 @@ async def update_teacher_lesson(
 
     # Check for conflicts if time is changing
     if data.scheduled_at is not None and data.scheduled_at != lesson.scheduled_at:
+        new_duration = lesson.duration_minutes
         # Check teacher conflict
         teacher_conflict = await check_teacher_conflict(
-            db, current_user.id, data.scheduled_at, exclude_lesson_id=lesson_id
+            db, current_user.id, data.scheduled_at, new_duration, exclude_lesson_id=lesson_id
         )
         if teacher_conflict:
             raise HTTPException(
@@ -1233,7 +1234,7 @@ async def update_teacher_lesson(
         student_ids = [ls.student_id for ls in lesson.students]
         if student_ids:
             student_conflicts = await check_students_conflict(
-                db, student_ids, data.scheduled_at, exclude_lesson_id=lesson_id
+                db, student_ids, data.scheduled_at, new_duration, exclude_lesson_id=lesson_id
             )
             if student_conflicts:
                 conflict_details = ", ".join(

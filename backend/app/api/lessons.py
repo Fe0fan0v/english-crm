@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, literal_column, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -40,8 +40,8 @@ from app.schemas.lesson_course_material import (
     LessonCourseMaterialResponse,
 )
 
-# Lesson duration in minutes (used for conflict checking)
-LESSON_DURATION_MINUTES = 60
+# Default lesson duration in minutes (fallback for conflict checking)
+DEFAULT_LESSON_DURATION_MINUTES = 60
 
 router = APIRouter()
 
@@ -106,19 +106,20 @@ async def check_teacher_conflict(
     db: AsyncSession,
     teacher_id: int,
     scheduled_at: datetime,
+    duration_minutes: int = DEFAULT_LESSON_DURATION_MINUTES,
     exclude_lesson_id: int | None = None,
 ) -> Lesson | None:
     """Check if teacher has a conflicting lesson at the given time."""
     lesson_start = scheduled_at
-    lesson_end = scheduled_at + timedelta(minutes=LESSON_DURATION_MINUTES)
+    lesson_end = scheduled_at + timedelta(minutes=duration_minutes)
 
     query = select(Lesson).where(
         and_(
             Lesson.teacher_id == teacher_id,
             Lesson.status != LessonStatus.CANCELLED,
-            # Check for overlap: existing lesson overlaps with new lesson time
+            # Check for overlap: new lesson starts before existing ends, existing starts before new ends
             Lesson.scheduled_at < lesson_end,
-            Lesson.scheduled_at + timedelta(minutes=LESSON_DURATION_MINUTES)
+            literal_column("scheduled_at + duration_minutes * interval '1 minute'")
             > lesson_start,
         )
     )
@@ -127,13 +128,14 @@ async def check_teacher_conflict(
         query = query.where(Lesson.id != exclude_lesson_id)
 
     result = await db.execute(query)
-    return result.scalar_one_or_none()
+    return result.scalars().first()
 
 
 async def check_students_conflict(
     db: AsyncSession,
     student_ids: list[int],
     scheduled_at: datetime,
+    duration_minutes: int = DEFAULT_LESSON_DURATION_MINUTES,
     exclude_lesson_id: int | None = None,
 ) -> list[dict]:
     """Check if any students have conflicting lessons at the given time."""
@@ -141,7 +143,7 @@ async def check_students_conflict(
         return []
 
     lesson_start = scheduled_at
-    lesson_end = scheduled_at + timedelta(minutes=LESSON_DURATION_MINUTES)
+    lesson_end = scheduled_at + timedelta(minutes=duration_minutes)
 
     # Find lessons that overlap with the given time
     query = (
@@ -150,7 +152,7 @@ async def check_students_conflict(
             and_(
                 Lesson.status != LessonStatus.CANCELLED,
                 Lesson.scheduled_at < lesson_end,
-                Lesson.scheduled_at + timedelta(minutes=LESSON_DURATION_MINUTES)
+                literal_column("scheduled_at + duration_minutes * interval '1 minute'")
                 > lesson_start,
             )
         )
@@ -329,7 +331,7 @@ async def create_lessons_batch(
     for scheduled_at in lesson_dates:
         # Check teacher conflict
         teacher_conflict = await check_teacher_conflict(
-            db, data.teacher_id, scheduled_at
+            db, data.teacher_id, scheduled_at, data.duration_minutes
         )
         if teacher_conflict:
             conflicts.append(
@@ -341,7 +343,7 @@ async def create_lessons_batch(
             continue
 
         # Check students conflicts
-        student_conflicts = await check_students_conflict(db, student_ids, scheduled_at)
+        student_conflicts = await check_students_conflict(db, student_ids, scheduled_at, data.duration_minutes)
         if student_conflicts:
             conflict_names = ", ".join(
                 set(c["student_name"] for c in student_conflicts[:3])
@@ -649,7 +651,7 @@ async def create_lesson(
 
     # Check teacher conflict
     teacher_conflict = await check_teacher_conflict(
-        db, data.teacher_id, data.scheduled_at
+        db, data.teacher_id, data.scheduled_at, data.duration_minutes
     )
     if teacher_conflict:
         raise HTTPException(
@@ -679,7 +681,7 @@ async def create_lesson(
     # Check students conflicts
     if student_ids:
         student_conflicts = await check_students_conflict(
-            db, student_ids, data.scheduled_at
+            db, student_ids, data.scheduled_at, data.duration_minutes
         )
         if student_conflicts:
             conflict_details = ", ".join(
@@ -797,9 +799,10 @@ async def update_lesson(
     new_teacher_id = update_data.get("teacher_id", lesson.teacher_id)
 
     if new_scheduled_at != lesson.scheduled_at or new_teacher_id != lesson.teacher_id:
+        new_duration = update_data.get("duration_minutes", lesson.duration_minutes)
         # Check teacher conflict
         teacher_conflict = await check_teacher_conflict(
-            db, new_teacher_id, new_scheduled_at, exclude_lesson_id=lesson_id
+            db, new_teacher_id, new_scheduled_at, new_duration, exclude_lesson_id=lesson_id
         )
         if teacher_conflict:
             raise HTTPException(
@@ -811,7 +814,7 @@ async def update_lesson(
         student_ids = [ls.student_id for ls in lesson.students]
         if student_ids:
             student_conflicts = await check_students_conflict(
-                db, student_ids, new_scheduled_at, exclude_lesson_id=lesson_id
+                db, student_ids, new_scheduled_at, new_duration, exclude_lesson_id=lesson_id
             )
             if student_conflicts:
                 conflict_details = ", ".join(
