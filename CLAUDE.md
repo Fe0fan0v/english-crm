@@ -170,7 +170,7 @@ backup/                 # Автобэкапы PostgreSQL в S3
 - **Материалы с папками**: `MaterialFolder` модель, динамические папки (CRUD API), фильтрация по `folder_id`
 - **PDF материалы**: загрузка до 50 МБ, прикрепление к урокам через `AttachMaterialModal`
 - **Нормализация email**: `.strip().lower()` при логине, создании и обновлении пользователя + очистка невидимых Unicode-символов на фронтенде
-- **Видеоблок**: поддержка YouTube (watch, shorts, live, embed, si-param), Vimeo, прямые .mp4/.webm/.ogg файлы
+- **Видеоблок**: поддержка YouTube (watch, shorts, live, embed, si-param), Vimeo, прямые .mp4/.webm/.ogg, fallback для любых `/embed/` URL
 - **Мобильная версия**: брейкпоинт `lg:` (1024px), гамбургер-меню, адаптивные сетки
 
 ## Production
