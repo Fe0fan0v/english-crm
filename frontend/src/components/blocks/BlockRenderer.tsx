@@ -431,6 +431,11 @@ function VideoRenderer({ url, title }: { url: string; title: string }) {
       return { type: "video" as const, src: trimmed };
     }
 
+    // Fallback: any URL with /embed/ — use as iframe directly
+    if (/\/embed\//i.test(trimmed)) {
+      return { type: "iframe" as const, src: trimmed };
+    }
+
     return null;
   }, [url]);
 
