@@ -17,7 +17,7 @@ backend/
 │   ├── schemas/       # Pydantic схемы
 │   ├── utils/         # Утилиты (grading.py — серверная проверка ответов)
 │   └── database.py    # Подключение к БД
-├── alembic/versions/  # Миграции (000-029)
+├── alembic/versions/  # Миграции (000-030)
 └── requirements.txt
 
 frontend/
@@ -89,12 +89,12 @@ backup/                 # Автобэкапы PostgreSQL в S3
 ### Конструктор курсов
 **Курс → Секции → Топики → Уроки → Блоки упражнений**
 
-**Типы блоков (19 шт.):**
-| Контентные (11) | Интерактивные (8) |
+**Типы блоков (20 шт.):**
+| Контентные (11) | Интерактивные (9) |
 |-----------------|-------------------|
 | text, video, audio, image, article | fill_gaps, test, true_false |
 | divider, teaching_guide, remember, table | word_order, matching, image_choice |
-| vocabulary, page_break | flashcards, essay |
+| vocabulary, page_break | flashcards, essay, drag_words |
 
 **Ключевые модели:** Course, CourseSection, CourseTopic, InteractiveLesson, ExerciseBlock, LessonCourseMaterial, MaterialFolder
 
@@ -105,7 +105,7 @@ backup/                 # Автобэкапы PostgreSQL в S3
 **WYSIWYG:** TipTap для HTML-блоков (text, teaching_guide, remember, article)
 
 **Подсказки ответов:** tooltip при наведении для admin/manager/teacher. Студенты НЕ видят:
-- Правильные ответы в fill_gaps, правильные варианты в test/image_choice
+- Правильные ответы в fill_gaps и drag_words, правильные варианты в test/image_choice
 - Правильный ответ true_false, правильное предложение word_order, пары matching
 - **Серверная защита**: `strip_answers_from_content()` в `courses.py` удаляет ответы из JSON для студентов
 - **Серверная проверка**: `grade_answer_detailed()` в `grading.py` возвращает результаты по каждому элементу
@@ -138,6 +138,18 @@ backup/                 # Автобэкапы PostgreSQL в S3
 
 **Домашнее задание:** вкладка на дашборде студента с постоянным доступом ко всем курсовым материалам (без лимита 30 дней). Endpoint: `GET /api/student/homework`. Вкладка «Материалы» показывает PDF-файлы (30 дней), «Домашнее задание» — курсовые материалы (всё время)
 
+**Карусель изображений:** блок `image` поддерживает несколько изображений
+- Поле `images: CarouselImage[]` (url + caption) в JSONB content
+- Обратная совместимость: если `images` пуст — рендерится старое поле `url`
+- Редактор: кнопка «Карусель (несколько)» / «Одно изображение» для переключения режимов
+- Рендерер: стрелки, точки-индикаторы, счётчик; при 1 изображении — без карусели
+
+**Блок drag_words (перетаскивание слов):** текст с пропусками + пул слов для перетаскивания
+- Формат: `text` с плейсхолдерами `{0}`, `{1}`, массив `words` [{index, word}], массив `distractors`
+- Click-based взаимодействие: клик по слову → клик по пропуску (мобильная поддержка)
+- Серверная проверка: `_grade_drag_words()`, `drag_results` в details
+- Защита: `strip_answers_from_content()` убирает `word` из массива, оставляет только `index`
+
 **Смена типа блока с сохранением контента:** при смене типа блока сохраняются совместимые поля:
 - HTML-группа (text, teaching_guide, remember, article) → сохраняет `html`
 - Медиа-группа (video, audio) → сохраняет `url`, `title`
@@ -157,7 +169,8 @@ backup/                 # Автобэкапы PostgreSQL в S3
 - **Неправильные глаголы**: ~137 шт., Web Speech API, student/teacher
 - **Материалы с папками**: `MaterialFolder` модель, динамические папки (CRUD API), фильтрация по `folder_id`
 - **PDF материалы**: загрузка до 50 МБ, прикрепление к урокам через `AttachMaterialModal`
-- **Нормализация email**: `.strip().lower()` при логине, создании и обновлении пользователя
+- **Нормализация email**: `.strip().lower()` при логине, создании и обновлении пользователя + очистка невидимых Unicode-символов на фронтенде
+- **Видеоблок**: поддержка YouTube (watch, shorts, live, embed, si-param), Vimeo, прямые .mp4/.webm/.ogg файлы
 - **Мобильная версия**: брейкпоинт `lg:` (1024px), гамбургер-меню, адаптивные сетки
 
 ## Production
@@ -182,7 +195,7 @@ backup/                 # Автобэкапы PostgreSQL в S3
 - Frontend: загрузка студентов через `usersApi.list(1, 10000, undefined, "student")`
 
 ## Миграции (Alembic)
-Текущая версия: **029**. Применяются автоматически при деплое.
+Текущая версия: **030**. Применяются автоматически при деплое.
 
 ## Полезные команды
 ```bash
