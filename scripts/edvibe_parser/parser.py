@@ -27,6 +27,7 @@ import argparse
 import asyncio
 import json
 import re
+import html as html_module
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Optional
@@ -38,6 +39,11 @@ except ImportError:
     print("  pip install playwright")
     print("  playwright install chromium")
     exit(1)
+
+try:
+    from bs4 import BeautifulSoup
+except ImportError:
+    BeautifulSoup = None
 
 
 class EdvibeParser:
@@ -239,9 +245,10 @@ class EdvibeParser:
                     # Beginner и другие уровни внутри English File 4th
                     '198472': '17223', '198474': '17223', '198475': '17223',
                     '198477': '17223', '198478': '17223', '198480': '17223', '198481': '17223',
-                    # Family and Friends уровни 1-6
+                    # Family and Friends уровни 1-6 + F
                     '198487': '17222', '198489': '17222', '198490': '17222',
                     '198491': '17222', '198493': '17222', '198495': '17222',
+                    '816630': '17222',
                 }
 
                 parent_id = parent_folder_id or parent_ids.get(folder_id)
@@ -377,8 +384,13 @@ class EdvibeParser:
 
         # Известные родительские папки
         parent_ids = {
+            # English File 4th
             '198472': '17223', '198474': '17223', '198475': '17223',
             '198477': '17223', '198478': '17223', '198480': '17223', '198481': '17223',
+            # Family and Friends for Kids (1-6) + F
+            '198487': '17222', '198489': '17222', '198490': '17222',
+            '198491': '17222', '198493': '17222', '198495': '17222',
+            '816630': '17222',
         }
 
         parent_id = parent_folder_id or parent_ids.get(folder_id)
@@ -451,8 +463,17 @@ class EdvibeParser:
         """Парсинг текущего открытого урока или урока по URL"""
         if lesson_url:
             print(f"\n[LESSON] Загрузка урока: {lesson_url}")
-            await self.page.goto(lesson_url, wait_until="load")
-            await asyncio.sleep(3)
+            await self.page.goto(lesson_url, wait_until="domcontentloaded", timeout=60000)
+            print("   Ожидание загрузки контента...")
+            # Увеличиваем задержку для lesson-editor
+            await asyncio.sleep(8)
+
+            # Дополнительное ожидание для динамического контента
+            try:
+                await self.page.wait_for_selector('.sections-list_item, .exercise_wrapper', timeout=10000)
+                print("   Контент загружен")
+            except:
+                print("   [WARN] Timeout waiting for content, continuing anyway...")
 
         lesson_data = {
             "title": "",
@@ -556,6 +577,86 @@ class EdvibeParser:
 
         return section_data
 
+    @staticmethod
+    def _parse_fillgaps_html(html_content: str) -> dict:
+        """Парсит HTML fill_gaps блока и извлекает text и gaps.
+        Копия логики из scripts/fix_fillgaps_in_db.py."""
+        if not BeautifulSoup:
+            return {"text": "", "gaps": []}
+
+        html_content = html_module.unescape(html_content)
+        soup = BeautifulSoup(html_content, 'html.parser')
+
+        # Move gap divs out of listofintputs spans
+        for span in soup.find_all('span', attrs={'listofintputs': True}):
+            gap_div = span.find('div', attrs={'rightanswers': True})
+            if gap_div:
+                span.replace_with(gap_div)
+            else:
+                span.decompose()
+
+        # Remove UI noise
+        for elem in soup.find_all(attrs={'data-testid': True}):
+            elem.decompose()
+        for div in soup.find_all('div', class_=['tir-popover_element', 'indicators_wrapper',
+                                                 'emoji-animation', 'comment-icon']):
+            div.decompose()
+
+        gap_elements = soup.find_all('div', attrs={'rightanswers': True})
+        gaps = []
+
+        for i, elem in enumerate(gap_elements):
+            answer = elem.get('rightanswers', '').strip()
+            if not answer:
+                continue
+            elem.replace_with(f"{{{i}}}")
+            gaps.append({"index": i, "answer": answer, "alternatives": []})
+
+        text = soup.get_text(separator=' ', strip=True)
+        text = re.sub(r'\s+', ' ', text).strip()
+        text = re.sub(r'\s+([.,!?;:])', r'\1', text)
+
+        return {"text": text, "gaps": gaps}
+
+    async def _extract_test_options(self, exercise_el: ElementHandle, slot_el: ElementHandle) -> list:
+        """Извлечение опций теста через Playwright DOM."""
+        options = []
+
+        # Try multiple selectors for test options
+        option_selectors = [
+            '.tir-radio',
+            '.radio-option',
+            '.answer-option',
+            '.exercise-select-item',
+            'label:has(input[type="radio"])',
+            '.option-item',
+            '.test-option',
+        ]
+
+        option_elements = []
+        search_root = slot_el or exercise_el
+        for selector in option_selectors:
+            option_elements = await search_root.query_selector_all(selector)
+            if option_elements and len(option_elements) >= 2:
+                break
+
+        for opt_el in option_elements:
+            opt_text = (await opt_el.inner_text()).strip()
+            if not opt_text:
+                continue
+
+            is_correct = False
+            class_attr = await opt_el.get_attribute("class") or ""
+            if "correct" in class_attr.lower() or "right" in class_attr.lower():
+                is_correct = True
+            data_correct = await opt_el.get_attribute("data-correct")
+            if data_correct == "true":
+                is_correct = True
+
+            options.append({"text": opt_text, "is_correct": is_correct})
+
+        return options
+
     async def _parse_exercise(self, exercise_el: ElementHandle, index: int) -> Optional[Dict]:
         """Парсинг одного упражнения"""
         exercise_data = {
@@ -575,7 +676,101 @@ class EdvibeParser:
             if title_el:
                 exercise_data["title"] = (await title_el.inner_text()).strip()
 
-            # === Определение типа и парсинг контента ===
+            # Получаем HTML контент для анализа
+            slot_el = await exercise_el.query_selector('.exercise-wrapper-slot')
+            html_content = ""
+            text_content = ""
+            if slot_el:
+                html_content = await slot_el.inner_html()
+                text_content = await slot_el.inner_text()
+
+            # === УМНОЕ ОПРЕДЕЛЕНИЕ ТИПА БЛОКА ===
+            # Анализируем HTML структуру для универсального распознавания типов
+
+            # Проверка 1: Fill gaps - есть поля ввода для заполнения пропусков
+            if ('listofintputs=' in html_content or
+                'exercise-answer-input' in html_content or
+                'exercise-input-correct-form-word' in html_content or
+                ('<input' in html_content and ('complete' in exercise_data.get("title", "").lower() or
+                                                'fill' in exercise_data.get("title", "").lower() or
+                                                'write' in exercise_data.get("title", "").lower()))):
+                exercise_data["block_type"] = "fill_gaps"
+                # Try to extract structured data from HTML
+                if 'rightanswers' in html_content and BeautifulSoup:
+                    parsed = self._parse_fillgaps_html(html_content)
+                    if parsed["gaps"]:
+                        exercise_data["content"] = parsed
+                    else:
+                        exercise_data["content"] = {"text": text_content.strip(), "gaps": [], "html": html_content}
+                else:
+                    exercise_data["content"] = {"text": text_content.strip(), "gaps": [], "html": html_content}
+                return exercise_data
+
+            # Проверка 2: Matching/Word Order - есть draggable элементы
+            if ('draggable' in html_content or 'sorting_wrapper' in html_content):
+                title_lower = exercise_data.get("title", "").lower()
+                # Если в заголовке "match", "pair" - это matching
+                if 'match' in title_lower or 'pair' in title_lower:
+                    exercise_data["block_type"] = "matching"
+                    exercise_data["content"] = {"html": html_content, "text": text_content.strip(), "pairs": []}
+                    return exercise_data
+                # Если "order", "arrange", "put in order" - это word_order
+                elif 'order' in title_lower or 'arrange' in title_lower or 'sentence' in title_lower:
+                    exercise_data["block_type"] = "word_order"
+                    exercise_data["content"] = {"html": html_content, "text": text_content.strip(), "sentences": []}
+                    return exercise_data
+                # По умолчанию - matching
+                else:
+                    exercise_data["block_type"] = "matching"
+                    exercise_data["content"] = {"html": html_content, "text": text_content.strip(), "pairs": []}
+                    return exercise_data
+
+            # Проверка 3: Essay/Writing - есть текстовый редактор
+            if ('exercise-essay' in html_content or
+                'html-editor' in html_content or
+                'contenteditable="true"' in html_content):
+                exercise_data["block_type"] = "essay"
+                exercise_data["content"] = {"html": html_content, "text": text_content.strip()}
+                return exercise_data
+
+            # Проверка 4: Test/Quiz - есть radio buttons или checkboxes
+            if (('tir-radio' in html_content or 'radio-group' in html_content or
+                 '<input type="radio"' in html_content or '<input type="checkbox"' in html_content) and
+                ('exercise-test' in html_content or 'quiz' in html_content or
+                 'choose' in exercise_data.get("title", "").lower() or
+                 'select' in exercise_data.get("title", "").lower())):
+                exercise_data["block_type"] = "test"
+                # Try to extract options via Playwright
+                options = await self._extract_test_options(exercise_el, slot_el)
+                exercise_data["content"] = {
+                    "question": exercise_data.get("title", ""),
+                    "options": options,
+                    "html": html_content
+                }
+                return exercise_data
+
+            # Проверка 5: True/False - ключевые слова в заголовке
+            title_lower = exercise_data.get("title", "").lower()
+            if ('true' in title_lower and 'false' in title_lower) or 'правда' in title_lower or 'ложь' in title_lower:
+                exercise_data["block_type"] = "true_false"
+                exercise_data["content"] = {"text": text_content.strip(), "html": html_content}
+                return exercise_data
+
+            # Проверка 6: Flashcards - карточки со словами
+            if ('flashcard' in html_content or 'card-flip' in html_content or
+                ('card' in html_content and 'vocabulary' in title_lower)):
+                exercise_data["block_type"] = "flashcards"
+                exercise_data["content"] = {"html": html_content, "text": text_content.strip(), "cards": []}
+                return exercise_data
+
+            # Проверка 7: Image choice - выбор изображения
+            if (html_content.count('<img') >= 3 and  # Несколько изображений
+                ('choose' in title_lower or 'select' in title_lower or 'which' in title_lower)):
+                exercise_data["block_type"] = "image_choice"
+                exercise_data["content"] = {"html": html_content, "question": exercise_data.get("title", ""), "options": []}
+                return exercise_data
+
+            # === Определение типа и парсинг контента (существующая логика как fallback) ===
 
             # 1. Изображение
             img_el = await exercise_el.query_selector('.exercise_images_wrapper img, .teacher_img, .image_component_wrapper img')
@@ -666,13 +861,7 @@ class EdvibeParser:
                     exercise_data["content"] = {"html": html, "text": text.strip()}
                 return exercise_data
 
-            # 6. Fill gaps (заполни пропуски)
-            fillgaps_el = await exercise_el.query_selector('[class*="fill"][class*="gap"], .exercise-fill-gaps')
-            if fillgaps_el:
-                exercise_data["block_type"] = "fill_gaps"
-                text = await fillgaps_el.inner_text()
-                exercise_data["content"] = {"text": text.strip()}
-                return exercise_data
+            # 6. Fill gaps - теперь обрабатывается в универсальной логике выше (строка 590)
 
             # 7. Test / Quiz / Radio buttons
             # Ищем различные варианты тестовых элементов
@@ -682,7 +871,8 @@ class EdvibeParser:
             )
             if test_el:
                 exercise_data["block_type"] = "test"
-                exercise_data["content"] = {"question": "", "options": []}
+                test_html = await test_el.inner_html()
+                exercise_data["content"] = {"question": "", "options": [], "html": test_html}
 
                 # Ищем вопрос (заголовок теста)
                 question_el = await exercise_el.query_selector(
@@ -691,43 +881,9 @@ class EdvibeParser:
                 if question_el:
                     exercise_data["content"]["question"] = (await question_el.inner_text()).strip()
 
-                # Ищем варианты ответов с разными селекторами
-                option_selectors = [
-                    '.tir-radio',  # Edvibe radio buttons
-                    '.radio-option',
-                    '.answer-option',
-                    '.test-option',
-                    '.select-option',
-                    '.exercise-select-item',
-                    'label:has(input[type="radio"])',  # Label с radio внутри
-                    '.option-item',
-                ]
-
-                options = []
-                for selector in option_selectors:
-                    options = await test_el.query_selector_all(selector)
-                    if options and len(options) > 0:
-                        break
-
-                # Если нашли опции - парсим их
-                if options:
-                    for opt in options:
-                        opt_text = (await opt.inner_text()).strip()
-                        # Проверяем правильный ли ответ (по классу или атрибуту)
-                        is_correct = False
-                        class_attr = await opt.get_attribute("class") or ""
-                        if "correct" in class_attr.lower() or "right" in class_attr.lower():
-                            is_correct = True
-                        # Также проверяем data-атрибуты
-                        data_correct = await opt.get_attribute("data-correct")
-                        if data_correct == "true":
-                            is_correct = True
-
-                        if opt_text:
-                            exercise_data["content"]["options"].append({
-                                "text": opt_text,
-                                "is_correct": is_correct
-                            })
+                # Extract options via shared method
+                options = await self._extract_test_options(exercise_el, test_el)
+                exercise_data["content"]["options"] = options
 
                 # Если опций не найдено - пробуем извлечь из текста
                 if not exercise_data["content"]["options"]:
@@ -736,39 +892,18 @@ class EdvibeParser:
 
                 return exercise_data
 
-            # 8. Matching
-            matching_el = await exercise_el.query_selector('.exercise-matching, [class*="matching"]')
-            if matching_el:
-                exercise_data["block_type"] = "matching"
-                exercise_data["content"] = {"pairs": []}
-
-                left_items = await matching_el.query_selector_all('.left-item, .matching-left, [class*="left"]')
-                right_items = await matching_el.query_selector_all('.right-item, .matching-right, [class*="right"]')
-
-                for left, right in zip(left_items, right_items):
-                    exercise_data["content"]["pairs"].append({
-                        "left": (await left.inner_text()).strip(),
-                        "right": (await right.inner_text()).strip()
-                    })
-                return exercise_data
+            # 8. Matching - теперь обрабатывается в универсальной логике выше (строка 600)
 
             # 9. True/False
             tf_el = await exercise_el.query_selector('.exercise-true-false, [class*="true"][class*="false"]')
             if tf_el:
                 exercise_data["block_type"] = "true_false"
                 text = await tf_el.inner_text()
-                exercise_data["content"] = {"text": text.strip()}
+                tf_html = await tf_el.inner_html()
+                exercise_data["content"] = {"text": text.strip(), "html": tf_html}
                 return exercise_data
 
-            # 10. Word order
-            wo_el = await exercise_el.query_selector('.exercise-word-order, .sentence-builder, [class*="word"][class*="order"]')
-            if wo_el:
-                exercise_data["block_type"] = "word_order"
-                words = await wo_el.query_selector_all('.word, .word-item')
-                exercise_data["content"] = {"words": []}
-                for word in words:
-                    exercise_data["content"]["words"].append((await word.inner_text()).strip())
-                return exercise_data
+            # 10. Word order - теперь обрабатывается в универсальной логике выше (строка 609)
 
             # 11. Dialogue
             dialogue_el = await exercise_el.query_selector('.exercise-dialogue, .dialogue')
@@ -919,22 +1054,43 @@ class EdvibeParser:
             block["content"] = {"html": clean_html, "text": clean_html}
 
         elif block_type == "fill_gaps":
-            block["content"] = {"text": content.get("text", ""), "gaps": []}
+            block["content"] = {
+                "text": content.get("text", ""),
+                "gaps": content.get("gaps", []),
+                "html": content.get("html", ""),
+            }
 
         elif block_type == "test":
+            # Preserve options as-is (already structured dicts from _extract_test_options)
+            options = content.get("options", [])
+            if options and isinstance(options[0], str):
+                options = [{"text": opt, "is_correct": False} for opt in options]
             block["content"] = {
                 "question": content.get("question", ""),
-                "options": [{"text": opt, "is_correct": False} for opt in content.get("options", [])]
+                "options": options,
+                "html": content.get("html", ""),
             }
 
         elif block_type == "matching":
-            block["content"] = {"pairs": content.get("pairs", [])}
+            block["content"] = {
+                "pairs": content.get("pairs", []),
+                "html": content.get("html", ""),
+                "text": content.get("text", ""),
+            }
 
         elif block_type == "true_false":
-            block["content"] = {"text": content.get("text", ""), "statements": []}
+            block["content"] = {
+                "text": content.get("text", ""),
+                "statements": content.get("statements", []),
+                "html": content.get("html", ""),
+            }
 
         elif block_type == "word_order":
-            block["content"] = {"sentences": [{"words": content.get("words", []), "correct_order": []}]}
+            block["content"] = {
+                "sentences": content.get("sentences", [{"words": content.get("words", []), "correct_order": []}]),
+                "html": content.get("html", ""),
+                "text": content.get("text", ""),
+            }
 
         if exercise.get("title"):
             block["title"] = exercise["title"]

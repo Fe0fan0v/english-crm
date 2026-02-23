@@ -145,8 +145,18 @@ export default function LevelDetailPage() {
       {/* Messages */}
       {saveError && (
         <div className="mb-4 bg-red-50 text-red-600 p-4 rounded-xl text-sm flex items-center gap-2">
-          <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <svg
+            className="w-5 h-5 flex-shrink-0"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
           </svg>
           {saveError}
         </div>
@@ -154,8 +164,18 @@ export default function LevelDetailPage() {
 
       {saveSuccess && (
         <div className="mb-4 bg-green-50 text-green-600 p-4 rounded-xl text-sm flex items-center gap-2">
-          <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          <svg
+            className="w-5 h-5 flex-shrink-0"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M5 13l4 4L19 7"
+            />
           </svg>
           Изменения сохранены
         </div>
@@ -190,7 +210,8 @@ export default function LevelDetailPage() {
                     {item.lesson_type_name}
                   </td>
                   <td className="py-4 px-6 text-right text-gray-600">
-                    {parseFloat(item.lesson_type_price).toLocaleString("ru-RU")} тг
+                    {parseFloat(item.lesson_type_price).toLocaleString("ru-RU")}{" "}
+                    тг
                   </td>
                   <td className="py-4 px-6">
                     <div className="flex justify-end">
@@ -198,7 +219,12 @@ export default function LevelDetailPage() {
                         <input
                           type="number"
                           value={payments[item.lesson_type_id] || ""}
-                          onChange={(e) => handlePaymentChange(item.lesson_type_id, e.target.value)}
+                          onChange={(e) =>
+                            handlePaymentChange(
+                              item.lesson_type_id,
+                              e.target.value,
+                            )
+                          }
                           className="input w-full text-right pr-10"
                           placeholder="0"
                           min="0"
@@ -241,16 +267,41 @@ export default function LevelDetailPage() {
           >
             {isSaving ? (
               <>
-                <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                <svg
+                  className="animate-spin h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
                 </svg>
                 Сохранение...
               </>
             ) : (
               <>
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
                 </svg>
                 Сохранить изменения
               </>
@@ -262,15 +313,26 @@ export default function LevelDetailPage() {
       {/* Info block */}
       <div className="mt-6 bg-blue-50 rounded-xl p-4">
         <div className="flex gap-3">
-          <svg className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <svg
+            className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
           </svg>
           <div className="text-sm text-blue-700">
             <p className="font-medium mb-1">Как работает матрица оплат?</p>
             <p>
-              Каждому ученику присваивается уровень (например, "1-6 месяцев" или "12+ месяцев").
-              Когда преподаватель проводит занятие с учеником, оплата преподавателю рассчитывается
-              на основе уровня ученика и типа занятия.
+              Каждому преподавателю присваивается уровень (например, "1-6
+              месяцев" или "12+ месяцев"). Когда преподаватель проводит занятие
+              с учеником, оплата преподавателю рассчитывается на основе уровня
+              преподавателя и типа занятия.
             </p>
           </div>
         </div>
