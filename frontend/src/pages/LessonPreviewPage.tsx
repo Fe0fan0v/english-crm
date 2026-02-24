@@ -75,6 +75,10 @@ export default function LessonPreviewPage() {
       onMediaControl: (blockId, action, time) => {
         setMediaCommands((prev) => ({ ...prev, [blockId]: { action, time } }));
       },
+      onScrollTo: (scrollPercent) => {
+        const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+        window.scrollTo({ top: maxScroll * (scrollPercent / 100), behavior: "smooth" });
+      },
       onAnswerChange: (blockId, answer) => {
         if (isTeacherLive) {
           setAnswers((prev) => ({ ...prev, [blockId]: answer }));
@@ -436,12 +440,25 @@ export default function LessonPreviewPage() {
             )}
           </div>
           {isTeacherLive && (
-            <button
-              onClick={() => liveSession.endSession()}
-              className="px-3 py-1.5 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition-colors"
-            >
-              Завершить
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+                  const scrollPercent = maxScroll > 0 ? (window.scrollY / maxScroll) * 100 : 0;
+                  liveSession.sendScrollTo(scrollPercent);
+                }}
+                disabled={!liveSession.peerConnected}
+                className="px-3 py-1.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-40 transition-colors"
+              >
+                За мной
+              </button>
+              <button
+                onClick={() => liveSession.endSession()}
+                className="px-3 py-1.5 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition-colors"
+              >
+                Завершить
+              </button>
+            </div>
           )}
         </div>
       )}

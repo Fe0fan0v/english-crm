@@ -8,6 +8,7 @@ interface LiveSessionCallbacks {
   onReset?: (blockId: number) => void;
   onPageChange?: (page: number) => void;
   onMediaControl?: (blockId: number, action: string, time?: number) => void;
+  onScrollTo?: (scrollPercent: number) => void;
   onStateSnapshot?: (state: FullState) => void;
   onSessionEnd?: (reason: string) => void;
   onPeerJoined?: (role: string, name: string) => void;
@@ -36,6 +37,7 @@ export interface UseLiveSessionReturn {
   sendReset: (blockId: number) => void;
   sendPageChange: (page: number) => void;
   sendMediaControl: (blockId: number, action: string, time?: number) => void;
+  sendScrollTo: (scrollPercent: number) => void;
   sendStateSnapshot: (state: FullState) => void;
   sendCursorMove: (x: number, y: number) => void;
   sendCursorHide: () => void;
@@ -134,6 +136,10 @@ export function useLiveSession(
             cb.onMediaControl?.(msg.block_id, msg.action, msg.time);
             break;
 
+          case "scroll_to":
+            cb.onScrollTo?.(msg.scroll_percent);
+            break;
+
           case "state_snapshot":
             cb.onStateSnapshot?.(msg as unknown as FullState);
             break;
@@ -219,6 +225,13 @@ export function useLiveSession(
     [send],
   );
 
+  const sendScrollTo = useCallback(
+    (scrollPercent: number) => {
+      send({ type: "scroll_to", scroll_percent: scrollPercent });
+    },
+    [send],
+  );
+
   const sendStateSnapshot = useCallback(
     (state: FullState) => {
       send({
@@ -267,6 +280,7 @@ export function useLiveSession(
     sendReset,
     sendPageChange,
     sendMediaControl,
+    sendScrollTo,
     sendStateSnapshot,
     sendCursorMove,
     sendCursorHide,

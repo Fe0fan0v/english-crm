@@ -577,7 +577,7 @@ export default function LessonDetailModal({
                             rel="noopener noreferrer"
                             className="btn btn-secondary btn-sm"
                           >
-                            Открыть
+                            Предпросмотр
                           </a>
                           {currentUser?.role !== "student" &&
                             material.material_type === "lesson" &&
@@ -591,7 +591,7 @@ export default function LessonDetailModal({
                               disabled={isStartingLiveSession}
                               className="btn btn-sm bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50"
                             >
-                              {isStartingLiveSession ? "..." : "Следовать за мной"}
+                              {isStartingLiveSession ? "..." : "Открыть"}
                             </button>
                           )}
                           {currentUser?.role !== "student" && (

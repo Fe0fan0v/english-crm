@@ -399,11 +399,13 @@ function VideoRenderer({
   mediaCommand?: MediaCommand | null;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const isRemoteAction = useRef(false);
 
   // Apply incoming media commands
   useEffect(() => {
     if (!mediaCommand || !videoRef.current) return;
     const el = videoRef.current;
+    isRemoteAction.current = true;
     if (mediaCommand.action === "play") {
       if (mediaCommand.time !== undefined) el.currentTime = mediaCommand.time;
       el.play().catch(() => {});
@@ -413,7 +415,13 @@ function VideoRenderer({
     } else if (mediaCommand.action === "seeked" && mediaCommand.time !== undefined) {
       el.currentTime = mediaCommand.time;
     }
+    setTimeout(() => { isRemoteAction.current = false; }, 100);
   }, [mediaCommand]);
+
+  const handleMediaEvent = (action: string) => {
+    if (isRemoteAction.current) return;
+    onMediaControl?.(action, videoRef.current?.currentTime);
+  };
   const videoInfo = useMemo(() => {
     if (!url) return null;
     const trimmed = url.trim();
@@ -496,9 +504,9 @@ function VideoRenderer({
           className="w-full h-full"
           controls
           controlsList="nodownload"
-          onPlay={() => onMediaControl?.("play", videoRef.current?.currentTime)}
-          onPause={() => onMediaControl?.("pause", videoRef.current?.currentTime)}
-          onSeeked={() => onMediaControl?.("seeked", videoRef.current?.currentTime)}
+          onPlay={() => handleMediaEvent("play")}
+          onPause={() => handleMediaEvent("pause")}
+          onSeeked={() => handleMediaEvent("seeked")}
         />
       </div>
     );
@@ -530,10 +538,12 @@ function AudioRenderer({
   mediaCommand?: MediaCommand | null;
 }) {
   const audioRef = useRef<HTMLAudioElement>(null);
+  const isRemoteAction = useRef(false);
 
   useEffect(() => {
     if (!mediaCommand || !audioRef.current) return;
     const el = audioRef.current;
+    isRemoteAction.current = true;
     if (mediaCommand.action === "play") {
       if (mediaCommand.time !== undefined) el.currentTime = mediaCommand.time;
       el.play().catch(() => {});
@@ -543,7 +553,14 @@ function AudioRenderer({
     } else if (mediaCommand.action === "seeked" && mediaCommand.time !== undefined) {
       el.currentTime = mediaCommand.time;
     }
+    // Reset flag after a tick so the browser event handlers can check it
+    setTimeout(() => { isRemoteAction.current = false; }, 100);
   }, [mediaCommand]);
+
+  const handleMediaEvent = (action: string) => {
+    if (isRemoteAction.current) return;
+    onMediaControl?.(action, audioRef.current?.currentTime);
+  };
 
   if (!url) {
     return <div className="text-gray-500">URL аудио не указан</div>;
@@ -559,9 +576,9 @@ function AudioRenderer({
         src={url}
         controls
         className="w-full"
-        onPlay={() => onMediaControl?.("play", audioRef.current?.currentTime)}
-        onPause={() => onMediaControl?.("pause", audioRef.current?.currentTime)}
-        onSeeked={() => onMediaControl?.("seeked", audioRef.current?.currentTime)}
+        onPlay={() => handleMediaEvent("play")}
+        onPause={() => handleMediaEvent("pause")}
+        onSeeked={() => handleMediaEvent("seeked")}
       />
     </div>
   );
@@ -845,6 +862,8 @@ function TestRenderer({
       const serverState = serverDetails.option_results[option.id];
       if (serverState === "correct") return "correct";
       if (serverState === "incorrect") return "incorrect";
+      // Show correct answers to teachers even if not selected by student
+      if (option.is_correct && canSeeAnswers) return "correct";
       return "default";
     }
     // Fallback to local check (admin/teacher)
@@ -1738,6 +1757,8 @@ function ImageChoiceRenderer({
       const serverState = serverDetails.option_results[option.id];
       if (serverState === "correct") return "correct";
       if (serverState === "incorrect") return "incorrect";
+      // Show correct answers to teachers even if not selected by student
+      if (option.is_correct && canSeeAnswers) return "correct";
       return "default";
     }
     // Fallback to local check (admin/teacher)
