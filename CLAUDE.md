@@ -165,12 +165,13 @@ backup/                 # Автобэкапы PostgreSQL в S3
 - **Модель**: ученик — источник правды, учитель видит read-only зеркало
 - **Транспорт**: WebSocket (`/api/live-sessions/ws/{lesson_id}?token=`), паттерн из `group_messages.py`
 - **Хранение**: in-memory dict (`active_sessions`, `user_session_map`), без миграции БД
-- **Запуск**: кнопка «Следовать за мной» в `LessonDetailModal` → таб «Курсы», только если `lesson.students.length === 1` и `material_type === "lesson"`
+- **Запуск**: кнопка «Открыть» в `LessonDetailModal` → таб «Курсы», только если `lesson.students.length === 1` и `material_type === "lesson"`. Кнопка «Предпросмотр» — просмотр урока без live-режима
 - **Баннер**: `LiveSessionBanner` для студентов, polling `GET /api/live-sessions/active` каждые 5 сек
 - **URL**: `/courses/lessons/{interactiveLessonId}?session={lessonId}` — query-param `session` активирует live-режим
-- **Синхронизация**: answer_change, answer_check, answer_reset, page_change, state_snapshot, media_control, cursor_move
+- **Синхронизация**: answer_change, answer_check, answer_reset, page_change, state_snapshot, media_control, cursor_move, scroll_to
 - **Курсор**: `RemoteCursor` — SVG стрелка (#8B5CF6), `position: fixed`, координаты в % viewport, throttle через rAF
-- **Медиа**: `onMediaControl`/`mediaCommand` пропсы в `BlockRenderer` → `VideoRenderer`/`AudioRenderer` (play/pause/seeked)
+- **Медиа**: `onMediaControl`/`mediaCommand` пропсы в `BlockRenderer` → `VideoRenderer`/`AudioRenderer` (play/pause/seeked), флаг `isRemoteAction` предотвращает цикл обратной связи
+- **Скролл «За мной»**: кнопка в баннере live-сессии — преподаватель отправляет свою scroll-позицию, ученика прокручивает к ней
 - **Reconnect**: exponential backoff (1s→10s, max 10 попыток), heartbeat ping каждые 30 сек
 - **Cleanup**: 60-сек таймаут после отключения обоих, `_delayed_cleanup` через asyncio.Task
 - **REST API**: `POST /api/live-sessions/` (TeacherUser), `GET /active` (CurrentUser), `DELETE /{id}` (TeacherUser)
