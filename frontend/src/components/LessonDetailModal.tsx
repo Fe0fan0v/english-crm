@@ -241,8 +241,13 @@ export default function LessonDetailModal({
       });
       window.open(`/courses/lessons/${interactiveLessonId}?session=${lessonId}`, "_blank");
     } catch (err: unknown) {
+      const axiosErr = err as { response?: { status?: number; data?: { detail?: string } } };
+      // 409 = session already exists — just open it
+      if (axiosErr?.response?.status === 409) {
+        window.open(`/courses/lessons/${interactiveLessonId}?session=${lessonId}`, "_blank");
+        return;
+      }
       const msg = err instanceof Error ? err.message : "Не удалось создать сессию";
-      const axiosErr = err as { response?: { data?: { detail?: string } } };
       setError(axiosErr?.response?.data?.detail || msg);
     } finally {
       setIsStartingLiveSession(false);

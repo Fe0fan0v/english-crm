@@ -75,9 +75,18 @@ export default function LessonPreviewPage() {
       onMediaControl: (blockId, action, time) => {
         setMediaCommands((prev) => ({ ...prev, [blockId]: { action, time } }));
       },
-      onScrollTo: (scrollPercent) => {
-        const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-        window.scrollTo({ top: maxScroll * (scrollPercent / 100), behavior: "smooth" });
+      onScrollTo: (scrollPercent, page) => {
+        const doScroll = () => {
+          const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+          window.scrollTo({ top: maxScroll * (scrollPercent / 100), behavior: "smooth" });
+        };
+        if (page !== undefined && page !== currentPage) {
+          setCurrentPage(page);
+          // Wait for DOM to update after page switch, then scroll
+          setTimeout(doScroll, 100);
+        } else {
+          doScroll();
+        }
       },
       onAnswerChange: (blockId, answer) => {
         if (isTeacherLive) {
@@ -421,7 +430,7 @@ export default function LessonPreviewPage() {
     <div ref={contentRef} className={`${showSidebar ? "max-w-5xl" : "max-w-3xl"} mx-auto`}>
       {/* Live Session Banner */}
       {isLiveMode && (
-        <div className="mb-4 p-3 rounded-xl border-2 border-purple-200 bg-purple-50 flex items-center justify-between">
+        <div className="mb-4 p-3 rounded-xl border-2 border-purple-200 bg-purple-50 flex items-center justify-between sticky top-0 z-30">
           <div className="flex items-center gap-3">
             <span className="relative flex h-3 w-3">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
@@ -445,7 +454,7 @@ export default function LessonPreviewPage() {
                 onClick={() => {
                   const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
                   const scrollPercent = maxScroll > 0 ? (window.scrollY / maxScroll) * 100 : 0;
-                  liveSession.sendScrollTo(scrollPercent);
+                  liveSession.sendScrollTo(scrollPercent, currentPage);
                 }}
                 disabled={!liveSession.peerConnected}
                 className="px-3 py-1.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-40 transition-colors"
