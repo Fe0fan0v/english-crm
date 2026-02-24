@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { lessonsApi, teacherApi, courseMaterialsApi } from "../services/api";
+import { liveSessionApi } from "../services/liveSessionApi";
 import { useAuthStore } from "../store/authStore";
 import type { LessonDetail, AttendanceStatus, LessonMaterial, LessonCourseMaterial } from "../types";
 import AttachMaterialModal from "./AttachMaterialModal";
@@ -43,6 +44,7 @@ export default function LessonDetailModal({
   const [isAttachCourseMaterialModalOpen, setIsAttachCourseMaterialModalOpen] = useState(false);
   const [meetingUrl, setMeetingUrl] = useState("");
   const [isUpdatingMeetingUrl, setIsUpdatingMeetingUrl] = useState(false);
+  const [isStartingLiveSession, setIsStartingLiveSession] = useState(false);
   const { user: currentUser } = useAuthStore();
 
   useEffect(() => {
@@ -226,6 +228,24 @@ export default function LessonDetailModal({
       setError("Не удалось обновить ссылку на урок");
     } finally {
       setIsUpdatingMeetingUrl(false);
+    }
+  };
+
+  const handleStartLiveSession = async (interactiveLessonId: number, studentId: number) => {
+    try {
+      setIsStartingLiveSession(true);
+      await liveSessionApi.create({
+        lesson_id: lessonId,
+        interactive_lesson_id: interactiveLessonId,
+        student_id: studentId,
+      });
+      window.open(`/courses/lessons/${interactiveLessonId}?session=${lessonId}`, "_blank");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Не удалось создать сессию";
+      const axiosErr = err as { response?: { data?: { detail?: string } } };
+      setError(axiosErr?.response?.data?.detail || msg);
+    } finally {
+      setIsStartingLiveSession(false);
     }
   };
 
@@ -559,6 +579,21 @@ export default function LessonDetailModal({
                           >
                             Открыть
                           </a>
+                          {currentUser?.role !== "student" &&
+                            material.material_type === "lesson" &&
+                            material.interactive_lesson_id &&
+                            lesson.students.length === 1 && (
+                            <button
+                              onClick={() => handleStartLiveSession(
+                                material.interactive_lesson_id!,
+                                lesson.students[0].id
+                              )}
+                              disabled={isStartingLiveSession}
+                              className="btn btn-sm bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50"
+                            >
+                              {isStartingLiveSession ? "..." : "Следовать за мной"}
+                            </button>
+                          )}
                           {currentUser?.role !== "student" && (
                             <button
                               onClick={() => handleDetachCourseMaterial(material.id)}

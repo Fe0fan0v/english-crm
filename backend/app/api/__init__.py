@@ -9,6 +9,7 @@ from app.api import (
     lesson_types,
     lessons,
     levels,
+    live_sessions,
     materials,
     news,
     notifications,
@@ -44,4 +45,5 @@ api_router.include_router(uploads.router, prefix="/uploads", tags=["uploads"])
 api_router.include_router(settings.router, prefix="/settings", tags=["settings"])
 api_router.include_router(vocabulary.router, prefix="/vocabulary", tags=["vocabulary"])
 api_router.include_router(exercise_results.router, prefix="/exercise-results", tags=["exercise-results"])
+api_router.include_router(live_sessions.router, prefix="/live-sessions", tags=["live-sessions"])
 api_router.include_router(news.router)

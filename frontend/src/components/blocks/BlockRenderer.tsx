@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import type { ExerciseBlock, ExerciseResultDetails } from "../../types/course";
 import { useAuthStore } from "../../store/authStore";
 
@@ -13,6 +13,11 @@ const INTERACTIVE_TYPES = [
   "drag_words",
 ];
 
+export interface MediaCommand {
+  action: string;
+  time?: number;
+}
+
 interface BlockRendererProps {
   block: ExerciseBlock;
   blockNumber?: number; // Optional block number for display (e.g., 1, 2, 3...)
@@ -23,6 +28,8 @@ interface BlockRendererProps {
   onCheck: () => void;
   onReset?: () => void;
   serverDetails?: ExerciseResultDetails;
+  onMediaControl?: (action: string, time?: number) => void;
+  mediaCommand?: MediaCommand | null;
 }
 
 export default function BlockRenderer({
@@ -35,6 +42,8 @@ export default function BlockRenderer({
   onCheck,
   onReset,
   serverDetails,
+  onMediaControl,
+  mediaCommand,
 }: BlockRendererProps) {
   const content = block.content as Record<string, unknown>;
 
@@ -54,6 +63,8 @@ export default function BlockRenderer({
           <VideoRenderer
             url={(content.url as string) || ""}
             title={(content.title as string) || ""}
+            onMediaControl={onMediaControl}
+            mediaCommand={mediaCommand}
           />
         );
 
@@ -62,6 +73,8 @@ export default function BlockRenderer({
           <AudioRenderer
             url={(content.url as string) || ""}
             title={(content.title as string) || ""}
+            onMediaControl={onMediaControl}
+            mediaCommand={mediaCommand}
           />
         );
 
@@ -374,7 +387,33 @@ interface DragWordItem {
 }
 
 // Video Renderer
-function VideoRenderer({ url, title }: { url: string; title: string }) {
+function VideoRenderer({
+  url,
+  title,
+  onMediaControl,
+  mediaCommand,
+}: {
+  url: string;
+  title: string;
+  onMediaControl?: (action: string, time?: number) => void;
+  mediaCommand?: MediaCommand | null;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Apply incoming media commands
+  useEffect(() => {
+    if (!mediaCommand || !videoRef.current) return;
+    const el = videoRef.current;
+    if (mediaCommand.action === "play") {
+      if (mediaCommand.time !== undefined) el.currentTime = mediaCommand.time;
+      el.play().catch(() => {});
+    } else if (mediaCommand.action === "pause") {
+      el.pause();
+      if (mediaCommand.time !== undefined) el.currentTime = mediaCommand.time;
+    } else if (mediaCommand.action === "seeked" && mediaCommand.time !== undefined) {
+      el.currentTime = mediaCommand.time;
+    }
+  }, [mediaCommand]);
   const videoInfo = useMemo(() => {
     if (!url) return null;
     const trimmed = url.trim();
@@ -451,11 +490,15 @@ function VideoRenderer({ url, title }: { url: string; title: string }) {
     return (
       <div className="aspect-video rounded-lg overflow-hidden bg-gray-100">
         <video
+          ref={videoRef}
           src={videoInfo.src}
           title={title || "Видео"}
           className="w-full h-full"
           controls
           controlsList="nodownload"
+          onPlay={() => onMediaControl?.("play", videoRef.current?.currentTime)}
+          onPause={() => onMediaControl?.("pause", videoRef.current?.currentTime)}
+          onSeeked={() => onMediaControl?.("seeked", videoRef.current?.currentTime)}
         />
       </div>
     );
@@ -475,7 +518,33 @@ function VideoRenderer({ url, title }: { url: string; title: string }) {
 }
 
 // Audio Renderer
-function AudioRenderer({ url, title }: { url: string; title: string }) {
+function AudioRenderer({
+  url,
+  title,
+  onMediaControl,
+  mediaCommand,
+}: {
+  url: string;
+  title: string;
+  onMediaControl?: (action: string, time?: number) => void;
+  mediaCommand?: MediaCommand | null;
+}) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  useEffect(() => {
+    if (!mediaCommand || !audioRef.current) return;
+    const el = audioRef.current;
+    if (mediaCommand.action === "play") {
+      if (mediaCommand.time !== undefined) el.currentTime = mediaCommand.time;
+      el.play().catch(() => {});
+    } else if (mediaCommand.action === "pause") {
+      el.pause();
+      if (mediaCommand.time !== undefined) el.currentTime = mediaCommand.time;
+    } else if (mediaCommand.action === "seeked" && mediaCommand.time !== undefined) {
+      el.currentTime = mediaCommand.time;
+    }
+  }, [mediaCommand]);
+
   if (!url) {
     return <div className="text-gray-500">URL аудио не указан</div>;
   }
@@ -485,7 +554,15 @@ function AudioRenderer({ url, title }: { url: string; title: string }) {
       {title && (
         <div className="text-sm font-medium text-gray-700 mb-2">{title}</div>
       )}
-      <audio src={url} controls className="w-full" />
+      <audio
+        ref={audioRef}
+        src={url}
+        controls
+        className="w-full"
+        onPlay={() => onMediaControl?.("play", audioRef.current?.currentTime)}
+        onPause={() => onMediaControl?.("pause", audioRef.current?.currentTime)}
+        onSeeked={() => onMediaControl?.("seeked", audioRef.current?.currentTime)}
+      />
     </div>
   );
 }

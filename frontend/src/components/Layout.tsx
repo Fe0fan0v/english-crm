@@ -5,6 +5,7 @@ import { settingsApi } from "../services/api";
 import type { UserRole } from "../types";
 import clsx from "clsx";
 import NotificationBell from "./NotificationBell";
+import LiveSessionBanner from "./LiveSessionBanner";
 
 interface NavItem {
   path: string;
@@ -472,6 +473,7 @@ export default function Layout({ children }: LayoutProps) {
 
   return (
     <div className="min-h-screen bg-gray-50 flex overflow-x-hidden">
+      <LiveSessionBanner />
       {/* Mobile Header */}
       <header className="fixed top-0 left-0 right-0 h-14 bg-white border-b border-gray-100 z-40 lg:hidden flex items-center justify-between px-4">
         <button

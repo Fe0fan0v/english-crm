@@ -1,13 +1,15 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { interactiveLessonApi, exerciseResultApi } from "../services/courseApi";
 import { useAuthStore } from "../store/authStore";
+import { useLiveSession } from "../hooks/useLiveSession";
 import type {
   InteractiveLessonDetail,
   ExerciseBlock,
   ExerciseResultDetails,
 } from "../types/course";
 import BlockRenderer from "../components/blocks/BlockRenderer";
+import RemoteCursor from "../components/RemoteCursor";
 
 // Block type labels for the sidebar
 const BLOCK_TYPE_ICONS: Record<string, string> = {
@@ -42,6 +44,7 @@ interface NavItem {
 export default function LessonPreviewPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuthStore();
   const [lesson, setLesson] = useState<InteractiveLessonDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,6 +60,94 @@ export default function LessonPreviewPage() {
   const [currentPage, setCurrentPage] = useState(0);
 
   const isStudent = user?.role === "student";
+
+  // Live Session
+  const sessionLessonId = searchParams.get("session");
+  const isLiveMode = !!sessionLessonId;
+  const isTeacherLive = isLiveMode && !isStudent;
+  const isStudentLive = isLiveMode && isStudent;
+
+  const [mediaCommands, setMediaCommands] = useState<Record<number, { action: string; time?: number }>>({});
+
+  const liveSession = useLiveSession(
+    isLiveMode ? Number(sessionLessonId) : null,
+    {
+      onMediaControl: (blockId, action, time) => {
+        setMediaCommands((prev) => ({ ...prev, [blockId]: { action, time } }));
+      },
+      onAnswerChange: (blockId, answer) => {
+        if (isTeacherLive) {
+          setAnswers((prev) => ({ ...prev, [blockId]: answer }));
+        }
+      },
+      onCheck: (blockId, details) => {
+        if (isTeacherLive) {
+          setChecked((prev) => ({ ...prev, [blockId]: true }));
+          if (details) {
+            setServerDetails((prev) => ({ ...prev, [blockId]: details }));
+          }
+        }
+      },
+      onReset: (blockId) => {
+        if (isTeacherLive) {
+          setAnswers((prev) => { const n = { ...prev }; delete n[blockId]; return n; });
+          setChecked((prev) => { const n = { ...prev }; delete n[blockId]; return n; });
+          setServerDetails((prev) => { const n = { ...prev }; delete n[blockId]; return n; });
+        }
+      },
+      onPageChange: (page) => {
+        if (isTeacherLive) {
+          setCurrentPage(page);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      },
+      onStateSnapshot: (state) => {
+        if (isTeacherLive) {
+          setAnswers(state.answers as Record<number, unknown>);
+          setChecked(state.checked);
+          setServerDetails(state.serverDetails);
+          setCurrentPage(state.current_page);
+        }
+      },
+      onSessionEnd: () => {
+        navigate(-1);
+      },
+      onPeerJoined: () => {
+        // Student sends snapshot when teacher joins/reconnects
+        if (isStudentLive) {
+          liveSession.sendStateSnapshot({
+            answers,
+            checked,
+            serverDetails,
+            current_page: currentPage,
+          });
+        }
+      },
+    },
+  );
+
+  // Teacher cursor tracking
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!isTeacherLive) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const x = (e.clientX / window.innerWidth) * 100;
+      const y = (e.clientY / window.innerHeight) * 100;
+      liveSession.sendCursorMove(x, y);
+    };
+
+    const handleMouseLeave = () => {
+      liveSession.sendCursorHide();
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseleave", handleMouseLeave);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseleave", handleMouseLeave);
+    };
+  }, [isTeacherLive, liveSession]);
 
   useEffect(() => {
     if (id) loadLesson();
@@ -120,15 +211,23 @@ export default function LessonPreviewPage() {
   };
 
   const handleAnswerChange = (blockId: number, answer: unknown) => {
+    // Teacher in live mode is read-only
+    if (isTeacherLive) return;
     // Don't allow changes to already saved answers
     if (savedBlockIds.current.has(blockId)) return;
     setAnswers((prev) => ({ ...prev, [blockId]: answer }));
     if (checked[blockId]) {
       setChecked((prev) => ({ ...prev, [blockId]: false }));
     }
+    // Broadcast to teacher
+    if (isStudentLive) {
+      liveSession.sendAnswerChange(blockId, answer);
+    }
   };
 
   const handleCheck = async (blockId: number) => {
+    // Teacher in live mode is read-only
+    if (isTeacherLive) return;
     // Save to backend for students and get server-side grading details
     if (isStudent && id) {
       try {
@@ -139,6 +238,10 @@ export default function LessonPreviewPage() {
         savedBlockIds.current.add(blockId);
         if (result.details) {
           setServerDetails((prev) => ({ ...prev, [blockId]: result.details! }));
+        }
+        // Broadcast to teacher
+        if (isStudentLive) {
+          liveSession.sendCheck(blockId, result.details ?? undefined);
         }
       } catch (error) {
         console.error("Failed to save answer:", error);
@@ -164,6 +267,10 @@ export default function LessonPreviewPage() {
       delete next[blockId];
       return next;
     });
+    // Broadcast to teacher
+    if (isStudentLive) {
+      liveSession.sendReset(blockId);
+    }
   };
 
   // Split blocks into pages at page_break boundaries or auto-paginate by titles
@@ -219,9 +326,12 @@ export default function LessonPreviewPage() {
       if (page >= 0 && page < totalPages) {
         setCurrentPage(page);
         window.scrollTo({ top: 0, behavior: "smooth" });
+        if (isStudentLive) {
+          liveSession.sendPageChange(page);
+        }
       }
     },
-    [totalPages],
+    [totalPages, isStudentLive, liveSession],
   );
 
   // Build navigation items from blocks with titles
@@ -304,7 +414,48 @@ export default function LessonPreviewPage() {
   const showSidebar = navItems.length >= 3;
 
   return (
-    <div className={`${showSidebar ? "max-w-5xl" : "max-w-3xl"} mx-auto`}>
+    <div ref={contentRef} className={`${showSidebar ? "max-w-5xl" : "max-w-3xl"} mx-auto`}>
+      {/* Live Session Banner */}
+      {isLiveMode && (
+        <div className="mb-4 p-3 rounded-xl border-2 border-purple-200 bg-purple-50 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500" />
+            </span>
+            <span className="text-sm font-medium text-purple-800">
+              Совместная работа
+            </span>
+            <span className="text-xs text-purple-600">
+              {liveSession.peerConnected
+                ? isTeacherLive ? "Ученик подключён" : "Учитель подключён"
+                : isTeacherLive ? "Ожидание ученика..." : "Ожидание учителя..."}
+            </span>
+            {!liveSession.isConnected && (
+              <span className="text-xs text-orange-600">Переподключение...</span>
+            )}
+          </div>
+          {isTeacherLive && (
+            <button
+              onClick={() => liveSession.endSession()}
+              className="px-3 py-1.5 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition-colors"
+            >
+              Завершить
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Remote Cursor */}
+      {isLiveMode && liveSession.remoteCursor && liveSession.remoteCursor.visible && (
+        <RemoteCursor
+          x={liveSession.remoteCursor.x}
+          y={liveSession.remoteCursor.y}
+          visible={liveSession.remoteCursor.visible}
+          name={isStudent ? "Учитель" : "Ученик"}
+        />
+      )}
+
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between">
@@ -453,6 +604,8 @@ export default function LessonPreviewPage() {
                       onCheck={() => handleCheck(block.id)}
                       onReset={() => handleReset(block.id)}
                       serverDetails={serverDetails[block.id]}
+                      onMediaControl={isLiveMode ? (action, time) => liveSession.sendMediaControl(block.id, action, time) : undefined}
+                      mediaCommand={isLiveMode ? mediaCommands[block.id] || null : undefined}
                     />
                   </div>
                 );
