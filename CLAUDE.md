@@ -171,7 +171,8 @@ backup/                 # Автобэкапы PostgreSQL в S3
 - **Синхронизация**: answer_change, answer_check, answer_reset, page_change, state_snapshot, media_control, cursor_move, scroll_to
 - **Курсор**: `RemoteCursor` — SVG стрелка (#8B5CF6), `position: fixed`, координаты в % viewport, throttle через rAF
 - **Медиа**: `onMediaControl`/`mediaCommand` пропсы в `BlockRenderer` → `VideoRenderer`/`AudioRenderer` (play/pause/seeked), флаг `isRemoteAction` предотвращает цикл обратной связи
-- **Скролл «За мной»**: кнопка в баннере live-сессии — преподаватель отправляет свою scroll-позицию, ученика прокручивает к ней
+- **Скролл «За мной»**: кнопка в баннере live-сессии — преподаватель отправляет scroll-позицию + номер страницы, ученика переключает на нужную страницу и прокручивает к позиции. Баннер sticky (закреплён вверху при скролле)
+- **Graceful 409**: повторное нажатие «Открыть» при активной сессии — просто открывает сессию без ошибки
 - **Reconnect**: exponential backoff (1s→10s, max 10 попыток), heartbeat ping каждые 30 сек
 - **Cleanup**: 60-сек таймаут после отключения обоих, `_delayed_cleanup` через asyncio.Task
 - **REST API**: `POST /api/live-sessions/` (TeacherUser), `GET /active` (CurrentUser), `DELETE /{id}` (TeacherUser)
