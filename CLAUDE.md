@@ -71,6 +71,8 @@ backup/                 # Автобэкапы PostgreSQL в S3
 ### Группы
 - Уроки привязываются к группе (`group_id`) → автоподтягивание учеников
 - Групповой чат через WebSocket: `wss://lms.jsi.kz/api/groups/ws/{group_id}/chat?token={jwt}`
+- Синхронизация учеников: `sync_group_students_to_future_lessons()` при добавлении/удалении ученика из группы обновляет `lesson_students` всех SCHEDULED уроков группы
+- **ВАЖНО**: фильтр по `status=SCHEDULED` вместо `datetime.now()` — БД хранит naive local time (UTC+5), а сервер в UTC
 
 ### Прямые назначения преподаватель-ученик
 - Таблица `teacher_students`. Автосоздание при создании урока/группы
@@ -85,6 +87,9 @@ backup/                 # Автобэкапы PostgreSQL в S3
 ### Уведомления
 - Типы: `lesson_cancelled`, `low_balance`. Компонент `NotificationBell`
 - При низком балансе (< 5000 тг) → уведомление + кнопка WhatsApp менеджера
+- При создании урока: если `student.balance < lesson_type.price` → уведомление учителю с перечислением учеников и их балансов
+- Работает в 4 эндпоинтах: `POST /api/lessons`, `POST /api/lessons/batch`, `POST /api/teacher/lessons`, `POST /api/teacher/lessons/batch`
+- В batch-режиме — одно уведомление на всю пачку
 
 ### Конструктор курсов
 **Курс → Секции → Топики → Уроки → Блоки упражнений**
@@ -154,6 +159,22 @@ backup/                 # Автобэкапы PostgreSQL в S3
 - HTML-группа (text, teaching_guide, remember, article) → сохраняет `html`
 - Медиа-группа (video, audio) → сохраняет `url`, `title`
 - Тесты-группа (test, true_false, image_choice) → сохраняет `explanation`
+
+### Live Session (совместная работа)
+- Учитель и ученик работают вместе над курсовым материалом в реальном времени (1:1)
+- **Модель**: ученик — источник правды, учитель видит read-only зеркало
+- **Транспорт**: WebSocket (`/api/live-sessions/ws/{lesson_id}?token=`), паттерн из `group_messages.py`
+- **Хранение**: in-memory dict (`active_sessions`, `user_session_map`), без миграции БД
+- **Запуск**: кнопка «Следовать за мной» в `LessonDetailModal` → таб «Курсы», только если `lesson.students.length === 1` и `material_type === "lesson"`
+- **Баннер**: `LiveSessionBanner` для студентов, polling `GET /api/live-sessions/active` каждые 5 сек
+- **URL**: `/courses/lessons/{interactiveLessonId}?session={lessonId}` — query-param `session` активирует live-режим
+- **Синхронизация**: answer_change, answer_check, answer_reset, page_change, state_snapshot, media_control, cursor_move
+- **Курсор**: `RemoteCursor` — SVG стрелка (#8B5CF6), `position: fixed`, координаты в % viewport, throttle через rAF
+- **Медиа**: `onMediaControl`/`mediaCommand` пропсы в `BlockRenderer` → `VideoRenderer`/`AudioRenderer` (play/pause/seeked)
+- **Reconnect**: exponential backoff (1s→10s, max 10 попыток), heartbeat ping каждые 30 сек
+- **Cleanup**: 60-сек таймаут после отключения обоих, `_delayed_cleanup` через asyncio.Task
+- **REST API**: `POST /api/live-sessions/` (TeacherUser), `GET /active` (CurrentUser), `DELETE /{id}` (TeacherUser)
+- **Файлы**: `live_sessions.py`, `live_session.py` (schema), `liveSessionApi.ts`, `useLiveSession.ts`, `RemoteCursor.tsx`, `LiveSessionBanner.tsx`
 
 ### Импортированные курсы
 - English File 4th (ID: 10) — 7 уровней, 292 урока, 10168 блоков
