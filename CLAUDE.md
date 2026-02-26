@@ -17,7 +17,7 @@ backend/
 │   ├── schemas/       # Pydantic схемы
 │   ├── utils/         # Утилиты (grading.py — серверная проверка ответов)
 │   └── database.py    # Подключение к БД
-├── alembic/versions/  # Миграции (000-030)
+├── alembic/versions/  # Миграции (000-031)
 └── requirements.txt
 
 frontend/
@@ -101,7 +101,7 @@ backup/                 # Автобэкапы PostgreSQL в S3
 | divider, teaching_guide, remember, table | word_order, matching, image_choice |
 | vocabulary, page_break | flashcards, essay, drag_words |
 
-**Ключевые модели:** Course, CourseSection, CourseTopic, InteractiveLesson, ExerciseBlock, LessonCourseMaterial, MaterialFolder
+**Ключевые модели:** Course, CourseSection, CourseTopic, InteractiveLesson, ExerciseBlock, LessonCourseMaterial, MaterialFolder, HomeworkAssignment
 
 **Права:** admin — полный CRUD; teacher — read-only + прикрепление; student — просмотр прикреплённой части
 
@@ -141,7 +141,18 @@ backup/                 # Автобэкапы PostgreSQL в S3
 
 **Кнопка сброса:** после проверки упражнения — кнопка "Сбросить" для повторной попытки
 
-**Домашнее задание:** вкладка на дашборде студента с постоянным доступом ко всем курсовым материалам (без лимита 30 дней). Endpoint: `GET /api/student/homework`. Вкладка «Материалы» показывает PDF-файлы (30 дней), «Домашнее задание» — курсовые материалы (всё время)
+**Домашнее задание (Homework Assignments):** преподаватель назначает интерактивные уроки как ДЗ ученикам
+- Модель `HomeworkAssignment`: lesson_id, interactive_lesson_id, student_id, assigned_by, status, timestamps
+- Статусы в БД: `pending`, `submitted`, `accepted`; статус `in_progress` вычисляется на лету (progress > 0 и status=pending)
+- Unique constraint: `(lesson_id, interactive_lesson_id, student_id)`
+- Прогресс: `COUNT(ExerciseResult)` / `COUNT(ExerciseBlock where type in INTERACTIVE_TYPES)`
+- **API преподавателя**: `POST /api/homework/lessons/{id}/assign` (назначить всем ученикам урока), `GET .../lessons/{id}` (список ДЗ), `PUT .../{id}/accept`, `DELETE .../{id}`
+- **API ученика**: `GET /api/student/homework-assignments` (мои ДЗ), `PUT .../homework/{id}/submit` (сдать)
+- **UI преподавателя** (LessonDetailModal → таб «Курсы»): кнопка «Задать ДЗ» / badge «ДЗ назначено» на каждом lesson-материале, секция «Назначенные ДЗ» с прогрессом и кнопками «Принять»/удалить
+- **UI ученика** (StudentDashboardPage): таб «Домашнее задание» (бывший «Тесты») — карточки ДЗ с прогресс-баром, статус-badges, кнопками «Открыть» и «Сдать»
+- **Файлы**: `homework.py` (model, schema, api), `homeworkApi` в api.ts
+
+**Курсовые материалы (legacy «Уроки»):** вкладка на дашборде студента с постоянным доступом ко всем курсовым материалам (без лимита 30 дней). Endpoint: `GET /api/student/homework`. Вкладка «Материалы» показывает PDF-файлы (30 дней), «Уроки» — курсовые материалы (всё время)
 
 **Карусель изображений:** блок `image` поддерживает несколько изображений
 - Поле `images: CarouselImage[]` (url + caption) в JSONB content
@@ -218,7 +229,7 @@ backup/                 # Автобэкапы PostgreSQL в S3
 - Frontend: загрузка студентов через `usersApi.list(1, 10000, undefined, "student")`
 
 ## Миграции (Alembic)
-Текущая версия: **030**. Применяются автоматически при деплое.
+Текущая версия: **031**. Применяются автоматически при деплое.
 
 ## Полезные команды
 ```bash

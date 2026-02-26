@@ -4,6 +4,32 @@
 
 ## Февраль 2026
 
+### 138. Система домашних заданий — Homework Assignments (26 февраля 2026)
+- Новая фича: преподаватель назначает интерактивные уроки из конструктора курсов как ДЗ ученикам и контролирует выполнение
+- **Модель `HomeworkAssignment`** (миграция 031): lesson_id, interactive_lesson_id, student_id, assigned_by, status (pending/submitted/accepted), timestamps
+  - Unique constraint: `(lesson_id, interactive_lesson_id, student_id)`
+  - Статус `in_progress` вычисляется на лету (progress > 0 при status=pending)
+- **Backend API** (6 эндпоинтов):
+  - `POST /api/homework/lessons/{id}/assign` — назначить ДЗ всем ученикам урока (TeacherUser)
+  - `GET /api/homework/lessons/{id}` — список ДЗ для урока с прогрессом (TeacherUser)
+  - `PUT /api/homework/{id}/accept` — принять сданное ДЗ (TeacherUser)
+  - `DELETE /api/homework/{id}` — удалить назначение (TeacherUser)
+  - `GET /api/student/homework-assignments` — мои ДЗ (StudentOnlyUser)
+  - `PUT /api/student/homework/{id}/submit` — сдать ДЗ на проверку (StudentOnlyUser)
+- **Расчёт прогресса**: `COUNT(ExerciseResult)` / `COUNT(ExerciseBlock where type in INTERACTIVE_TYPES)` — переиспользует паттерн из exercise_results.py
+- **UI преподавателя** (LessonDetailModal → таб «Курсы»):
+  - Кнопка «Задать ДЗ» рядом с «Предпросмотр» / «Открыть» для каждого lesson-материала
+  - После назначения — зелёный badge «ДЗ назначено»
+  - Секция «Назначенные ДЗ» внизу: имя ученика, прогресс X/Y, статус-badge, кнопка «Принять» (для submitted), кнопка удаления
+- **UI ученика** (StudentDashboardPage):
+  - Таб «Тесты» переименован в «Домашнее задание»
+  - Карточки ДЗ: название урока, преподаватель, дата, прогресс-бар, статус-badge (серый=не начато, синий=в процессе, жёлтый=на проверке, зелёный=принято)
+  - Кнопка «Открыть» → переход к интерактивному уроку
+  - Кнопка «Сдать» (при progress > 0 и status pending/in_progress)
+- Создано 4 файла: `homework.py` (model, schema, api), миграция 031
+- Изменено 6 файлов: models/__init__, api/__init__, types/index.ts, api.ts, LessonDetailModal.tsx, StudentDashboardPage.tsx
+- Коммиты: `08a58be`, `b1b4cfc`
+
 ### 137. Live Session — sticky баннер, «За мной» со страницами, graceful 409 (24 февраля 2026)
 - **Sticky баннер**: баннер live-сессии теперь закреплён вверху страницы при скролле (`sticky top-0 z-30`)
 - **«За мной» с переключением страниц**: кнопка теперь отправляет номер текущей страницы вместе со скролл-позицией
