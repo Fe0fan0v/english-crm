@@ -20,7 +20,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     # Create homeworkstatus enum
-    op.execute("CREATE TYPE homeworkstatus AS ENUM ('pending', 'submitted', 'accepted')")
+    op.execute("DO $$ BEGIN CREATE TYPE homeworkstatus AS ENUM ('pending', 'submitted', 'accepted'); EXCEPTION WHEN duplicate_object THEN NULL; END $$")
 
     # Create homework_assignments table
     op.create_table(
