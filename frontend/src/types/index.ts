@@ -415,10 +415,17 @@ export interface TeacherStudentInfo {
 }
 
 // Student Dashboard
+export interface RemainingLessonsInfo {
+  lesson_type_name: string;
+  price: string;
+  count: number;
+}
+
 export interface StudentStats {
   balance: string;
   upcoming_lessons_count: number;
   groups_count: number;
+  remaining_lessons: RemainingLessonsInfo[];
 }
 
 export interface StudentGroupSummary {
@@ -607,6 +614,37 @@ export interface VocabularyWordUpdate {
   translation?: string;
   transcription?: string | null;
   example?: string | null;
+}
+
+// Homework Assignments
+export type HomeworkStatusType = 'pending' | 'in_progress' | 'submitted' | 'accepted';
+
+export interface HomeworkAssignment {
+  id: number;
+  lesson_id: number;
+  lesson_title: string;
+  interactive_lesson_id: number;
+  interactive_lesson_title: string;
+  student_id: number;
+  student_name: string;
+  status: HomeworkStatusType;
+  progress: number;
+  total_blocks: number;
+  assigned_at: string;
+  submitted_at: string | null;
+  accepted_at: string | null;
+}
+
+export interface StudentHomeworkItem {
+  id: number;
+  lesson_title: string;
+  interactive_lesson_id: number;
+  interactive_lesson_title: string;
+  teacher_name: string;
+  status: HomeworkStatusType;
+  progress: number;
+  total_blocks: number;
+  assigned_at: string;
 }
 
 // Student Course Material View (filtered tree)

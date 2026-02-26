@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { lessonsApi, teacherApi, courseMaterialsApi } from "../services/api";
+import { lessonsApi, teacherApi, courseMaterialsApi, homeworkApi } from "../services/api";
 import { liveSessionApi } from "../services/liveSessionApi";
 import { useAuthStore } from "../store/authStore";
-import type { LessonDetail, AttendanceStatus, LessonMaterial, LessonCourseMaterial } from "../types";
+import type { LessonDetail, AttendanceStatus, LessonMaterial, LessonCourseMaterial, HomeworkAssignment } from "../types";
 import AttachMaterialModal from "./AttachMaterialModal";
 import AttachCourseMaterialModal from "./AttachCourseMaterialModal";
 
@@ -45,6 +45,8 @@ export default function LessonDetailModal({
   const [meetingUrl, setMeetingUrl] = useState("");
   const [isUpdatingMeetingUrl, setIsUpdatingMeetingUrl] = useState(false);
   const [isStartingLiveSession, setIsStartingLiveSession] = useState(false);
+  const [homeworkAssignments, setHomeworkAssignments] = useState<HomeworkAssignment[]>([]);
+  const [isAssigningHomework, setIsAssigningHomework] = useState(false);
   const { user: currentUser } = useAuthStore();
 
   useEffect(() => {
@@ -57,6 +59,9 @@ export default function LessonDetailModal({
       loadMaterials();
     } else if (activeTab === "courses" && lesson) {
       loadCourseMaterials();
+      if (currentUser?.role !== "student") {
+        loadHomeworkAssignments();
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, lesson]);
@@ -91,6 +96,15 @@ export default function LessonDetailModal({
       setCourseMaterials(data);
     } catch (err) {
       console.error("Failed to load course materials:", err);
+    }
+  };
+
+  const loadHomeworkAssignments = async () => {
+    try {
+      const data = await homeworkApi.getLessonHomework(lessonId);
+      setHomeworkAssignments(data);
+    } catch (err) {
+      console.error("Failed to load homework:", err);
     }
   };
 
@@ -252,6 +266,59 @@ export default function LessonDetailModal({
     } finally {
       setIsStartingLiveSession(false);
     }
+  };
+
+  const handleAssignHomework = async (interactiveLessonId: number) => {
+    try {
+      setIsAssigningHomework(true);
+      await homeworkApi.assign(lessonId, interactiveLessonId);
+      await loadHomeworkAssignments();
+    } catch (err) {
+      console.error("Failed to assign homework:", err);
+      setError("Не удалось назначить ДЗ");
+    } finally {
+      setIsAssigningHomework(false);
+    }
+  };
+
+  const handleAcceptHomework = async (homeworkId: number) => {
+    try {
+      await homeworkApi.accept(homeworkId);
+      await loadHomeworkAssignments();
+    } catch (err) {
+      console.error("Failed to accept homework:", err);
+      setError("Не удалось принять ДЗ");
+    }
+  };
+
+  const handleDeleteHomework = async (homeworkId: number) => {
+    if (!confirm("Удалить это назначение ДЗ?")) return;
+    try {
+      await homeworkApi.remove(homeworkId);
+      await loadHomeworkAssignments();
+    } catch (err) {
+      console.error("Failed to delete homework:", err);
+      setError("Не удалось удалить ДЗ");
+    }
+  };
+
+  const getHomeworkStatusBadge = (status: string) => {
+    switch (status) {
+      case "pending":
+        return <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">Не начато</span>;
+      case "in_progress":
+        return <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded">В процессе</span>;
+      case "submitted":
+        return <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">Сдано</span>;
+      case "accepted":
+        return <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Принято</span>;
+      default:
+        return null;
+    }
+  };
+
+  const isHomeworkAssigned = (interactiveLessonId: number) => {
+    return homeworkAssignments.some(hw => hw.interactive_lesson_id === interactiveLessonId);
   };
 
   const formatDateTime = (dateStr: string) => {
@@ -599,6 +666,23 @@ export default function LessonDetailModal({
                               {isStartingLiveSession ? "..." : "Открыть"}
                             </button>
                           )}
+                          {currentUser?.role !== "student" &&
+                            material.material_type === "lesson" &&
+                            material.interactive_lesson_id && (
+                            isHomeworkAssigned(material.interactive_lesson_id) ? (
+                              <span className="btn btn-sm bg-green-100 text-green-700 cursor-default">
+                                ДЗ назначено
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => handleAssignHomework(material.interactive_lesson_id!)}
+                                disabled={isAssigningHomework}
+                                className="btn btn-sm bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50"
+                              >
+                                {isAssigningHomework ? "..." : "Задать ДЗ"}
+                              </button>
+                            )
+                          )}
                           {currentUser?.role !== "student" && (
                             <button
                               onClick={() => handleDetachCourseMaterial(material.id)}
@@ -618,6 +702,47 @@ export default function LessonDetailModal({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                   </svg>
                   <p>Курсовых материалов нет</p>
+                </div>
+              )}
+
+              {/* Homework Assignments Section */}
+              {currentUser?.role !== "student" && homeworkAssignments.length > 0 && (
+                <div className="mt-6 border-t border-gray-200 pt-4">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Назначенные ДЗ</h3>
+                  <div className="space-y-2">
+                    {homeworkAssignments.map((hw) => (
+                      <div key={hw.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-gray-800 truncate">{hw.student_name}</span>
+                            {getHomeworkStatusBadge(hw.status)}
+                          </div>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {hw.interactive_lesson_title} — {hw.progress}/{hw.total_blocks}
+                          </p>
+                        </div>
+                        <div className="flex gap-1 ml-2">
+                          {hw.status === "submitted" && (
+                            <button
+                              onClick={() => handleAcceptHomework(hw.id)}
+                              className="btn btn-sm bg-green-500 text-white hover:bg-green-600"
+                            >
+                              Принять
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDeleteHomework(hw.id)}
+                            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                            title="Удалить"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

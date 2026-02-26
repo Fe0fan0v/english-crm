@@ -5,6 +5,7 @@ from app.api import (
     direct_messages,
     exercise_results,
     group_messages,
+    homework,
     groups,
     lesson_types,
     lessons,
@@ -46,4 +47,5 @@ api_router.include_router(settings.router, prefix="/settings", tags=["settings"]
 api_router.include_router(vocabulary.router, prefix="/vocabulary", tags=["vocabulary"])
 api_router.include_router(exercise_results.router, prefix="/exercise-results", tags=["exercise-results"])
 api_router.include_router(live_sessions.router, prefix="/live-sessions", tags=["live-sessions"])
+api_router.include_router(homework.router, tags=["homework"])
 api_router.include_router(news.router)

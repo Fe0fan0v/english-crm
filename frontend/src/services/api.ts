@@ -58,6 +58,8 @@ import type {
   VocabularyWordListResponse,
   VocabularyWordCreate,
   VocabularyWordUpdate,
+  HomeworkAssignment,
+  StudentHomeworkItem,
 } from "../types";
 
 const api = axios.create({
@@ -1011,6 +1013,45 @@ export const vocabularyApi = {
 
   deleteStudentWord: async (studentId: number, wordId: number): Promise<void> => {
     await api.delete(`/vocabulary/student/${studentId}/${wordId}`);
+  },
+};
+
+// Homework Assignments API
+export const homeworkApi = {
+  assign: async (
+    lessonId: number,
+    interactiveLessonId: number,
+    studentIds?: number[]
+  ): Promise<HomeworkAssignment[]> => {
+    const response = await api.post<HomeworkAssignment[]>(
+      `/homework/lessons/${lessonId}/assign`,
+      { interactive_lesson_id: interactiveLessonId, student_ids: studentIds || null }
+    );
+    return response.data;
+  },
+
+  getLessonHomework: async (lessonId: number): Promise<HomeworkAssignment[]> => {
+    const response = await api.get<HomeworkAssignment[]>(`/homework/lessons/${lessonId}`);
+    return response.data;
+  },
+
+  accept: async (homeworkId: number): Promise<HomeworkAssignment> => {
+    const response = await api.put<HomeworkAssignment>(`/homework/${homeworkId}/accept`);
+    return response.data;
+  },
+
+  remove: async (homeworkId: number): Promise<void> => {
+    await api.delete(`/homework/${homeworkId}`);
+  },
+
+  getMyHomework: async (): Promise<StudentHomeworkItem[]> => {
+    const response = await api.get<StudentHomeworkItem[]>("/student/homework-assignments");
+    return response.data;
+  },
+
+  submit: async (homeworkId: number): Promise<StudentHomeworkItem> => {
+    const response = await api.put<StudentHomeworkItem>(`/student/homework/${homeworkId}/submit`);
+    return response.data;
   },
 };
 

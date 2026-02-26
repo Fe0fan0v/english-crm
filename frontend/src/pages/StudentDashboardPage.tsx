@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { studentApi, settingsApi, lessonsApi, courseMaterialsApi } from "../services/api";
+import { studentApi, settingsApi, lessonsApi, courseMaterialsApi, homeworkApi } from "../services/api";
 import { useAuthStore } from "../store/authStore";
 import DirectChat, { ConversationList } from "../components/DirectChat";
 import GroupChat from "../components/GroupChat";
@@ -7,7 +7,7 @@ import PhotoUpload from "../components/PhotoUpload";
 import type {
   StudentDashboardResponse,
   StudentLessonInfo,
-  StudentTestInfo,
+  StudentHomeworkItem,
   LessonWithMaterials,
   LessonMaterial,
   LessonCourseMaterial,
@@ -45,10 +45,11 @@ export default function StudentDashboardPage() {
   const [activeTab, setActiveTab] = useState<TabType>("info");
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [schedule, setSchedule] = useState<StudentLessonInfo[]>([]);
-  const [tests, setTests] = useState<StudentTestInfo[]>([]);
   const [lessonsWithMaterials, setLessonsWithMaterials] = useState<LessonWithMaterials[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [homework, setHomework] = useState<any[]>([]);
+  const [myHomeworkAssignments, setMyHomeworkAssignments] = useState<StudentHomeworkItem[]>([]);
+  const [isSubmittingHomework, setIsSubmittingHomework] = useState<number | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [chatPartner, setChatPartner] = useState<{ id: number; name: string } | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(user?.photo_url || null);
@@ -146,15 +147,15 @@ export default function StudentDashboardPage() {
 
   useEffect(() => {
     if (activeTab === "tests") {
-      const fetchTests = async () => {
+      const fetchHomeworkAssignments = async () => {
         try {
-          const result = await studentApi.getTests();
-          setTests(result);
+          const result = await homeworkApi.getMyHomework();
+          setMyHomeworkAssignments(result);
         } catch (error) {
-          console.error("Failed to fetch tests:", error);
+          console.error("Failed to fetch homework assignments:", error);
         }
       };
-      fetchTests();
+      fetchHomeworkAssignments();
     }
   }, [activeTab]);
 
@@ -366,9 +367,9 @@ export default function StudentDashboardPage() {
       <div className="flex gap-2 mb-4 lg:mb-6 overflow-x-auto scrollbar-hide pb-2 lg:pb-0 -mx-4 px-4 lg:mx-0 lg:px-0">
         {[
           { key: "info" as TabType, label: "Моя страница" },
-          { key: "lessons" as TabType, label: "Уроки" },
-          { key: "tests" as TabType, label: "Тесты" },
-          { key: "homework" as TabType, label: "Домашнее задание" },
+          { key: "lessons" as TabType, label: "Материалы" },
+          { key: "tests" as TabType, label: "Домашнее задание" },
+          { key: "homework" as TabType, label: "Уроки" },
           { key: "messages" as TabType, label: "Сообщения" },
         ].map((tab) => (
           <button
@@ -422,6 +423,30 @@ export default function StudentDashboardPage() {
               </div>
             </div>
           </div>
+
+          {/* Remaining lessons by type */}
+          {stats?.remaining_lessons && stats.remaining_lessons.length > 0 && (
+            <div className="card p-4 lg:p-6">
+              <h2 className="section-title mb-3 lg:mb-4">Остаток уроков по балансу</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {stats.remaining_lessons.map((rl) => (
+                  <div key={rl.lesson_type_name} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                    <div className="w-10 h-10 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center flex-shrink-0">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">{rl.lesson_type_name}</p>
+                      <p className="text-xs text-gray-500">
+                        ~{rl.count} ур. ({parseFloat(rl.price).toLocaleString("ru-RU")} тг/ур.)
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* My Groups */}
           <div className="card p-4 lg:p-6">
@@ -762,35 +787,108 @@ export default function StudentDashboardPage() {
 
       {activeTab === "tests" && (
         <div className="card">
-          <h2 className="section-title mb-4">Мои тесты</h2>
-          {tests.length > 0 ? (
+          <h2 className="section-title mb-4">Домашнее задание</h2>
+          {myHomeworkAssignments.length > 0 ? (
             <div className="space-y-3">
-              {tests.map((test) => (
-                <div
-                  key={test.id}
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-xl"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h3 className="font-medium text-gray-800">{test.title}</h3>
-                      <p className="text-xs text-gray-500">
-                        Доступен с {new Date(test.granted_at).toLocaleDateString("ru-RU")}
-                      </p>
+              {myHomeworkAssignments.map((hw) => {
+                const progressPercent = hw.total_blocks > 0 ? Math.round((hw.progress / hw.total_blocks) * 100) : 0;
+                const statusConfig: Record<string, { bg: string; text: string; label: string }> = {
+                  pending: { bg: "bg-gray-100", text: "text-gray-600", label: "Не начато" },
+                  in_progress: { bg: "bg-blue-100", text: "text-blue-600", label: "В процессе" },
+                  submitted: { bg: "bg-yellow-100", text: "text-yellow-700", label: "На проверке" },
+                  accepted: { bg: "bg-green-100", text: "text-green-700", label: "Принято" },
+                };
+                const sc = statusConfig[hw.status] || statusConfig.pending;
+
+                return (
+                  <div key={hw.id} className="p-4 bg-gray-50 rounded-xl">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <div className="w-10 h-10 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium text-gray-800 truncate">{hw.interactive_lesson_title}</h3>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {hw.teacher_name} • {new Date(hw.assigned_at).toLocaleDateString("ru-RU")}
+                          </p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all ${hw.status === "accepted" ? "bg-green-500" : "bg-cyan-500"}`}
+                                style={{ width: `${progressPercent}%` }}
+                              />
+                            </div>
+                            <span className="text-xs text-gray-500 whitespace-nowrap">{hw.progress}/{hw.total_blocks}</span>
+                          </div>
+                          <span className={`inline-block mt-2 text-xs px-2 py-0.5 rounded ${sc.bg} ${sc.text}`}>
+                            {sc.label}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-1.5 ml-3">
+                        <a
+                          href={`/courses/lessons/${hw.interactive_lesson_id}`}
+                          className="btn btn-primary btn-sm text-center"
+                        >
+                          Открыть
+                        </a>
+                        {hw.status === "pending" && hw.progress > 0 && (
+                          <button
+                            onClick={async () => {
+                              try {
+                                setIsSubmittingHomework(hw.id);
+                                await homeworkApi.submit(hw.id);
+                                const updated = await homeworkApi.getMyHomework();
+                                setMyHomeworkAssignments(updated);
+                              } catch (err) {
+                                console.error("Failed to submit homework:", err);
+                              } finally {
+                                setIsSubmittingHomework(null);
+                              }
+                            }}
+                            disabled={isSubmittingHomework === hw.id}
+                            className="btn btn-sm bg-yellow-500 text-white hover:bg-yellow-600 disabled:opacity-50 text-center"
+                          >
+                            {isSubmittingHomework === hw.id ? "..." : "Сдать"}
+                          </button>
+                        )}
+                        {hw.status === "in_progress" && (
+                          <button
+                            onClick={async () => {
+                              try {
+                                setIsSubmittingHomework(hw.id);
+                                await homeworkApi.submit(hw.id);
+                                const updated = await homeworkApi.getMyHomework();
+                                setMyHomeworkAssignments(updated);
+                              } catch (err) {
+                                console.error("Failed to submit homework:", err);
+                              } finally {
+                                setIsSubmittingHomework(null);
+                              }
+                            }}
+                            disabled={isSubmittingHomework === hw.id}
+                            className="btn btn-sm bg-yellow-500 text-white hover:bg-yellow-600 disabled:opacity-50 text-center"
+                          >
+                            {isSubmittingHomework === hw.id ? "..." : "Сдать"}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <button className="btn btn-primary btn-sm">
-                    Пройти тест
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
-            <p className="text-gray-500 text-center py-8">У вас пока нет доступных тестов</p>
+            <div className="text-center py-12">
+              <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+              </svg>
+              <p className="text-gray-500">Нет назначенных домашних заданий</p>
+              <p className="text-sm text-gray-400 mt-2">Когда преподаватель задаст ДЗ, оно появится здесь</p>
+            </div>
           )}
         </div>
       )}
