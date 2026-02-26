@@ -27,55 +27,26 @@ def upgrade() -> None:
     if not result.fetchone():
         op.execute("CREATE TYPE homeworkstatus AS ENUM ('pending', 'submitted', 'accepted')")
 
-    # Create homework_assignments table
-    op.create_table(
-        "homework_assignments",
-        sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
-        sa.Column(
-            "lesson_id",
-            sa.Integer(),
-            sa.ForeignKey("lessons.id", ondelete="CASCADE"),
-            nullable=False,
-            index=True,
-        ),
-        sa.Column(
-            "interactive_lesson_id",
-            sa.Integer(),
-            sa.ForeignKey("interactive_lessons.id", ondelete="CASCADE"),
-            nullable=False,
-            index=True,
-        ),
-        sa.Column(
-            "student_id",
-            sa.Integer(),
-            sa.ForeignKey("users.id", ondelete="CASCADE"),
-            nullable=False,
-            index=True,
-        ),
-        sa.Column(
-            "assigned_by",
-            sa.Integer(),
-            sa.ForeignKey("users.id", ondelete="CASCADE"),
-            nullable=False,
-        ),
-        sa.Column(
-            "status",
-            sa.Enum("pending", "submitted", "accepted", name="homeworkstatus", create_type=False),
-            nullable=False,
-            server_default="pending",
-        ),
-        sa.Column(
-            "assigned_at", sa.DateTime(), server_default=sa.func.now(), nullable=False
-        ),
-        sa.Column("submitted_at", sa.DateTime(), nullable=True),
-        sa.Column("accepted_at", sa.DateTime(), nullable=True),
-        sa.UniqueConstraint(
-            "lesson_id",
-            "interactive_lesson_id",
-            "student_id",
-            name="uq_homework_lesson_interactive_student",
-        ),
-    )
+    # Create homework_assignments table using raw SQL to avoid
+    # SQLAlchemy sa.Enum auto-creating the type (fails with asyncpg if exists)
+    op.execute(sa.text("""
+        CREATE TABLE IF NOT EXISTS homework_assignments (
+            id SERIAL PRIMARY KEY,
+            lesson_id INTEGER NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
+            interactive_lesson_id INTEGER NOT NULL REFERENCES interactive_lessons(id) ON DELETE CASCADE,
+            student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            assigned_by INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            status homeworkstatus NOT NULL DEFAULT 'pending',
+            assigned_at TIMESTAMP NOT NULL DEFAULT now(),
+            submitted_at TIMESTAMP,
+            accepted_at TIMESTAMP,
+            CONSTRAINT uq_homework_lesson_interactive_student
+                UNIQUE (lesson_id, interactive_lesson_id, student_id)
+        )
+    """))
+    op.execute(sa.text("CREATE INDEX IF NOT EXISTS ix_homework_assignments_lesson_id ON homework_assignments (lesson_id)"))
+    op.execute(sa.text("CREATE INDEX IF NOT EXISTS ix_homework_assignments_interactive_lesson_id ON homework_assignments (interactive_lesson_id)"))
+    op.execute(sa.text("CREATE INDEX IF NOT EXISTS ix_homework_assignments_student_id ON homework_assignments (student_id)"))
 
 
 def downgrade() -> None:
