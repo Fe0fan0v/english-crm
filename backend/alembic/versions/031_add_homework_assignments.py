@@ -55,7 +55,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "status",
-            sa.Enum("pending", "submitted", "accepted", name="homeworkstatus"),
+            sa.Enum("pending", "submitted", "accepted", name="homeworkstatus", create_type=False),
             nullable=False,
             server_default="pending",
         ),
