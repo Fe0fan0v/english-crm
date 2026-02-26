@@ -1,0 +1,21 @@
+[BROWSER] Loading session from: session.json
+[SESSION] Found saved session: session.json
+[OK] Session is valid, skipping login
+
+============================================================
+РЕЖИМ: Парсинг одного урока
+============================================================
+
+[LESSON] Загрузка урока: https://edvibe.com/lesson-editor/book/198472/lesson/3076375
+   Название: 
+   Разделов: 0
+
+[SAVE] Сохранено: C:\Users\cypre\PycharmProjects\EngCRM\scripts\edvibe_parser\output\raw_test_lesson.json
+
+[SAVE] Сохранено: C:\Users\cypre\PycharmProjects\EngCRM\scripts\edvibe_parser\output\jsi_test_lesson.json
+
+============================================================
+[OK] ПАРСИНГ УРОКА ЗАВЕРШЕН!
+   Урок: 
+   Разделов: 0
+   Упражнений: 0

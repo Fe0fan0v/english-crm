@@ -1,0 +1,13 @@
+[SESSION] Loaded session from session.json
+[PAGE] Loaded: https://edvibe.com/lesson-editor/book/198472/lesson/3076375
+
+=== SECTIONS ===
+Total sections found: 0
+
+=== SECTIONS (without .medium) ===
+Total sections (no medium): 0
+
+=== EXERCISES ===
+Total exercises: 0
+
+Waiting 10 seconds for inspection...

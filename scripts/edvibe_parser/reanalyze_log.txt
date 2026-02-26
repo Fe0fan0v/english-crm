@@ -1,0 +1,45 @@
+
+============================================================
+Обработка: jsi_hierarchy_Beginner_20260203_211912.json
+============================================================
+
+Всего блоков: 1316
+Изменено: 203 (15.4%)
+
+--- Старые типы ---
+text                 -  593 шт.
+image                -  249 шт.
+audio                -  182 шт.
+teaching_guide       -  129 шт.
+remember             -  110 шт.
+test                 -   33 шт.
+video                -   13 шт.
+true_false           -    7 шт.
+
+--- Новые типы ---
+text                 -  390 шт.
+image                -  249 шт.
+audio                -  182 шт.
+fill_gaps            -  145 шт.
+teaching_guide       -  129 шт.
+remember             -  110 шт.
+matching             -   40 шт.
+test                 -   33 шт.
+video                -   13 шт.
+essay                -   12 шт.
+true_false           -    7 шт.
+word_order           -    6 шт.
+
+--- Примеры изменений (первые 10) ---
+Traceback (most recent call last):
+  File "C:\Users\cypre\PycharmProjects\EngCRM\scripts\edvibe_parser\reanalyze_block_types.py", line 226, in <module>
+    main()
+  File "C:\Users\cypre\PycharmProjects\EngCRM\scripts\edvibe_parser\reanalyze_block_types.py", line 196, in main
+    stats = reanalyze_json_file(input_file)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\cypre\PycharmProjects\EngCRM\scripts\edvibe_parser\reanalyze_block_types.py", line 154, in reanalyze_json_file
+    print(f"{i}. [{change['old_type']} \u2192 {change['new_type']}] {change['title']}")
+  File "C:\Program Files\Python312\Lib\encodings\cp1251.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 9: character maps to <undefined>

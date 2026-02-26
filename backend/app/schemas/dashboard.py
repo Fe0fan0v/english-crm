@@ -92,10 +92,17 @@ class TeacherStudentInfo(BaseModel):
 
 
 # Student Dashboard
+class RemainingLessonsInfo(BaseModel):
+    lesson_type_name: str
+    price: Decimal
+    count: int
+
+
 class StudentStats(BaseModel):
     balance: Decimal
     upcoming_lessons_count: int
     groups_count: int
+    remaining_lessons: list[RemainingLessonsInfo] = []
 
 
 class StudentGroupSummary(BaseModel):

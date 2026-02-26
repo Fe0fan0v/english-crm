@@ -19,8 +19,10 @@ from app.models import (
     User,
 )
 from app.models.course import Course, CourseSection, CourseTopic, InteractiveLesson
+from app.models.lesson_type import LessonType
 from app.models.lesson import LessonStatus
 from app.schemas.dashboard import (
+    RemainingLessonsInfo,
     StudentDashboardResponse,
     StudentGroupSummary,
     StudentLessonInfo,
@@ -81,11 +83,36 @@ async def get_student_dashboard(
         if ls.lesson.scheduled_at >= now and ls.lesson.status == LessonStatus.SCHEDULED
     )
 
+    # Calculate remaining lessons per lesson type
+    # Collect unique lesson types from student's lessons
+    lesson_type_ids = set()
+    for ls in lesson_students:
+        if ls.lesson.lesson_type_id:
+            lesson_type_ids.add(ls.lesson.lesson_type_id)
+
+    remaining_lessons: list[RemainingLessonsInfo] = []
+    if lesson_type_ids and current_user.balance > 0:
+        lt_result = await db.execute(
+            select(LessonType).where(LessonType.id.in_(lesson_type_ids))
+        )
+        lesson_types = lt_result.scalars().all()
+        for lt in sorted(lesson_types, key=lambda x: x.name):
+            if lt.price > 0:
+                count = int(current_user.balance / lt.price)
+                remaining_lessons.append(
+                    RemainingLessonsInfo(
+                        lesson_type_name=lt.name,
+                        price=lt.price,
+                        count=count,
+                    )
+                )
+
     # Build stats
     stats = StudentStats(
         balance=current_user.balance,
         upcoming_lessons_count=upcoming_count,
         groups_count=len(active_groups),
+        remaining_lessons=remaining_lessons,
     )
 
     # Build groups list

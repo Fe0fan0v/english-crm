@@ -1,0 +1,17 @@
+# Output files
+output/
+
+# Virtual environment
+venv/
+.venv/
+
+# Credentials (никогда не коммитить!)
+credentials.txt
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Playwright state
+playwright-state/
