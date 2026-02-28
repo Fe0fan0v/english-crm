@@ -186,7 +186,7 @@ backup/                 # Автобэкапы PostgreSQL в S3
 - **Запуск**: кнопка «Открыть» в `LessonDetailModal` → таб «Курсы», только если `lesson.students.length === 1` и `material_type === "lesson"`. Кнопка «Предпросмотр» — просмотр урока без live-режима
 - **Баннер**: `LiveSessionBanner` для студентов, polling `GET /api/live-sessions/active` каждые 5 сек
 - **URL**: `/courses/lessons/{interactiveLessonId}?session={lessonId}` — query-param `session` активирует live-режим
-- **Синхронизация**: answer_change, answer_check, answer_reset, page_change, state_snapshot, media_control, cursor_move, scroll_to, drawing_stroke, drawing_clear
+- **Синхронизация**: answer_change, answer_check, answer_reset, page_change, state_snapshot, media_control, cursor_move, scroll_to, drawing_stroke, drawing_clear, wb_open, wb_close, wb_add, wb_delete, wb_clear, wb_snapshot
 - **Курсор**: `RemoteCursor` — SVG стрелка (#8B5CF6), `position: fixed`, координаты в % viewport, throttle через rAF
 - **Медиа**: `onMediaControl`/`mediaCommand` пропсы в `BlockRenderer` → `VideoRenderer`/`AudioRenderer` (play/pause/seeked), флаг `isRemoteAction` предотвращает цикл обратной связи
 - **Скролл «За мной»**: кнопка в баннере live-сессии — преподаватель отправляет scroll-позицию + номер страницы, ученика переключает на нужную страницу и прокручивает к позиции. Баннер sticky (закреплён вверху при скролле)
@@ -195,7 +195,20 @@ backup/                 # Автобэкапы PostgreSQL в S3
 - **Cleanup**: 60-сек таймаут после отключения обоих, `_delayed_cleanup` через asyncio.Task
 - **REST API**: `POST /api/live-sessions/` (TeacherUser), `GET /active` (CurrentUser), `DELETE /{id}` (TeacherUser)
 - **Рисование поверх урока**: `DrawingOverlay.tsx` — Canvas 2D overlay, преподаватель рисует (4 цвета, 3 толщины, очистка), ученик видит в реальном времени. WebSocket сообщения `drawing_stroke` (points, color, width) и `drawing_clear`
-- **Файлы**: `live_sessions.py`, `live_session.py` (schema), `liveSessionApi.ts`, `useLiveSession.ts`, `RemoteCursor.tsx`, `LiveSessionBanner.tsx`, `DrawingOverlay.tsx`
+- **Интерактивная доска (Whiteboard)**: полноэкранная страница `/whiteboard` для рисования во время live-сессии
+  - Инструменты: Pen, Line, Arrow, Rect, Circle, Text, Image, Eraser
+  - Виртуальная система координат 1920×1080 — одинаковое отображение на любых экранах
+  - Undo/Redo (Ctrl+Z/Y), очистка всей доски, экспорт в PNG
+  - Учитель рисует — ученик видит read-only в реальном времени через WebSocket (wb_* сообщения)
+  - Загрузка изображений на S3 через `courseUploadApi.upload()`
+  - Кнопка «Доска» в баннере live-сессии (для учителя), авто-переход ученика через `wb_open`
+  - При возврате учитель отправляет `wb_close` → ученик автоматически возвращается к уроку
+  - Snapshot при подключении: учитель отправляет `wb_snapshot` при `onPeerJoined`
+  - Эфемерная (без БД) — состояние в памяти фронтенда
+  - URL: `/whiteboard?session={lessonId}&lesson={interactiveLessonId}`
+  - `ProtectedFullscreenRoute` — аутентификация без Layout-обёртки
+  - **Файлы**: `useWhiteboard.ts`, `WhiteboardCanvas.tsx`, `WhiteboardPage.tsx`
+- **Файлы**: `live_sessions.py`, `live_session.py` (schema), `liveSessionApi.ts`, `useLiveSession.ts`, `RemoteCursor.tsx`, `LiveSessionBanner.tsx`, `DrawingOverlay.tsx`, `useWhiteboard.ts`, `WhiteboardCanvas.tsx`, `WhiteboardPage.tsx`
 
 ### Импортированные курсы
 - English File 4th (ID: 10) — 7 уровней, 292 урока, 10168 блоков
