@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { liveSessionApi } from "../services/liveSessionApi";
 import type { ExerciseResultDetails } from "../types/course";
+import type { WhiteboardElement } from "./useWhiteboard";
 
 export interface DrawingStroke {
   points: { x: number; y: number }[];
@@ -21,6 +22,12 @@ interface LiveSessionCallbacks {
   onPeerDisconnected?: (role: string) => void;
   onDrawingStroke?: (stroke: DrawingStroke) => void;
   onDrawingClear?: () => void;
+  onWhiteboardOpen?: () => void;
+  onWhiteboardClose?: () => void;
+  onWhiteboardAdd?: (element: WhiteboardElement) => void;
+  onWhiteboardDelete?: (id: string) => void;
+  onWhiteboardClear?: () => void;
+  onWhiteboardSnapshot?: (elements: WhiteboardElement[]) => void;
 }
 
 export interface FullState {
@@ -51,6 +58,12 @@ export interface UseLiveSessionReturn {
   sendCursorHide: () => void;
   sendDrawingStroke: (stroke: DrawingStroke) => void;
   sendDrawingClear: () => void;
+  sendWbOpen: () => void;
+  sendWbClose: () => void;
+  sendWbAdd: (element: WhiteboardElement) => void;
+  sendWbDelete: (id: string) => void;
+  sendWbClear: () => void;
+  sendWbSnapshot: (elements: WhiteboardElement[]) => void;
   endSession: () => void;
 }
 
@@ -160,6 +173,30 @@ export function useLiveSession(
 
           case "drawing_clear":
             cb.onDrawingClear?.();
+            break;
+
+          case "wb_open":
+            cb.onWhiteboardOpen?.();
+            break;
+
+          case "wb_close":
+            cb.onWhiteboardClose?.();
+            break;
+
+          case "wb_add":
+            cb.onWhiteboardAdd?.(msg.element);
+            break;
+
+          case "wb_delete":
+            cb.onWhiteboardDelete?.(msg.id);
+            break;
+
+          case "wb_clear":
+            cb.onWhiteboardClear?.();
+            break;
+
+          case "wb_snapshot":
+            cb.onWhiteboardSnapshot?.(msg.elements);
             break;
         }
       } catch {
@@ -294,6 +331,39 @@ export function useLiveSession(
     send({ type: "drawing_clear" });
   }, [send]);
 
+  const sendWbOpen = useCallback(() => {
+    send({ type: "wb_open" });
+  }, [send]);
+
+  const sendWbClose = useCallback(() => {
+    send({ type: "wb_close" });
+  }, [send]);
+
+  const sendWbAdd = useCallback(
+    (element: WhiteboardElement) => {
+      send({ type: "wb_add", element });
+    },
+    [send],
+  );
+
+  const sendWbDelete = useCallback(
+    (id: string) => {
+      send({ type: "wb_delete", id });
+    },
+    [send],
+  );
+
+  const sendWbClear = useCallback(() => {
+    send({ type: "wb_clear" });
+  }, [send]);
+
+  const sendWbSnapshot = useCallback(
+    (elements: WhiteboardElement[]) => {
+      send({ type: "wb_snapshot", elements });
+    },
+    [send],
+  );
+
   const endSession = useCallback(() => {
     if (lessonId) {
       liveSessionApi.endSession(lessonId).catch(() => {});
@@ -315,6 +385,12 @@ export function useLiveSession(
     sendCursorHide,
     sendDrawingStroke,
     sendDrawingClear,
+    sendWbOpen,
+    sendWbClose,
+    sendWbAdd,
+    sendWbDelete,
+    sendWbClear,
+    sendWbSnapshot,
     endSession,
   };
 }

@@ -125,6 +125,14 @@ export default function LessonPreviewPage() {
           setCurrentPage(state.current_page);
         }
       },
+      onWhiteboardOpen: () => {
+        if (isStudent && id && sessionLessonId) {
+          navigate(`/whiteboard?session=${sessionLessonId}&lesson=${id}`);
+        }
+      },
+      onWhiteboardClose: () => {
+        // Student returns from whiteboard automatically via WhiteboardPage
+      },
       onDrawingStroke: (stroke) => {
         setRemoteStrokes((prev) => [...prev, stroke]);
       },
@@ -459,6 +467,16 @@ export default function LessonPreviewPage() {
           </div>
           {isTeacherLive && (
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  if (id && sessionLessonId) {
+                    navigate(`/whiteboard?session=${sessionLessonId}&lesson=${id}`);
+                  }
+                }}
+                className="px-3 py-1.5 bg-indigo-500 text-white text-sm font-medium rounded-lg hover:bg-indigo-600 transition-colors"
+              >
+                Доска
+              </button>
               <button
                 onClick={() => {
                   const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
