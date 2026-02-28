@@ -6,6 +6,7 @@ from app.api import (
     exercise_results,
     group_messages,
     homework,
+    homework_templates,
     groups,
     lesson_types,
     lessons,
@@ -48,4 +49,5 @@ api_router.include_router(vocabulary.router, prefix="/vocabulary", tags=["vocabu
 api_router.include_router(exercise_results.router, prefix="/exercise-results", tags=["exercise-results"])
 api_router.include_router(live_sessions.router, prefix="/live-sessions", tags=["live-sessions"])
 api_router.include_router(homework.router, tags=["homework"])
+api_router.include_router(homework_templates.router, prefix="/homework-templates", tags=["homework-templates"])
 api_router.include_router(news.router)

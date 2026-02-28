@@ -131,6 +131,7 @@ def grade_answer_detailed(
             if not gaps or not isinstance(answer, dict):
                 return {"gap_results": {}}
             gap_results = {}
+            correct_answers = {}
             for gap in gaps:
                 idx = gap.get("index")
                 correct = gap.get("answer", "").lower().strip()
@@ -143,10 +144,11 @@ def grade_answer_detailed(
                     alternatives = [
                         a.lower().strip() for a in gap.get("alternatives", [])
                     ]
-                    gap_results[str(idx)] = (
-                        user_answer == correct or user_answer in alternatives
-                    )
-            return {"gap_results": gap_results}
+                    is_gap_correct = user_answer == correct or user_answer in alternatives
+                    gap_results[str(idx)] = is_gap_correct
+                    if not is_gap_correct:
+                        correct_answers[str(idx)] = gap.get("answer", "")
+            return {"gap_results": gap_results, "correct_answers": correct_answers}
 
         if block_type == "test":
             options = content.get("options", [])
@@ -166,6 +168,8 @@ def grade_answer_detailed(
                     option_results[oid] = "correct"
                 elif is_selected and not is_correct:
                     option_results[oid] = "incorrect"
+                elif not is_selected and is_correct:
+                    option_results[oid] = "correct_missed"
                 else:
                     option_results[oid] = "default"
             return {"option_results": option_results}
@@ -173,24 +177,31 @@ def grade_answer_detailed(
         if block_type == "true_false":
             is_true = content.get("is_true", True)
             if not isinstance(answer, bool):
-                return {"is_correct": False}
-            return {"is_correct": answer == is_true}
+                return {"is_correct": False, "correct_answer": is_true}
+            return {"is_correct": answer == is_true, "correct_answer": is_true}
 
         if block_type == "word_order":
             correct = content.get("correct_sentence", "")
             if not isinstance(answer, list):
-                return {"is_correct": False}
-            return {"is_correct": " ".join(str(w) for w in answer) == correct}
+                return {"is_correct": False, "correct_sentence": correct}
+            return {
+                "is_correct": " ".join(str(w) for w in answer) == correct,
+                "correct_sentence": correct,
+            }
 
         if block_type == "matching":
             pairs = content.get("pairs", [])
             if not pairs or not isinstance(answer, dict):
                 return {"pair_results": {}}
             pair_results = {}
+            correct_pairs = {}
             for pair in pairs:
                 left = pair["left"]
-                pair_results[left] = answer.get(left) == pair["right"]
-            return {"pair_results": pair_results}
+                is_pair_correct = answer.get(left) == pair["right"]
+                pair_results[left] = is_pair_correct
+                if not is_pair_correct:
+                    correct_pairs[left] = pair["right"]
+            return {"pair_results": pair_results, "correct_pairs": correct_pairs}
 
         if block_type == "image_choice":
             options = content.get("options", [])
@@ -205,6 +216,8 @@ def grade_answer_detailed(
                     option_results[oid] = "correct"
                 elif is_selected and not is_correct:
                     option_results[oid] = "incorrect"
+                elif not is_selected and is_correct:
+                    option_results[oid] = "correct_missed"
                 else:
                     option_results[oid] = "default"
             return {"option_results": option_results}
@@ -214,14 +227,18 @@ def grade_answer_detailed(
             if not words or not isinstance(answer, dict):
                 return {"drag_results": {}}
             drag_results = {}
+            correct_answers = {}
             for word_item in words:
                 idx = word_item.get("index")
                 correct = word_item.get("word", "").lower().strip()
                 user_answer = (
                     str(answer.get(str(idx), answer.get(idx, ""))).lower().strip()
                 )
-                drag_results[str(idx)] = user_answer == correct
-            return {"drag_results": drag_results}
+                is_drag_correct = user_answer == correct
+                drag_results[str(idx)] = is_drag_correct
+                if not is_drag_correct:
+                    correct_answers[str(idx)] = word_item.get("word", "")
+            return {"drag_results": drag_results, "correct_answers": correct_answers}
 
         return None
     except Exception:

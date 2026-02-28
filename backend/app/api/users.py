@@ -13,10 +13,14 @@ from app.api.uploads import (
 )
 from app.config import settings
 from app.models.group import Group, GroupStudent
+from app.models.lesson import LessonStudent
+from app.models.lesson_type import LessonType
 from app.models.teacher_student import TeacherStudent
 from app.models.transaction import Transaction, TransactionType
 from app.models.user import User, UserRole
+from app.schemas.dashboard import RemainingLessonsInfo
 from app.schemas.user import (
+    AssignedTeacherInfo,
     BalanceChange,
     TransactionListResponse,
     TransactionResponse,
@@ -40,6 +44,9 @@ async def list_users(
     size: int = Query(20, ge=1, le=10000),
     search: str | None = Query(None),
     role: str | None = Query(None),
+    balance_from: Decimal | None = Query(None),
+    balance_to: Decimal | None = Query(None),
+    sort_by: str | None = Query(None),
 ) -> UserListResponse:
     """List all users with pagination and search. Available for teachers, managers, and admins."""
     query = select(User).where(User.is_active == True)
@@ -59,13 +66,31 @@ async def list_users(
         query = query.where(search_filter)
         count_query = count_query.where(search_filter)
 
+    # Filter by balance range
+    if balance_from is not None:
+        query = query.where(User.balance >= balance_from)
+        count_query = count_query.where(User.balance >= balance_from)
+    if balance_to is not None:
+        query = query.where(User.balance <= balance_to)
+        count_query = count_query.where(User.balance <= balance_to)
+
     # Get total count
     total_result = await db.execute(count_query)
     total = total_result.scalar() or 0
 
-    # Get paginated results
+    # Get paginated results with sorting
     offset = (page - 1) * size
-    query = query.offset(offset).limit(size).order_by(User.created_at.desc())
+    if sort_by == "balance_asc":
+        query = query.order_by(User.balance.asc())
+    elif sort_by == "balance_desc":
+        query = query.order_by(User.balance.desc())
+    elif sort_by == "name_asc":
+        query = query.order_by(User.name.asc())
+    elif sort_by == "name_desc":
+        query = query.order_by(User.name.desc())
+    else:
+        query = query.order_by(User.created_at.desc())
+    query = query.offset(offset).limit(size)
     result = await db.execute(query)
     users = result.scalars().all()
 
@@ -570,3 +595,79 @@ async def delete_user_photo(
     await db.refresh(user)
 
     return user
+
+
+@router.get("/{user_id}/assigned-teachers", response_model=list[AssignedTeacherInfo])
+async def get_assigned_teachers(
+    user_id: int,
+    db: DBSession,
+    current_user: ManagerUser,
+) -> list[AssignedTeacherInfo]:
+    """Get assigned teachers for a student."""
+    result = await db.execute(
+        select(User)
+        .join(TeacherStudent, TeacherStudent.teacher_id == User.id)
+        .where(TeacherStudent.student_id == user_id)
+    )
+    teachers = result.scalars().all()
+    return [AssignedTeacherInfo(id=t.id, name=t.name) for t in teachers]
+
+
+@router.get("/{user_id}/remaining-lessons", response_model=list[RemainingLessonsInfo])
+async def get_remaining_lessons(
+    user_id: int,
+    db: DBSession,
+    current_user: ManagerUser,
+) -> list[RemainingLessonsInfo]:
+    """Get remaining lessons count by type based on student balance."""
+    user_result = await db.execute(select(User).where(User.id == user_id))
+    user = user_result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    if user.role != UserRole.STUDENT:
+        return []
+
+    # Collect unique lesson type IDs from student's lessons
+    ls_result = await db.execute(
+        select(LessonStudent.lesson_id).where(LessonStudent.student_id == user_id)
+    )
+    lesson_ids = [row[0] for row in ls_result.all()]
+
+    if not lesson_ids:
+        return []
+
+    from app.models.lesson import Lesson
+
+    lt_ids_result = await db.execute(
+        select(Lesson.lesson_type_id)
+        .where(Lesson.id.in_(lesson_ids), Lesson.lesson_type_id.isnot(None))
+        .distinct()
+    )
+    lesson_type_ids = [row[0] for row in lt_ids_result.all()]
+
+    if not lesson_type_ids or user.balance <= 0:
+        return []
+
+    lt_result = await db.execute(
+        select(LessonType).where(LessonType.id.in_(lesson_type_ids))
+    )
+    lesson_types = lt_result.scalars().all()
+
+    remaining: list[RemainingLessonsInfo] = []
+    for lt in sorted(lesson_types, key=lambda x: x.name):
+        if lt.price > 0:
+            count = int(user.balance / lt.price)
+            remaining.append(
+                RemainingLessonsInfo(
+                    lesson_type_name=lt.name,
+                    price=lt.price,
+                    count=count,
+                )
+            )
+
+    return remaining

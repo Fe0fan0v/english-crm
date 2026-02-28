@@ -413,10 +413,14 @@ export interface ExerciseResultSubmit {
 
 export interface ExerciseResultDetails {
   gap_results?: Record<string, boolean>;
-  option_results?: Record<string, "correct" | "incorrect" | "default">;
+  correct_answers?: Record<string, string>;
+  option_results?: Record<string, "correct" | "incorrect" | "correct_missed" | "default">;
   pair_results?: Record<string, boolean>;
+  correct_pairs?: Record<string, string>;
   drag_results?: Record<string, boolean>;
   is_correct?: boolean;
+  correct_answer?: boolean;
+  correct_sentence?: string;
 }
 
 export interface ExerciseResultResponse {

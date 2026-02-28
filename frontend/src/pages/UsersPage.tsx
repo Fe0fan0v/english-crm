@@ -21,6 +21,9 @@ export default function UsersPage() {
   const page = Number(searchParams.get("page")) || 1;
   const search = searchParams.get("search") || "";
   const activeTab: TabType = (searchParams.get("tab") as TabType) || "students";
+  const balanceFrom = searchParams.get("balance_from") || "";
+  const balanceTo = searchParams.get("balance_to") || "";
+  const sortBy = searchParams.get("sort_by") || "";
 
   const updateParams = useCallback((updates: Record<string, string | null>) => {
     setSearchParams((prev) => {
@@ -49,7 +52,12 @@ export default function UsersPage() {
     setIsLoading(true);
     try {
       const role = activeTab === "students" ? "student" : "teacher";
-      const response = await usersApi.list(page, 20, search || undefined, role);
+      const response = await usersApi.list(
+        page, 20, search || undefined, role,
+        balanceFrom ? Number(balanceFrom) : undefined,
+        balanceTo ? Number(balanceTo) : undefined,
+        sortBy || undefined,
+      );
       setData(response);
     } catch (error) {
       console.error("Failed to fetch users:", error);
@@ -60,7 +68,7 @@ export default function UsersPage() {
 
   useEffect(() => {
     fetchUsers();
-  }, [page, search, activeTab]);
+  }, [page, search, activeTab, balanceFrom, balanceTo, sortBy]);
 
   // Both tabs use server-side filtering now
   const filteredUsers = data?.items || [];
@@ -108,8 +116,8 @@ export default function UsersPage() {
         </button>
       </div>
 
-      {/* Search */}
-      <div className="mb-4">
+      {/* Search and Filters */}
+      <div className="mb-4 space-y-3">
         <div className="relative max-w-md">
           <svg
             className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
@@ -136,6 +144,50 @@ export default function UsersPage() {
             className="input pl-12"
           />
         </div>
+
+        {activeTab === "students" && (
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500">Баланс от</span>
+              <input
+                type="number"
+                value={balanceFrom}
+                onChange={(e) => updateParams({ balance_from: e.target.value, page: null })}
+                className="input w-28 py-1.5 text-sm"
+                placeholder="0"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500">до</span>
+              <input
+                type="number"
+                value={balanceTo}
+                onChange={(e) => updateParams({ balance_to: e.target.value, page: null })}
+                className="input w-28 py-1.5 text-sm"
+                placeholder="999999"
+              />
+            </div>
+            <select
+              value={sortBy}
+              onChange={(e) => updateParams({ sort_by: e.target.value, page: null })}
+              className="input w-auto py-1.5 text-sm"
+            >
+              <option value="">По дате создания</option>
+              <option value="balance_asc">Баланс (по возрастанию)</option>
+              <option value="balance_desc">Баланс (по убыванию)</option>
+              <option value="name_asc">Имя (А-Я)</option>
+              <option value="name_desc">Имя (Я-А)</option>
+            </select>
+            {(balanceFrom || balanceTo || sortBy) && (
+              <button
+                onClick={() => updateParams({ balance_from: null, balance_to: null, sort_by: null, page: null })}
+                className="text-sm text-cyan-600 hover:text-cyan-700"
+              >
+                Сбросить фильтры
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Count */}

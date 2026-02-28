@@ -1,297 +1,259 @@
 import { useEffect, useState } from "react";
-import { testsApi } from "../services/api";
-import type { Test, TestListResponse } from "../types";
-
-interface TestFormData {
-  title: string;
-}
+import { homeworkTemplatesApi, courseMaterialsApi } from "../services/api";
+import type { HomeworkTemplate } from "../services/api";
+import type { CourseTreeItem } from "../types";
 
 export default function TestsPage() {
-  const [data, setData] = useState<TestListResponse | null>(null);
-  const [search, setSearch] = useState("");
+  const [templates, setTemplates] = useState<HomeworkTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingTest, setEditingTest] = useState<Test | null>(null);
+  const [editingTemplate, setEditingTemplate] = useState<HomeworkTemplate | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
 
-  const fetchTests = async () => {
+  const fetchTemplates = async () => {
     setIsLoading(true);
     try {
-      const response = await testsApi.list(search || undefined);
-      setData(response);
+      const data = await homeworkTemplatesApi.list();
+      setTemplates(data);
     } catch (error) {
-      console.error("Failed to fetch tests:", error);
+      console.error("Failed to fetch templates:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchTests();
-  }, [search]);
-
-  const handleCreate = async (formData: TestFormData) => {
-    await testsApi.create(formData);
-    await fetchTests();
-  };
-
-  const handleUpdate = async (formData: TestFormData) => {
-    if (!editingTest) return;
-    await testsApi.update(editingTest.id, formData);
-    await fetchTests();
-  };
+    fetchTemplates();
+  }, []);
 
   const handleDelete = async (id: number) => {
-    await testsApi.delete(id);
-    setDeleteConfirm(null);
-    await fetchTests();
-  };
-
-  const openCreateModal = () => {
-    setEditingTest(null);
-    setIsModalOpen(true);
-  };
-
-  const openEditModal = (test: Test) => {
-    setEditingTest(test);
-    setIsModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setEditingTest(null);
+    try {
+      await homeworkTemplatesApi.delete(id);
+      setDeleteConfirm(null);
+      await fetchTemplates();
+    } catch (error) {
+      console.error("Failed to delete template:", error);
+    }
   };
 
   return (
     <div>
-      <h1 className="page-title">Тесты</h1>
-
-      {/* Search */}
-      <div className="mb-6">
-        <div className="relative max-w-md">
-          <svg
-            className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
-          <input
-            type="text"
-            placeholder="Поиск"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="input pl-12"
-          />
-        </div>
-      </div>
+      <h1 className="page-title">Домашние задания</h1>
 
       {/* Create button */}
       <div className="card mb-6 flex justify-center">
         <button
-          onClick={openCreateModal}
+          onClick={() => {
+            setEditingTemplate(null);
+            setIsModalOpen(true);
+          }}
           className="flex items-center gap-2 text-cyan-500 font-medium hover:text-cyan-600 transition-colors py-2"
         >
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 4v16m8-8H4"
-            />
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          Добавить тест
+          Создать шаблон ДЗ
         </button>
       </div>
 
-      {/* Table */}
+      {/* Templates list */}
       {isLoading ? (
         <div className="card text-center py-12 text-gray-500">Загрузка...</div>
+      ) : templates.length === 0 ? (
+        <div className="card text-center py-12 text-gray-500">
+          Шаблоны домашних заданий не найдены
+        </div>
       ) : (
-        <div className="card overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left py-4 px-6 font-medium text-gray-600">
-                  Название
-                </th>
-                <th className="text-left py-4 px-6 font-medium text-gray-600">
-                  Дата создания
-                </th>
-                <th className="text-right py-4 px-6 font-medium text-gray-600">
-                  Действия
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {data?.items.map((test) => (
-                <tr
-                  key={test.id}
-                  className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors"
-                >
-                  <td className="py-4 px-6 font-medium text-gray-800">
-                    {test.title}
-                  </td>
-                  <td className="py-4 px-6 text-gray-600">
-                    {new Date(test.created_at).toLocaleDateString("ru-RU")}
-                  </td>
-                  <td className="py-4 px-6">
-                    <div className="flex justify-end gap-2">
-                      <button
-                        onClick={() => openEditModal(test)}
-                        className="p-2 text-gray-400 hover:text-cyan-500 transition-colors"
-                        title="Редактировать"
-                      >
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                          />
-                        </svg>
-                      </button>
-                      {deleteConfirm === test.id ? (
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => handleDelete(test.id)}
-                            className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
-                          >
-                            Да
-                          </button>
-                          <button
-                            onClick={() => setDeleteConfirm(null)}
-                            className="px-2 py-1 text-xs bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
-                          >
-                            Нет
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => setDeleteConfirm(test.id)}
-                          className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                          title="Удалить"
-                        >
-                          <svg
-                            className="w-5 h-5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                            />
+        <div className="space-y-3">
+          {templates.map((tmpl) => (
+            <div key={tmpl.id} className="card p-4">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h3 className="font-semibold text-gray-800">{tmpl.title}</h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Курс: <span className="font-medium">{tmpl.course_title}</span>
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {tmpl.items.length} урок(ов) в шаблоне
+                  </p>
+                  {tmpl.items.length > 0 && (
+                    <div className="mt-2 space-y-0.5">
+                      {tmpl.items.map((item) => (
+                        <div key={item.id} className="text-xs text-gray-500 flex items-center gap-1">
+                          <svg className="w-3 h-3 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                           </svg>
-                        </button>
-                      )}
+                          {item.interactive_lesson_title}
+                        </div>
+                      ))}
                     </div>
-                  </td>
-                </tr>
-              ))}
-              {data?.items.length === 0 && (
-                <tr>
-                  <td colSpan={3} className="py-12 text-center text-gray-500">
-                    Тесты не найдены
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 ml-4">
+                  <button
+                    onClick={() => {
+                      setEditingTemplate(tmpl);
+                      setIsModalOpen(true);
+                    }}
+                    className="p-2 text-gray-400 hover:text-cyan-500 transition-colors"
+                    title="Редактировать"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </button>
+                  {deleteConfirm === tmpl.id ? (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleDelete(tmpl.id)}
+                        className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
+                      >
+                        Да
+                      </button>
+                      <button
+                        onClick={() => setDeleteConfirm(null)}
+                        className="px-2 py-1 text-xs bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                      >
+                        Нет
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setDeleteConfirm(tmpl.id)}
+                      className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                      title="Удалить"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
-      {data && data.total > 0 && (
-        <p className="text-gray-500 text-sm mt-4">Всего тестов: {data.total}</p>
-      )}
+      <p className="text-gray-500 text-sm mt-4">Всего шаблонов: {templates.length}</p>
 
       {/* Modal */}
-      <TestModal
+      <HomeworkTemplateModal
         isOpen={isModalOpen}
-        onClose={closeModal}
-        onSubmit={editingTest ? handleUpdate : handleCreate}
-        test={editingTest}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingTemplate(null);
+        }}
+        onSave={fetchTemplates}
+        template={editingTemplate}
       />
     </div>
   );
 }
 
 // Modal Component
-interface TestModalProps {
+interface HomeworkTemplateModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: TestFormData) => Promise<void>;
-  test?: Test | null;
+  onSave: () => void;
+  template?: HomeworkTemplate | null;
 }
 
-function TestModal({ isOpen, onClose, onSubmit, test }: TestModalProps) {
-  const [formData, setFormData] = useState<TestFormData>({ title: "" });
-  const [errors, setErrors] = useState<Partial<Record<keyof TestFormData, string>>>({});
+function HomeworkTemplateModal({ isOpen, onClose, onSave, template }: HomeworkTemplateModalProps) {
+  const [title, setTitle] = useState("");
+  const [courseTree, setCourseTree] = useState<CourseTreeItem[]>([]);
+  const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null);
+  const [selectedLessonIds, setSelectedLessonIds] = useState<Set<number>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const isEditing = !!test;
+  const isEditing = !!template;
 
   useEffect(() => {
-    if (test) {
-      setFormData({ title: test.title });
-    } else {
-      setFormData({ title: "" });
+    if (isOpen) {
+      loadTree();
+      if (template) {
+        setTitle(template.title);
+        setSelectedCourseId(template.course_id);
+        setSelectedLessonIds(new Set(template.items.map((i) => i.interactive_lesson_id)));
+      } else {
+        setTitle("");
+        setSelectedCourseId(null);
+        setSelectedLessonIds(new Set());
+      }
     }
-    setErrors({});
-  }, [test, isOpen]);
+  }, [isOpen, template]);
 
-  const validate = (): boolean => {
-    const newErrors: Partial<Record<keyof TestFormData, string>> = {};
-
-    if (!formData.title.trim()) {
-      newErrors.title = "Введите название";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!validate()) return;
-
+  const loadTree = async () => {
     setIsLoading(true);
     try {
-      await onSubmit(formData);
-      setFormData({ title: "" });
-      setErrors({});
-      onClose();
+      const tree = await courseMaterialsApi.getCourseTree();
+      setCourseTree(tree);
     } catch (error) {
-      console.error("Failed to save test:", error);
+      console.error("Failed to load course tree:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    if (errors[name as keyof TestFormData]) {
-      setErrors((prev) => ({ ...prev, [name]: undefined }));
+  const selectedCourse = courseTree.find((c) => c.id === selectedCourseId);
+
+  // Collect all interactive lessons from course tree
+  const collectLessons = (node: CourseTreeItem): { id: number; title: string; path: string }[] => {
+    const results: { id: number; title: string; path: string }[] = [];
+    if (node.type === "lesson") {
+      results.push({ id: node.id, title: node.title, path: node.title });
+    }
+    for (const child of node.children || []) {
+      const childResults = collectLessons(child);
+      for (const r of childResults) {
+        results.push({
+          ...r,
+          path: node.type !== "course" ? `${node.title} > ${r.path}` : r.path,
+        });
+      }
+    }
+    return results;
+  };
+
+  const availableLessons = selectedCourse ? collectLessons(selectedCourse) : [];
+
+  const toggleLesson = (id: number) => {
+    setSelectedLessonIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim() || !selectedCourseId) return;
+
+    setIsSaving(true);
+    try {
+      if (isEditing && template) {
+        await homeworkTemplatesApi.update(template.id, {
+          title: title.trim(),
+          interactive_lesson_ids: Array.from(selectedLessonIds),
+        });
+      } else {
+        await homeworkTemplatesApi.create({
+          title: title.trim(),
+          course_id: selectedCourseId,
+          interactive_lesson_ids: Array.from(selectedLessonIds),
+        });
+      }
+      onSave();
+      onClose();
+    } catch (error) {
+      console.error("Failed to save template:", error);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -301,68 +263,95 @@ function TestModal({ isOpen, onClose, onSubmit, test }: TestModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
+      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6 max-h-[80vh] flex flex-col">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold text-gray-800">
-            {isEditing ? "Редактировать тест" : "Добавить тест"}
+            {isEditing ? "Редактировать шаблон ДЗ" : "Создать шаблон ДЗ"}
           </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Название *
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Название *</label>
             <input
               type="text"
-              name="title"
-              value={formData.title}
-              onChange={handleChange}
-              className={`input w-full ${errors.title ? "border-red-500" : ""}`}
-              placeholder="Название теста"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="input w-full"
+              placeholder="Название шаблона ДЗ"
             />
-            {errors.title && (
-              <p className="text-red-500 text-sm mt-1">{errors.title}</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Курс *</label>
+            {isLoading ? (
+              <p className="text-gray-500 text-sm">Загрузка...</p>
+            ) : (
+              <select
+                value={selectedCourseId || ""}
+                onChange={(e) => {
+                  setSelectedCourseId(e.target.value ? Number(e.target.value) : null);
+                  if (!isEditing) setSelectedLessonIds(new Set());
+                }}
+                className="input w-full"
+                disabled={isEditing}
+              >
+                <option value="">Выберите курс</option>
+                {courseTree.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.title}
+                  </option>
+                ))}
+              </select>
             )}
           </div>
 
+          {selectedCourseId && (
+            <div className="flex-1 min-h-0">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Уроки ({selectedLessonIds.size} выбрано)
+              </label>
+              <div className="border border-gray-200 rounded-lg overflow-y-auto max-h-[300px] p-2 space-y-1">
+                {availableLessons.length === 0 ? (
+                  <p className="text-gray-500 text-sm p-2">Нет доступных уроков</p>
+                ) : (
+                  availableLessons.map((lesson) => (
+                    <label
+                      key={lesson.id}
+                      className="flex items-start gap-2 p-2 rounded hover:bg-gray-50 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedLessonIds.has(lesson.id)}
+                        onChange={() => toggleLesson(lesson.id)}
+                        className="mt-0.5 rounded border-gray-300 text-cyan-500 focus:ring-cyan-500"
+                      />
+                      <div className="min-w-0">
+                        <p className="text-sm text-gray-800 font-medium truncate">{lesson.title}</p>
+                        <p className="text-xs text-gray-400 truncate">{lesson.path}</p>
+                      </div>
+                    </label>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 btn btn-secondary"
-              disabled={isLoading}
-            >
+            <button type="button" onClick={onClose} className="flex-1 btn btn-secondary" disabled={isSaving}>
               Отмена
             </button>
             <button
               type="submit"
               className="flex-1 btn btn-primary"
-              disabled={isLoading}
+              disabled={isSaving || !title.trim() || !selectedCourseId}
             >
-              {isLoading
-                ? "Сохранение..."
-                : isEditing
-                  ? "Сохранить"
-                  : "Добавить"}
+              {isSaving ? "Сохранение..." : isEditing ? "Сохранить" : "Создать"}
             </button>
           </div>
         </form>

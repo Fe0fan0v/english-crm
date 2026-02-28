@@ -348,16 +348,7 @@ export default function StudentDashboardPage() {
                   </span>
                 </div>
               </div>
-              <div className="text-center lg:text-right mt-2 lg:mt-0">
-                <p className="text-sm text-gray-500">Баланс</p>
-                <p
-                  className={`text-xl lg:text-2xl font-bold ${
-                    parseFloat(stats?.balance || "0") >= 0 ? "text-green-600" : "text-red-600"
-                  }`}
-                >
-                  {parseFloat(stats?.balance || "0").toLocaleString("ru-RU")} тг
-                </p>
-              </div>
+              {/* Баланс скрыт по запросу заказчика (HIDE_BALANCE) */}
             </div>
           </div>
         </div>
@@ -409,44 +400,10 @@ export default function StudentDashboardPage() {
                 <p className="text-xl lg:text-2xl font-bold text-gray-800">{stats?.groups_count || 0}</p>
               </div>
             </div>
-            <div className="card flex items-center gap-4 p-4 lg:p-6 sm:col-span-2 lg:col-span-1">
-              <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl bg-green-100 text-green-600 flex items-center justify-center flex-shrink-0">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-xs lg:text-sm text-gray-500">Баланс</p>
-                <p className={`text-xl lg:text-2xl font-bold ${parseFloat(stats?.balance || "0") >= 0 ? "text-green-600" : "text-red-600"}`}>
-                  {parseFloat(stats?.balance || "0").toLocaleString("ru-RU")} тг
-                </p>
-              </div>
-            </div>
+            {/* Карточка баланса скрыта по запросу заказчика (HIDE_BALANCE) */}
           </div>
 
-          {/* Remaining lessons by type */}
-          {stats?.remaining_lessons && stats.remaining_lessons.length > 0 && (
-            <div className="card p-4 lg:p-6">
-              <h2 className="section-title mb-3 lg:mb-4">Остаток уроков по балансу</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {stats.remaining_lessons.map((rl) => (
-                  <div key={rl.lesson_type_name} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                    <div className="w-10 h-10 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center flex-shrink-0">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-800">{rl.lesson_type_name}</p>
-                      <p className="text-xs text-gray-500">
-                        ~{rl.count} ур. ({parseFloat(rl.price).toLocaleString("ru-RU")} тг/ур.)
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Секция «Остаток уроков по балансу» скрыта по запросу заказчика (HIDE_BALANCE) */}
 
           {/* My Groups */}
           <div className="card p-4 lg:p-6">

@@ -92,3 +92,8 @@ class UserGroupResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class AssignedTeacherInfo(BaseModel):
+    id: int
+    name: str

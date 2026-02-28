@@ -782,10 +782,16 @@ function FillGapsRenderer({
                 placeholder={gap?.hint || "..."}
                 title={canSeeAnswers && gap ? gap.answer : undefined}
               />
-              {isChecked && result === false && gap && canSeeAnswers && (
-                <span className="text-xs text-red-500 ml-1">
-                  ({gap.answer})
-                </span>
+              {isChecked && result === false && (
+                canSeeAnswers && gap ? (
+                  <span className="text-xs text-red-500 ml-1">
+                    ({gap.answer})
+                  </span>
+                ) : serverDetails?.correct_answers?.[String(gapIndex)] ? (
+                  <span className="text-xs text-green-600 ml-1">
+                    ({serverDetails.correct_answers[String(gapIndex)]})
+                  </span>
+                ) : null
               )}
             </span>
           );
@@ -854,14 +860,18 @@ function TestRenderer({
 
   const getOptionState = (
     option: TestOption,
-  ): "selected" | "correct" | "incorrect" | "default" => {
+  ): "selected" | "correct" | "correct_missed" | "incorrect" | "default" | "correct_hint" => {
     const isSelected = selectedIds.includes(option.id);
-    if (!isChecked) return isSelected ? "selected" : "default";
+    if (!isChecked) {
+      if (canSeeAnswers && option.is_correct) return "correct_hint";
+      return isSelected ? "selected" : "default";
+    }
     // Use server-side results if available (students)
     if (serverDetails?.option_results) {
       const serverState = serverDetails.option_results[option.id];
       if (serverState === "correct") return "correct";
       if (serverState === "incorrect") return "incorrect";
+      if (serverState === "correct_missed") return "correct_missed";
       // Show correct answers to teachers even if not selected by student
       if (option.is_correct && canSeeAnswers) return "correct";
       return "default";
@@ -902,9 +912,13 @@ function TestRenderer({
                   ? "border-purple-500 bg-purple-50"
                   : state === "correct"
                     ? "border-green-500 bg-green-50"
-                    : state === "incorrect"
-                      ? "border-red-500 bg-red-50"
-                      : "border-gray-200 hover:border-gray-300"
+                    : state === "correct_missed"
+                      ? "border-green-400 bg-green-50/60 border-dashed"
+                      : state === "correct_hint"
+                        ? "border-green-300 bg-green-50/40 border-dashed"
+                        : state === "incorrect"
+                          ? "border-red-500 bg-red-50"
+                          : "border-gray-200 hover:border-gray-300"
               }`}
             >
               <div className="flex items-center gap-3">
@@ -914,13 +928,17 @@ function TestRenderer({
                       ? "border-purple-500 bg-purple-500"
                       : state === "correct"
                         ? "border-green-500 bg-green-500"
-                        : state === "incorrect"
-                          ? "border-red-500 bg-red-500"
-                          : "border-gray-300"
+                        : state === "correct_missed" || state === "correct_hint"
+                          ? "border-green-400 bg-green-400"
+                          : state === "incorrect"
+                            ? "border-red-500 bg-red-500"
+                            : "border-gray-300"
                   }`}
                 >
                   {(state === "selected" ||
                     state === "correct" ||
+                    state === "correct_missed" ||
+                    state === "correct_hint" ||
                     state === "incorrect") && (
                     <svg
                       className="w-3 h-3 text-white"
@@ -1011,9 +1029,11 @@ function TrueFalseRenderer({
           // For students with serverDetails: only highlight selected answer as correct/wrong
           const isCorrectAnswer = isChecked && isSelected && isCorrect;
           const isWrongAnswer = isChecked && isSelected && !isCorrect;
-          // For admin/teacher: also show the correct answer even if not selected
-          const showCorrect =
-            isChecked && !isSelected && canSeeAnswers && value === isTrue;
+          // For admin/teacher: also show the correct answer even if not selected (before and after check)
+          const correctAnswer = serverDetails?.correct_answer ?? isTrue;
+          const showCorrect = canSeeAnswers && value === isTrue
+            ? true
+            : isChecked && !isSelected && value === correctAnswer;
           const isWrong = serverDetails
             ? isWrongAnswer
             : isChecked && isSelected && value !== isTrue;
@@ -1169,19 +1189,22 @@ function WordOrderRenderer({
       </div>
 
       {isChecked &&
-        !isCorrect &&
-        (canSeeAnswers ? (
+        !isCorrect && (
           <div className="mt-4 p-3 rounded-lg bg-yellow-50">
             <div className="text-sm font-medium mb-1">Правильный ответ:</div>
-            <div className="text-sm text-gray-600">{correctSentence}</div>
-          </div>
-        ) : (
-          <div className="mt-4 p-3 rounded-lg bg-red-50">
-            <div className="text-sm font-medium text-red-600">
-              Неправильно. Попробуйте ещё раз.
+            <div className="text-sm text-gray-600">
+              {serverDetails?.correct_sentence || correctSentence}
             </div>
           </div>
-        ))}
+        )}
+
+      {!isChecked && canSeeAnswers && (
+        <div className="mt-4 p-3 rounded-lg bg-green-50/40 border border-dashed border-green-300">
+          <div className="text-sm text-green-700">
+            <span className="font-medium">Правильный ответ: </span>{correctSentence}
+          </div>
+        </div>
+      )}
 
       {!isChecked && (
         <button
@@ -1324,12 +1347,11 @@ function MatchingRenderer({
       </div>
 
       {isChecked &&
-        !allCorrect &&
-        (canSeeAnswers ? (
+        !allCorrect && (
           <div className="mt-4 p-3 rounded-lg bg-yellow-50">
             <div className="text-sm font-medium mb-1">Правильные пары:</div>
             <div className="text-sm text-gray-600 space-y-1">
-              {pairs.map((p) => {
+              {(canSeeAnswers ? pairs : pairs.filter(p => serverDetails?.correct_pairs?.[p.left])).map((p) => {
                 const isImage =
                   /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(
                     p.right,
@@ -1352,13 +1374,7 @@ function MatchingRenderer({
               })}
             </div>
           </div>
-        ) : (
-          <div className="mt-4 p-3 rounded-lg bg-red-50">
-            <div className="text-sm font-medium text-red-600">
-              Есть ошибки. Попробуйте ещё раз.
-            </div>
-          </div>
-        ))}
+        )}
 
       {!isChecked && (
         <button
@@ -1749,14 +1765,18 @@ function ImageChoiceRenderer({
 
   const getOptionState = (
     option: ImageOption,
-  ): "selected" | "correct" | "incorrect" | "default" => {
+  ): "selected" | "correct" | "correct_missed" | "incorrect" | "default" | "correct_hint" => {
     const isSelected = answer === option.id;
-    if (!isChecked) return isSelected ? "selected" : "default";
+    if (!isChecked) {
+      if (canSeeAnswers && option.is_correct) return "correct_hint";
+      return isSelected ? "selected" : "default";
+    }
     // Use server-side results if available (students)
     if (serverDetails?.option_results) {
       const serverState = serverDetails.option_results[option.id];
       if (serverState === "correct") return "correct";
       if (serverState === "incorrect") return "incorrect";
+      if (serverState === "correct_missed") return "correct_missed";
       // Show correct answers to teachers even if not selected by student
       if (option.is_correct && canSeeAnswers) return "correct";
       return "default";
@@ -1791,9 +1811,13 @@ function ImageChoiceRenderer({
                   ? "border-purple-500"
                   : state === "correct"
                     ? "border-green-500"
-                    : state === "incorrect"
-                      ? "border-red-500"
-                      : "border-gray-200 hover:border-gray-300"
+                    : state === "correct_missed"
+                      ? "border-green-400 border-dashed"
+                      : state === "correct_hint"
+                        ? "border-green-300 border-dashed"
+                        : state === "incorrect"
+                          ? "border-red-500"
+                          : "border-gray-200 hover:border-gray-300"
               }`}
             >
               <img
@@ -1806,10 +1830,10 @@ function ImageChoiceRenderer({
                   {option.caption}
                 </div>
               )}
-              {(state === "selected" || state === "correct") && (
+              {(state === "selected" || state === "correct" || state === "correct_missed" || state === "correct_hint") && (
                 <div
                   className={`absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center ${
-                    state === "correct" ? "bg-green-500" : "bg-purple-500"
+                    state === "correct" ? "bg-green-500" : state === "correct_missed" || state === "correct_hint" ? "bg-green-400" : "bg-purple-500"
                   }`}
                 >
                   <svg
@@ -2184,6 +2208,16 @@ function DragWordsRenderer({
           }`}
         >
           {allCorrect ? "Правильно!" : "Есть ошибки. Попробуйте ещё раз."}
+        </div>
+      )}
+      {isChecked && !allCorrect && serverDetails?.correct_answers && Object.keys(serverDetails.correct_answers).length > 0 && (
+        <div className="mt-2 p-3 rounded-lg bg-yellow-50 text-sm">
+          <div className="font-medium mb-1">Правильные ответы:</div>
+          <div className="text-gray-600 space-y-0.5">
+            {Object.entries(serverDetails.correct_answers as Record<string, string>).map(([idx, word]) => (
+              <div key={idx}>Пропуск {Number(idx) + 1}: <span className="font-medium text-green-700">{word}</span></div>
+            ))}
+          </div>
         </div>
       )}
     </div>

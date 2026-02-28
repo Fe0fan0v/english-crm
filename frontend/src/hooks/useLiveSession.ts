@@ -2,6 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { liveSessionApi } from "../services/liveSessionApi";
 import type { ExerciseResultDetails } from "../types/course";
 
+export interface DrawingStroke {
+  points: { x: number; y: number }[];
+  color: string;
+  width: number;
+}
+
 interface LiveSessionCallbacks {
   onAnswerChange?: (blockId: number, answer: unknown) => void;
   onCheck?: (blockId: number, serverDetails?: ExerciseResultDetails) => void;
@@ -13,6 +19,8 @@ interface LiveSessionCallbacks {
   onSessionEnd?: (reason: string) => void;
   onPeerJoined?: (role: string, name: string) => void;
   onPeerDisconnected?: (role: string) => void;
+  onDrawingStroke?: (stroke: DrawingStroke) => void;
+  onDrawingClear?: () => void;
 }
 
 export interface FullState {
@@ -41,6 +49,8 @@ export interface UseLiveSessionReturn {
   sendStateSnapshot: (state: FullState) => void;
   sendCursorMove: (x: number, y: number) => void;
   sendCursorHide: () => void;
+  sendDrawingStroke: (stroke: DrawingStroke) => void;
+  sendDrawingClear: () => void;
   endSession: () => void;
 }
 
@@ -142,6 +152,14 @@ export function useLiveSession(
 
           case "state_snapshot":
             cb.onStateSnapshot?.(msg as unknown as FullState);
+            break;
+
+          case "drawing_stroke":
+            cb.onDrawingStroke?.({ points: msg.points, color: msg.color, width: msg.width });
+            break;
+
+          case "drawing_clear":
+            cb.onDrawingClear?.();
             break;
         }
       } catch {
@@ -265,6 +283,17 @@ export function useLiveSession(
     send({ type: "cursor_move", x: 0, y: 0, visible: false });
   }, [send]);
 
+  const sendDrawingStroke = useCallback(
+    (stroke: DrawingStroke) => {
+      send({ type: "drawing_stroke", points: stroke.points, color: stroke.color, width: stroke.width });
+    },
+    [send],
+  );
+
+  const sendDrawingClear = useCallback(() => {
+    send({ type: "drawing_clear" });
+  }, [send]);
+
   const endSession = useCallback(() => {
     if (lessonId) {
       liveSessionApi.endSession(lessonId).catch(() => {});
@@ -284,6 +313,8 @@ export function useLiveSession(
     sendStateSnapshot,
     sendCursorMove,
     sendCursorHide,
+    sendDrawingStroke,
+    sendDrawingClear,
     endSession,
   };
 }

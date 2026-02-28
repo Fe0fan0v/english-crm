@@ -13,6 +13,7 @@ export default function NotificationBell({ isMobile = false }: NotificationBellP
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Fetch unread count
@@ -189,7 +190,10 @@ export default function NotificationBell({ isMobile = false }: NotificationBellP
               notifications.map((notification) => (
                 <button
                   key={notification.id}
-                  onClick={() => !notification.is_read && markAsRead(notification.id)}
+                  onClick={() => {
+                    if (!notification.is_read) markAsRead(notification.id);
+                    setExpandedId(expandedId === notification.id ? null : notification.id);
+                  }}
                   className={`w-full flex items-start gap-3 p-4 text-left hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-b-0 ${
                     !notification.is_read ? "bg-cyan-50/50" : ""
                   }`}
@@ -204,7 +208,7 @@ export default function NotificationBell({ isMobile = false }: NotificationBellP
                         <span className="w-2 h-2 bg-cyan-500 rounded-full flex-shrink-0 mt-1.5"></span>
                       )}
                     </div>
-                    <p className="text-xs text-gray-600 mt-0.5">
+                    <p className={`text-xs text-gray-600 mt-0.5 ${expandedId === notification.id ? "" : "line-clamp-2"}`}>
                       {notification.message}
                     </p>
                     <p className="text-xs text-gray-400 mt-1">

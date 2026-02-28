@@ -12,6 +12,7 @@ from app.api.deps import CurrentUser, ManagerUser, TeacherUser, get_db
 
 logger = logging.getLogger(__name__)
 from app.models.course import Course, CourseSection, CourseTopic, InteractiveLesson
+from app.models.homework import HomeworkAssignment, HomeworkStatus, HomeworkTemplate, HomeworkTemplateItem
 from app.models.group import Group, GroupStudent
 from app.models.lesson import AttendanceStatus, Lesson, LessonStatus, LessonStudent
 from app.models.lesson_course_material import CourseMaterialType, LessonCourseMaterial
@@ -1460,6 +1461,62 @@ async def attach_course_material(
         logger.info(
             f"Successfully attached material {material.id} to lesson {lesson_id}"
         )
+
+        # Auto-assign homework from templates matching the course
+        try:
+            attached_course_id = material.course_id
+            if not attached_course_id and material.section:
+                attached_course_id = material.section.course_id
+            elif not attached_course_id and material.topic and material.topic.section:
+                attached_course_id = material.topic.section.course_id
+            elif not attached_course_id and material.interactive_lesson:
+                if material.interactive_lesson.section:
+                    attached_course_id = material.interactive_lesson.section.course_id
+                elif material.interactive_lesson.topic and material.interactive_lesson.topic.section:
+                    attached_course_id = material.interactive_lesson.topic.section.course_id
+
+            if attached_course_id:
+                # Find templates for this course
+                templates_result = await db.execute(
+                    select(HomeworkTemplate)
+                    .where(HomeworkTemplate.course_id == attached_course_id)
+                    .options(selectinload(HomeworkTemplate.items))
+                )
+                templates = templates_result.scalars().all()
+
+                if templates:
+                    # Get students of this lesson
+                    students_result = await db.execute(
+                        select(LessonStudent.student_id).where(
+                            LessonStudent.lesson_id == lesson_id
+                        )
+                    )
+                    student_ids = [row[0] for row in students_result.all()]
+
+                    for tmpl in templates:
+                        for item in tmpl.items:
+                            for sid in student_ids:
+                                # Check if assignment already exists
+                                existing = await db.execute(
+                                    select(HomeworkAssignment.id).where(
+                                        HomeworkAssignment.lesson_id == lesson_id,
+                                        HomeworkAssignment.interactive_lesson_id == item.interactive_lesson_id,
+                                        HomeworkAssignment.student_id == sid,
+                                    )
+                                )
+                                if not existing.scalar_one_or_none():
+                                    hw = HomeworkAssignment(
+                                        lesson_id=lesson_id,
+                                        interactive_lesson_id=item.interactive_lesson_id,
+                                        student_id=sid,
+                                        assigned_by=current_user.id,
+                                        status=HomeworkStatus.PENDING,
+                                    )
+                                    db.add(hw)
+                    await db.commit()
+                    await db.refresh(material)
+        except Exception as e:
+            logger.warning(f"Auto-assign homework failed (non-critical): {e}")
 
         # Get course_id - prioritize direct link, then through relationships
         course_id = material.course_id

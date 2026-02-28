@@ -122,6 +122,9 @@ export const usersApi = {
     size = 20,
     search?: string,
     role?: string,
+    balanceFrom?: number,
+    balanceTo?: number,
+    sortBy?: string,
   ): Promise<UserListResponse> => {
     const params = new URLSearchParams({
       page: String(page),
@@ -129,6 +132,9 @@ export const usersApi = {
     });
     if (search) params.append("search", search);
     if (role) params.append("role", role);
+    if (balanceFrom !== undefined && balanceFrom !== null) params.append("balance_from", String(balanceFrom));
+    if (balanceTo !== undefined && balanceTo !== null) params.append("balance_to", String(balanceTo));
+    if (sortBy) params.append("sort_by", sortBy);
     const response = await api.get<UserListResponse>(`/users?${params}`);
     return response.data;
   },
@@ -195,6 +201,16 @@ export const usersApi = {
 
   deletePhoto: async (userId: number): Promise<User> => {
     const response = await api.delete<User>(`/users/${userId}/photo`);
+    return response.data;
+  },
+
+  getAssignedTeachers: async (userId: number): Promise<{ id: number; name: string }[]> => {
+    const response = await api.get<{ id: number; name: string }[]>(`/users/${userId}/assigned-teachers`);
+    return response.data;
+  },
+
+  getRemainingLessons: async (userId: number): Promise<{ lesson_type_name: string; price: string; count: number }[]> => {
+    const response = await api.get<{ lesson_type_name: string; price: string; count: number }[]>(`/users/${userId}/remaining-lessons`);
     return response.data;
   },
 };
@@ -424,6 +440,52 @@ export const testsApi = {
 
   delete: async (id: number): Promise<void> => {
     await api.delete(`/tests/${id}`);
+  },
+};
+
+// Homework Templates
+export interface HomeworkTemplateItem {
+  id: number;
+  interactive_lesson_id: number;
+  interactive_lesson_title: string;
+}
+
+export interface HomeworkTemplate {
+  id: number;
+  title: string;
+  course_id: number;
+  course_title: string;
+  created_by: number;
+  creator_name: string;
+  created_at: string;
+  items: HomeworkTemplateItem[];
+}
+
+export const homeworkTemplatesApi = {
+  list: async (): Promise<HomeworkTemplate[]> => {
+    const response = await api.get<HomeworkTemplate[]>("/homework-templates");
+    return response.data;
+  },
+
+  create: async (data: {
+    title: string;
+    course_id: number;
+    interactive_lesson_ids: number[];
+  }): Promise<HomeworkTemplate> => {
+    const response = await api.post<HomeworkTemplate>("/homework-templates", data);
+    return response.data;
+  },
+
+  update: async (
+    id: number,
+    data: { title?: string; interactive_lesson_ids?: number[] }
+  ): Promise<HomeworkTemplate> => {
+    const response = await api.put<HomeworkTemplate>(`/homework-templates/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/homework-templates/${id}`);
   },
 };
 

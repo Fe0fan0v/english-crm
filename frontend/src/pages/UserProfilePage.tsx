@@ -23,6 +23,8 @@ export default function UserProfilePage() {
   const [levels, setLevels] = useState<Level[]>([]);
   const [teacherDashboard, setTeacherDashboard] = useState<TeacherDashboardResponse | null>(null);
   const [teacherStudents, setTeacherStudents] = useState<TeacherStudentInfo[]>([]);
+  const [assignedTeachers, setAssignedTeachers] = useState<{ id: number; name: string }[]>([]);
+  const [remainingLessons, setRemainingLessons] = useState<{ lesson_type_name: string; price: string; count: number }[]>([]);
 
   const fetchUser = async () => {
     if (!id) return;
@@ -92,11 +94,35 @@ export default function UserProfilePage() {
     fetchLevels();
   }, [id]);
 
+  const fetchAssignedTeachers = async () => {
+    if (!id) return;
+    try {
+      const data = await usersApi.getAssignedTeachers(parseInt(id));
+      setAssignedTeachers(data);
+    } catch (error) {
+      console.error('Failed to fetch assigned teachers:', error);
+    }
+  };
+
+  const fetchRemainingLessons = async () => {
+    if (!id) return;
+    try {
+      const data = await usersApi.getRemainingLessons(parseInt(id));
+      setRemainingLessons(data);
+    } catch (error) {
+      console.error('Failed to fetch remaining lessons:', error);
+    }
+  };
+
   // Fetch teacher-specific data when user is loaded and is a teacher
   useEffect(() => {
     if (user?.role === 'teacher') {
       fetchTeacherDashboard();
       fetchTeacherStudents();
+    }
+    if (user?.role === 'student') {
+      fetchAssignedTeachers();
+      fetchRemainingLessons();
     }
   }, [user?.id, user?.role]);
 
@@ -371,6 +397,36 @@ export default function UserProfilePage() {
                 <p className="text-gray-800 font-medium">{user.balance} тг</p>
               </div>
             )}
+            {isStudent && assignedTeachers.length > 0 && (
+              <div>
+                <label className="block text-sm text-gray-500 mb-1">Преподаватель</label>
+                <p className="text-gray-800 font-medium">{assignedTeachers.map(t => t.name).join(', ')}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Remaining lessons for students */}
+      {activeTab === 'info' && isStudent && remainingLessons.length > 0 && (
+        <div className="card mt-6">
+          <h2 className="section-title mb-4">Остаток уроков по балансу</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {remainingLessons.map((rl) => (
+              <div key={rl.lesson_type_name} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                <div className="w-10 h-10 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-800">{rl.lesson_type_name}</p>
+                  <p className="text-xs text-gray-500">
+                    ~{rl.count} ур. ({parseFloat(rl.price).toLocaleString("ru-RU")} тг/ур.)
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

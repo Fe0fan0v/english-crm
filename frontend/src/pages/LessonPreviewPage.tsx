@@ -10,6 +10,8 @@ import type {
 } from "../types/course";
 import BlockRenderer from "../components/blocks/BlockRenderer";
 import RemoteCursor from "../components/RemoteCursor";
+import DrawingOverlay from "../components/DrawingOverlay";
+import type { DrawingStroke } from "../hooks/useLiveSession";
 
 // Block type labels for the sidebar
 const BLOCK_TYPE_ICONS: Record<string, string> = {
@@ -68,6 +70,7 @@ export default function LessonPreviewPage() {
   const isStudentLive = isLiveMode && isStudent;
 
   const [mediaCommands, setMediaCommands] = useState<Record<number, { action: string; time?: number }>>({});
+  const [remoteStrokes, setRemoteStrokes] = useState<DrawingStroke[]>([]);
 
   const liveSession = useLiveSession(
     isLiveMode ? Number(sessionLessonId) : null,
@@ -121,6 +124,12 @@ export default function LessonPreviewPage() {
           setServerDetails(state.serverDetails);
           setCurrentPage(state.current_page);
         }
+      },
+      onDrawingStroke: (stroke) => {
+        setRemoteStrokes((prev) => [...prev, stroke]);
+      },
+      onDrawingClear: () => {
+        setRemoteStrokes([]);
       },
       onSessionEnd: () => {
         navigate(-1);
@@ -535,7 +544,17 @@ export default function LessonPreviewPage() {
         )}
       </div>
 
-      <div className={`${showSidebar ? "flex gap-6" : ""}`}>
+      <div className={`${showSidebar ? "flex gap-6" : ""} relative`}>
+        {/* Drawing overlay for live sessions */}
+        {isLiveMode && (
+          <DrawingOverlay
+            isTeacher={isTeacherLive}
+            onStroke={(stroke) => liveSession.sendDrawingStroke(stroke)}
+            onClear={() => liveSession.sendDrawingClear()}
+            remoteStrokes={remoteStrokes}
+          />
+        )}
+
         {/* Main content */}
         <div className="flex-1 min-w-0">
           {/* Page navigation - top */}
