@@ -245,20 +245,21 @@ export default function LessonDetailModal({
     }
   };
 
-  const handleStartLiveSession = async (interactiveLessonId: number, studentId: number) => {
+  const handleStartLiveSession = async (interactiveLessonId: number) => {
     try {
       setIsStartingLiveSession(true);
       await liveSessionApi.create({
         lesson_id: lessonId,
         interactive_lesson_id: interactiveLessonId,
-        student_id: studentId,
       });
-      window.open(`/courses/lessons/${interactiveLessonId}?session=${lessonId}`, "_blank");
+      const groupParam = lesson && lesson.students.length > 1 ? "&group=1" : "";
+      window.open(`/courses/lessons/${interactiveLessonId}?session=${lessonId}${groupParam}`, "_blank");
     } catch (err: unknown) {
       const axiosErr = err as { response?: { status?: number; data?: { detail?: string } } };
       // 409 = session already exists — just open it
       if (axiosErr?.response?.status === 409) {
-        window.open(`/courses/lessons/${interactiveLessonId}?session=${lessonId}`, "_blank");
+        const groupParam = lesson && lesson.students.length > 1 ? "&group=1" : "";
+        window.open(`/courses/lessons/${interactiveLessonId}?session=${lessonId}${groupParam}`, "_blank");
         return;
       }
       const msg = err instanceof Error ? err.message : "Не удалось создать сессию";
@@ -654,11 +655,10 @@ export default function LessonDetailModal({
                           {currentUser?.role !== "student" &&
                             material.material_type === "lesson" &&
                             material.interactive_lesson_id &&
-                            lesson.students.length === 1 && (
+                            lesson.students.length >= 1 && (
                             <button
                               onClick={() => handleStartLiveSession(
-                                material.interactive_lesson_id!,
-                                lesson.students[0].id
+                                material.interactive_lesson_id!
                               )}
                               disabled={isStartingLiveSession}
                               className="btn btn-sm bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50"

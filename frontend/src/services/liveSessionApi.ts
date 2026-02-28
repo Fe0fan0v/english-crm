@@ -3,18 +3,17 @@ import api from "./api";
 export interface LiveSessionCreateData {
   lesson_id: number;
   interactive_lesson_id: number;
-  student_id: number;
 }
 
 export interface LiveSessionResponse {
   lesson_id: number;
   interactive_lesson_id: number;
   teacher_id: number;
-  student_id: number;
+  student_ids: number[];
   teacher_name: string;
   created_at: string;
   teacher_connected: boolean;
-  student_connected: boolean;
+  students_connected: number;
 }
 
 export interface LiveSessionActiveCheck {

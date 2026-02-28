@@ -81,8 +81,9 @@ export default function WhiteboardPage() {
         }
       },
       onPeerJoined: () => {
-        // Teacher sends snapshot when student joins
+        // Teacher sends wb_open + snapshot when student joins
         if (isTeacher) {
+          liveSession.sendWbOpen();
           liveSession.sendWbSnapshot(wb.elements);
         }
       },
@@ -436,9 +437,13 @@ export default function WhiteboardPage() {
             />
           </span>
           <span className="text-xs text-gray-500">
-            {liveSession.peerConnected
-              ? isTeacher ? "Ученик онлайн" : "Учитель онлайн"
-              : isTeacher ? "Ожидание..." : "Ожидание..."}
+            {isTeacher
+              ? liveSession.peersConnected > 0
+                ? liveSession.peersConnected > 1
+                  ? `Учеников: ${liveSession.peersConnected}`
+                  : "Ученик онлайн"
+                : "Ожидание..."
+              : liveSession.peerConnected ? "Учитель онлайн" : "Ожидание..."}
           </span>
         </div>
 

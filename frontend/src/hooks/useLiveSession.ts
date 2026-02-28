@@ -46,6 +46,7 @@ export interface RemoteCursorData {
 export interface UseLiveSessionReturn {
   isConnected: boolean;
   peerConnected: boolean;
+  peersConnected: number;
   remoteCursor: RemoteCursorData | null;
   sendAnswerChange: (blockId: number, answer: unknown) => void;
   sendCheck: (blockId: number, serverDetails?: ExerciseResultDetails) => void;
@@ -73,6 +74,7 @@ export function useLiveSession(
 ): UseLiveSessionReturn {
   const [isConnected, setIsConnected] = useState(false);
   const [peerConnected, setPeerConnected] = useState(false);
+  const [peersConnected, setPeersConnected] = useState(0);
   const [remoteCursor, setRemoteCursor] = useState<RemoteCursorData | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -122,12 +124,19 @@ export function useLiveSession(
           case "peer_joined":
           case "peer_reconnected":
             setPeerConnected(true);
+            setPeersConnected((prev) => prev + 1);
             cb.onPeerJoined?.(msg.role, msg.name);
             break;
 
           case "peer_disconnected":
-            setPeerConnected(false);
-            setRemoteCursor(null);
+            setPeersConnected((prev) => {
+              const next = Math.max(0, prev - 1);
+              if (next === 0) {
+                setPeerConnected(false);
+                setRemoteCursor(null);
+              }
+              return next;
+            });
             cb.onPeerDisconnected?.(msg.role);
             break;
 
@@ -373,6 +382,7 @@ export function useLiveSession(
   return {
     isConnected,
     peerConnected,
+    peersConnected,
     remoteCursor,
     sendAnswerChange,
     sendCheck,

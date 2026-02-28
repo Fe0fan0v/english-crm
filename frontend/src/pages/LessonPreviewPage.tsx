@@ -66,6 +66,7 @@ export default function LessonPreviewPage() {
   // Live Session
   const sessionLessonId = searchParams.get("session");
   const isLiveMode = !!sessionLessonId;
+  const isGroupSession = searchParams.get("group") === "1";
   const isTeacherLive = isLiveMode && !isStudent;
   const isStudentLive = isLiveMode && isStudent;
 
@@ -143,8 +144,8 @@ export default function LessonPreviewPage() {
         navigate(-1);
       },
       onPeerJoined: () => {
-        // Student sends snapshot when teacher joins/reconnects
-        if (isStudentLive) {
+        // Student sends snapshot when teacher joins/reconnects (only 1:1)
+        if (isStudentLive && !isGroupSession) {
           liveSession.sendStateSnapshot({
             answers,
             checked,
@@ -249,15 +250,15 @@ export default function LessonPreviewPage() {
     if (checked[blockId]) {
       setChecked((prev) => ({ ...prev, [blockId]: false }));
     }
-    // Broadcast to teacher
-    if (isStudentLive) {
+    // Broadcast to teacher (only 1:1 sessions)
+    if (isStudentLive && !isGroupSession) {
       liveSession.sendAnswerChange(blockId, answer);
     }
   };
 
   const handleCheck = async (blockId: number) => {
-    // Teacher in live mode is read-only
-    if (isTeacherLive) return;
+    // Teacher in live mode is read-only (only 1:1)
+    if (isTeacherLive && !isGroupSession) return;
     // Save to backend for students and get server-side grading details
     if (isStudent && id) {
       try {
@@ -269,8 +270,8 @@ export default function LessonPreviewPage() {
         if (result.details) {
           setServerDetails((prev) => ({ ...prev, [blockId]: result.details! }));
         }
-        // Broadcast to teacher
-        if (isStudentLive) {
+        // Broadcast to teacher (only 1:1 sessions)
+        if (isStudentLive && !isGroupSession) {
           liveSession.sendCheck(blockId, result.details ?? undefined);
         }
       } catch (error) {
@@ -297,8 +298,8 @@ export default function LessonPreviewPage() {
       delete next[blockId];
       return next;
     });
-    // Broadcast to teacher
-    if (isStudentLive) {
+    // Broadcast to teacher (only 1:1 sessions)
+    if (isStudentLive && !isGroupSession) {
       liveSession.sendReset(blockId);
     }
   };
@@ -356,12 +357,12 @@ export default function LessonPreviewPage() {
       if (page >= 0 && page < totalPages) {
         setCurrentPage(page);
         window.scrollTo({ top: 0, behavior: "smooth" });
-        if (isStudentLive) {
+        if (isStudentLive && !isGroupSession) {
           liveSession.sendPageChange(page);
         }
       }
     },
-    [totalPages, isStudentLive, liveSession],
+    [totalPages, isStudentLive, isGroupSession, liveSession],
   );
 
   // Build navigation items from blocks with titles
@@ -457,9 +458,13 @@ export default function LessonPreviewPage() {
               Совместная работа
             </span>
             <span className="text-xs text-purple-600">
-              {liveSession.peerConnected
-                ? isTeacherLive ? "Ученик подключён" : "Учитель подключён"
-                : isTeacherLive ? "Ожидание ученика..." : "Ожидание учителя..."}
+              {isTeacherLive
+                ? liveSession.peersConnected > 0
+                  ? isGroupSession
+                    ? `Учеников: ${liveSession.peersConnected}`
+                    : "Ученик подключён"
+                  : isGroupSession ? "Ожидание учеников..." : "Ожидание ученика..."
+                : liveSession.peerConnected ? "Учитель подключён" : "Ожидание учителя..."}
             </span>
             {!liveSession.isConnected && (
               <span className="text-xs text-orange-600">Переподключение...</span>
@@ -483,7 +488,7 @@ export default function LessonPreviewPage() {
                   const scrollPercent = maxScroll > 0 ? (window.scrollY / maxScroll) * 100 : 0;
                   liveSession.sendScrollTo(scrollPercent, currentPage);
                 }}
-                disabled={!liveSession.peerConnected}
+                disabled={liveSession.peersConnected === 0}
                 className="px-3 py-1.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-40 transition-colors"
               >
                 За мной

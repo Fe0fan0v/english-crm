@@ -27,11 +27,11 @@ class LiveSessionInfo:
     lesson_id: int
     interactive_lesson_id: int
     teacher_id: int
-    student_id: int
+    student_ids: set[int]
     teacher_name: str
     created_at: datetime = field(default_factory=datetime.now)
     teacher_ws: WebSocket | None = None
-    student_ws: WebSocket | None = None
+    student_wss: dict[int, WebSocket | None] = field(default_factory=dict)
     _cleanup_task: asyncio.Task | None = field(default=None, repr=False)
 
 
@@ -45,7 +45,8 @@ def _cleanup_session(lesson_id: int) -> None:
     session = active_sessions.pop(lesson_id, None)
     if session:
         user_session_map.pop(session.teacher_id, None)
-        user_session_map.pop(session.student_id, None)
+        for sid in session.student_ids:
+            user_session_map.pop(sid, None)
         if session._cleanup_task and not session._cleanup_task.done():
             session._cleanup_task.cancel()
 
@@ -54,7 +55,7 @@ async def _delayed_cleanup(lesson_id: int, delay: float = 60.0) -> None:
     """Cleanup session after delay if no one reconnects."""
     await asyncio.sleep(delay)
     session = active_sessions.get(lesson_id)
-    if session and session.teacher_ws is None and session.student_ws is None:
+    if session and session.teacher_ws is None and all(ws is None for ws in session.student_wss.values()):
         _cleanup_session(lesson_id)
 
 
@@ -82,32 +83,34 @@ async def create_live_session(
     if current_user.role == UserRole.TEACHER and lesson.teacher_id != current_user.id:
         raise HTTPException(status_code=403, detail="You are not the teacher of this lesson")
 
-    # Verify student is in this lesson
-    student_ids = [s.student_id for s in lesson.students]
-    if data.student_id not in student_ids:
-        raise HTTPException(status_code=400, detail="Student is not in this lesson")
+    # All students of the lesson participate
+    student_ids = {s.student_id for s in lesson.students}
+    if not student_ids:
+        raise HTTPException(status_code=400, detail="No students in this lesson")
 
     # Create session
+    teacher_id = current_user.id if current_user.role == UserRole.TEACHER else lesson.teacher_id
     session = LiveSessionInfo(
         lesson_id=data.lesson_id,
         interactive_lesson_id=data.interactive_lesson_id,
-        teacher_id=current_user.id if current_user.role == UserRole.TEACHER else lesson.teacher_id,
-        student_id=data.student_id,
+        teacher_id=teacher_id,
+        student_ids=student_ids,
         teacher_name=current_user.name,
     )
     active_sessions[data.lesson_id] = session
-    user_session_map[session.teacher_id] = data.lesson_id
-    user_session_map[data.student_id] = data.lesson_id
+    user_session_map[teacher_id] = data.lesson_id
+    for sid in student_ids:
+        user_session_map[sid] = data.lesson_id
 
     return LiveSessionResponse(
         lesson_id=session.lesson_id,
         interactive_lesson_id=session.interactive_lesson_id,
         teacher_id=session.teacher_id,
-        student_id=session.student_id,
+        student_ids=sorted(session.student_ids),
         teacher_name=session.teacher_name,
         created_at=session.created_at,
         teacher_connected=False,
-        student_connected=False,
+        students_connected=0,
     )
 
 
@@ -141,9 +144,10 @@ async def end_live_session(
     if current_user.role == UserRole.TEACHER and session.teacher_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not your session")
 
-    # Notify both sides
+    # Notify all participants
     end_msg = json.dumps({"type": "session_end", "reason": "teacher_ended"})
-    for ws in [session.teacher_ws, session.student_ws]:
+    all_wss = [session.teacher_ws] + list(session.student_wss.values())
+    for ws in all_wss:
         if ws:
             try:
                 await ws.send_text(end_msg)
@@ -195,11 +199,13 @@ async def websocket_live_session(
     # Determine role
     if user_id == session.teacher_id:
         role = "teacher"
-    elif user_id == session.student_id:
+    elif user_id in session.student_ids:
         role = "student"
     else:
         await websocket.close(code=4003, reason="Access denied")
         return
+
+    is_group = len(session.student_ids) > 1
 
     # Cancel pending cleanup if any
     if session._cleanup_task and not session._cleanup_task.done():
@@ -215,37 +221,65 @@ async def websocket_live_session(
         is_reconnect = session.teacher_ws is not None
         session.teacher_ws = websocket
     else:
-        is_reconnect = session.student_ws is not None
-        session.student_ws = websocket
+        is_reconnect = session.student_wss.get(user_id) is not None
+        session.student_wss[user_id] = websocket
 
-    # Notify peer
-    peer_ws = session.student_ws if role == "teacher" else session.teacher_ws
+    # Broadcast peer_joined/peer_reconnected to all other connected participants
     event_type = "peer_reconnected" if is_reconnect else "peer_joined"
-    if peer_ws:
-        try:
-            await peer_ws.send_text(json.dumps({
-                "type": event_type,
-                "user_id": user_id,
-                "role": role,
-                "name": user.name,
-            }))
-        except Exception:
-            pass
+    join_msg = json.dumps({
+        "type": event_type,
+        "user_id": user_id,
+        "role": role,
+        "name": user.name,
+    })
+    if role == "teacher":
+        # Notify all connected students
+        for sws in session.student_wss.values():
+            if sws:
+                try:
+                    await sws.send_text(join_msg)
+                except Exception:
+                    pass
+    else:
+        # Notify teacher
+        if session.teacher_ws:
+            try:
+                await session.teacher_ws.send_text(join_msg)
+            except Exception:
+                pass
+        # Notify other connected students
+        for sid, sws in session.student_wss.items():
+            if sws and sid != user_id:
+                try:
+                    await sws.send_text(join_msg)
+                except Exception:
+                    pass
 
-    # Notify the connecting user about peer status
-    peer_role = "student" if role == "teacher" else "teacher"
-    peer_connected = (session.student_ws is not None) if role == "teacher" else (session.teacher_ws is not None)
-    if peer_connected:
-        try:
-            peer_user_id = session.student_id if role == "teacher" else session.teacher_id
-            await websocket.send_text(json.dumps({
-                "type": "peer_joined",
-                "user_id": peer_user_id,
-                "role": peer_role,
-                "name": session.teacher_name if peer_role == "teacher" else "Student",
-            }))
-        except Exception:
-            pass
+    # Notify the connecting user about already-connected peers
+    if role == "teacher":
+        for sid, sws in session.student_wss.items():
+            if sws and sid != user_id:
+                try:
+                    await websocket.send_text(json.dumps({
+                        "type": "peer_joined",
+                        "user_id": sid,
+                        "role": "student",
+                        "name": "Student",
+                    }))
+                except Exception:
+                    pass
+    else:
+        # Notify student about teacher
+        if session.teacher_ws:
+            try:
+                await websocket.send_text(json.dumps({
+                    "type": "peer_joined",
+                    "user_id": session.teacher_id,
+                    "role": "teacher",
+                    "name": session.teacher_name,
+                }))
+            except Exception:
+                pass
 
     try:
         while True:
@@ -259,13 +293,25 @@ async def websocket_live_session(
                     break
                 continue
 
-            # Relay message to peer
-            peer_ws = session.student_ws if role == "teacher" else session.teacher_ws
-            if peer_ws:
-                try:
-                    await peer_ws.send_text(data)
-                except Exception:
+            if role == "teacher":
+                # Teacher → broadcast to all connected students
+                for sws in session.student_wss.values():
+                    if sws:
+                        try:
+                            await sws.send_text(data)
+                        except Exception:
+                            pass
+            else:
+                if is_group:
+                    # Group: student messages NOT relayed (independent work)
                     pass
+                else:
+                    # 1:1: relay student → teacher
+                    if session.teacher_ws:
+                        try:
+                            await session.teacher_ws.send_text(data)
+                        except Exception:
+                            pass
 
     except WebSocketDisconnect:
         pass
@@ -275,23 +321,38 @@ async def websocket_live_session(
         # Clear the WS reference
         if role == "teacher" and session.teacher_ws == websocket:
             session.teacher_ws = None
-        elif role == "student" and session.student_ws == websocket:
-            session.student_ws = None
+        elif role == "student" and session.student_wss.get(user_id) == websocket:
+            session.student_wss[user_id] = None
 
-        # Notify peer about disconnect
-        peer_ws = session.student_ws if role == "teacher" else session.teacher_ws
-        if peer_ws:
-            try:
-                await peer_ws.send_text(json.dumps({
-                    "type": "peer_disconnected",
-                    "user_id": user_id,
-                    "role": role,
-                }))
-            except Exception:
-                pass
+        # Broadcast disconnect to all remaining connected participants
+        disconnect_msg = json.dumps({
+            "type": "peer_disconnected",
+            "user_id": user_id,
+            "role": role,
+        })
+        if role == "teacher":
+            for sws in session.student_wss.values():
+                if sws:
+                    try:
+                        await sws.send_text(disconnect_msg)
+                    except Exception:
+                        pass
+        else:
+            if session.teacher_ws:
+                try:
+                    await session.teacher_ws.send_text(disconnect_msg)
+                except Exception:
+                    pass
+            for sid, sws in session.student_wss.items():
+                if sws and sid != user_id:
+                    try:
+                        await sws.send_text(disconnect_msg)
+                    except Exception:
+                        pass
 
-        # Start cleanup timer if both disconnected
-        if session.teacher_ws is None and session.student_ws is None:
+        # Start cleanup timer if all disconnected
+        all_students_disconnected = all(ws is None for ws in session.student_wss.values())
+        if session.teacher_ws is None and all_students_disconnected:
             session._cleanup_task = asyncio.create_task(
                 _delayed_cleanup(lesson_id, delay=60.0)
             )
