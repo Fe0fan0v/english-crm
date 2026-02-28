@@ -17,7 +17,7 @@ backend/
 │   ├── schemas/       # Pydantic схемы
 │   ├── utils/         # Утилиты (grading.py — серверная проверка ответов)
 │   └── database.py    # Подключение к БД
-├── alembic/versions/  # Миграции (000-031)
+├── alembic/versions/  # Миграции (000-032)
 └── requirements.txt
 
 frontend/
@@ -85,7 +85,7 @@ backup/                 # Автобэкапы PostgreSQL в S3
 - **Менеджер**: табы "Активные чаты" (ConversationList) и "Все ученики" в `/messages`
 
 ### Уведомления
-- Типы: `lesson_cancelled`, `low_balance`. Компонент `NotificationBell`
+- Типы: `lesson_cancelled`, `low_balance`. Компонент `NotificationBell` (click-to-expand для длинных уведомлений)
 - При низком балансе (< 5000 тг) → уведомление + кнопка WhatsApp менеджера
 - При создании урока: если `student.balance < lesson_type.price` → уведомление учителю с перечислением учеников и их балансов
 - Работает в 4 эндпоинтах: `POST /api/lessons`, `POST /api/lessons/batch`, `POST /api/teacher/lessons`, `POST /api/teacher/lessons/batch`
@@ -101,7 +101,7 @@ backup/                 # Автобэкапы PostgreSQL в S3
 | divider, teaching_guide, remember, table | word_order, matching, image_choice |
 | vocabulary, page_break | flashcards, essay, drag_words |
 
-**Ключевые модели:** Course, CourseSection, CourseTopic, InteractiveLesson, ExerciseBlock, LessonCourseMaterial, MaterialFolder, HomeworkAssignment
+**Ключевые модели:** Course, CourseSection, CourseTopic, InteractiveLesson, ExerciseBlock, LessonCourseMaterial, MaterialFolder, HomeworkAssignment, HomeworkTemplate, HomeworkTemplateItem
 
 **Права:** admin — полный CRUD; teacher — read-only + прикрепление; student — просмотр прикреплённой части
 
@@ -116,6 +116,8 @@ backup/                 # Автобэкапы PostgreSQL в S3
 - **Серверная проверка**: `grade_answer_detailed()` в `grading.py` возвращает результаты по каждому элементу
 - Frontend использует `serverDetails` от сервера вместо локальной проверки для студентов
 - Блоки `teaching_guide` скрыты от студентов на уровне API
+- **Подсказки в live session**: учитель видит правильные ответы до нажатия «Проверить» (состояние `correct_hint` — зелёный пунктирный контур)
+- **Ответы ученику после проверки**: `grade_answer_detailed()` возвращает `correct_missed` (невыбранные правильные), `correct_answers` (правильные ответы для ошибочных пропусков), `correct_answer` (true_false), `correct_sentence` (word_order), `correct_pairs` (matching)
 
 **Результаты упражнений:**
 - API: `POST /api/exercise-results/lessons/{id}/submit` → серверная проверка через `grade_answer()`
@@ -151,6 +153,11 @@ backup/                 # Автобэкапы PostgreSQL в S3
 - **UI преподавателя** (LessonDetailModal → таб «Курсы»): кнопка «Задать ДЗ» / badge «ДЗ назначено» на каждом lesson-материале, секция «Назначенные ДЗ» с прогрессом и кнопками «Принять»/удалить
 - **UI ученика** (StudentDashboardPage): таб «Домашнее задание» (бывший «Тесты») — карточки ДЗ с прогресс-баром, статус-badges, кнопками «Открыть» и «Сдать»
 - **Файлы**: `homework.py` (model, schema, api), `homeworkApi` в api.ts
+- **Шаблоны ДЗ** (HomeworkTemplate, миграция 032): admin создаёт шаблоны (название + курс + список интерактивных уроков), при прикреплении курсового материала к уроку — ДЗ автоназначается ученикам по шаблонам
+  - CRUD API: `/api/homework-templates` (AdminUser)
+  - Автоназначение: в `attach_course_material()` (`lessons.py`) после создания attachment
+  - UI: страница «Домашние задания» (бывший «Тесты») — конструктор шаблонов с выбором курса и чекбоксами уроков
+  - **Файлы**: `homework_templates.py` (api), `homework_template.py` (schema), `homeworkTemplatesApi` в api.ts
 
 **Курсовые материалы (legacy «Уроки»):** вкладка на дашборде студента с постоянным доступом ко всем курсовым материалам (без лимита 30 дней). Endpoint: `GET /api/student/homework`. Вкладка «Материалы» показывает PDF-файлы (30 дней), «Уроки» — курсовые материалы (всё время)
 
@@ -179,7 +186,7 @@ backup/                 # Автобэкапы PostgreSQL в S3
 - **Запуск**: кнопка «Открыть» в `LessonDetailModal` → таб «Курсы», только если `lesson.students.length === 1` и `material_type === "lesson"`. Кнопка «Предпросмотр» — просмотр урока без live-режима
 - **Баннер**: `LiveSessionBanner` для студентов, polling `GET /api/live-sessions/active` каждые 5 сек
 - **URL**: `/courses/lessons/{interactiveLessonId}?session={lessonId}` — query-param `session` активирует live-режим
-- **Синхронизация**: answer_change, answer_check, answer_reset, page_change, state_snapshot, media_control, cursor_move, scroll_to
+- **Синхронизация**: answer_change, answer_check, answer_reset, page_change, state_snapshot, media_control, cursor_move, scroll_to, drawing_stroke, drawing_clear
 - **Курсор**: `RemoteCursor` — SVG стрелка (#8B5CF6), `position: fixed`, координаты в % viewport, throttle через rAF
 - **Медиа**: `onMediaControl`/`mediaCommand` пропсы в `BlockRenderer` → `VideoRenderer`/`AudioRenderer` (play/pause/seeked), флаг `isRemoteAction` предотвращает цикл обратной связи
 - **Скролл «За мной»**: кнопка в баннере live-сессии — преподаватель отправляет scroll-позицию + номер страницы, ученика переключает на нужную страницу и прокручивает к позиции. Баннер sticky (закреплён вверху при скролле)
@@ -187,7 +194,8 @@ backup/                 # Автобэкапы PostgreSQL в S3
 - **Reconnect**: exponential backoff (1s→10s, max 10 попыток), heartbeat ping каждые 30 сек
 - **Cleanup**: 60-сек таймаут после отключения обоих, `_delayed_cleanup` через asyncio.Task
 - **REST API**: `POST /api/live-sessions/` (TeacherUser), `GET /active` (CurrentUser), `DELETE /{id}` (TeacherUser)
-- **Файлы**: `live_sessions.py`, `live_session.py` (schema), `liveSessionApi.ts`, `useLiveSession.ts`, `RemoteCursor.tsx`, `LiveSessionBanner.tsx`
+- **Рисование поверх урока**: `DrawingOverlay.tsx` — Canvas 2D overlay, преподаватель рисует (4 цвета, 3 толщины, очистка), ученик видит в реальном времени. WebSocket сообщения `drawing_stroke` (points, color, width) и `drawing_clear`
+- **Файлы**: `live_sessions.py`, `live_session.py` (schema), `liveSessionApi.ts`, `useLiveSession.ts`, `RemoteCursor.tsx`, `LiveSessionBanner.tsx`, `DrawingOverlay.tsx`
 
 ### Импортированные курсы
 - English File 4th (ID: 10) — 7 уровней, 292 урока, 10168 блоков
@@ -206,6 +214,10 @@ backup/                 # Автобэкапы PostgreSQL в S3
 - **Нормализация email**: `.strip().lower()` при логине, создании и обновлении пользователя + очистка невидимых Unicode-символов на фронтенде
 - **Видеоблок**: поддержка YouTube (watch, shorts, live, embed, si-param), Vimeo, прямые .mp4/.webm/.ogg, fallback для любых `/embed/` URL
 - **Мобильная версия**: брейкпоинт `lg:` (1024px), гамбургер-меню, адаптивные сетки
+- **Фильтр по балансу**: `GET /api/users` поддерживает `balance_from`, `balance_to`, `sort_by` (name, balance_asc, balance_desc). UI: поля «Баланс от/до» + сортировка на странице пользователей
+- **Профиль ученика (admin/manager)**: назначенный преподаватель (`GET /api/users/{id}/assigned-teachers`), остаток уроков по типам (`GET /api/users/{id}/remaining-lessons`)
+- **Скрытый баланс студента**: временно скрыты баланс в шапке, карточка баланса, секция «Остаток уроков» на дашборде. Флаг `HIDE_BALANCE` в `StudentDashboardPage.tsx`
+- **Layout sticky fix**: `overflow-x: clip` вместо `overflow-x: hidden` на `<main>` — не создаёт scroll container, sticky работает корректно
 
 ## Production
 - **Сервер**: ps.kz VPS (Debian 12), IP: 78.40.108.93, SSH: `ssh jsi`
@@ -229,7 +241,7 @@ backup/                 # Автобэкапы PostgreSQL в S3
 - Frontend: загрузка студентов через `usersApi.list(1, 10000, undefined, "student")`
 
 ## Миграции (Alembic)
-Текущая версия: **031**. Применяются автоматически при деплое.
+Текущая версия: **032**. Применяются автоматически при деплое.
 
 ## Полезные команды
 ```bash
