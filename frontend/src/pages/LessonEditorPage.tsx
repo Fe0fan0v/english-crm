@@ -888,6 +888,8 @@ function getDefaultContent(
       return { label: "" };
     case "drag_words":
       return { text: "", words: [], distractors: [] };
+    case "sentence_choice":
+      return { questions: [] };
     default:
       return {};
   }
@@ -935,6 +937,8 @@ function getBlockDescription(blockType: ExerciseBlockType): string {
       return "Разделяет урок на страницы";
     case "drag_words":
       return "Перетащить слова на места";
+    case "sentence_choice":
+      return "Выбор из выпадающего списка";
     default:
       return "";
   }

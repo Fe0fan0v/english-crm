@@ -55,7 +55,7 @@ export default function WhiteboardPage() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const wb = useWhiteboard();
+  const wb = useWhiteboard(sessionLessonId || undefined);
 
   const liveSession = useLiveSession(
     sessionLessonId ? Number(sessionLessonId) : null,
@@ -88,7 +88,8 @@ export default function WhiteboardPage() {
         }
       },
       onSessionEnd: () => {
-        navigate(-1);
+        wb.clearStorage();
+        navigate('/schedule');
       },
     },
   );

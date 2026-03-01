@@ -184,7 +184,7 @@ export default function DrawingOverlay({
 
       {/* Toolbar — only for teacher */}
       {isTeacher && (
-        <div className="absolute top-2 right-2 z-40 flex items-center gap-1.5 bg-white/90 backdrop-blur rounded-lg shadow-md p-1.5 border border-gray-200">
+        <div className="fixed top-16 right-4 z-40 flex items-center gap-1.5 bg-white/90 backdrop-blur rounded-lg shadow-md p-1.5 border border-gray-200">
           {/* Toggle drawing */}
           <button
             onClick={() => setDrawingEnabled(!drawingEnabled)}

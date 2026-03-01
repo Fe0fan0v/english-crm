@@ -141,7 +141,7 @@ export default function LessonPreviewPage() {
         setRemoteStrokes([]);
       },
       onSessionEnd: () => {
-        navigate(-1);
+        navigate('/schedule');
       },
       onPeerJoined: () => {
         // Student sends snapshot when teacher joins/reconnects (only 1:1)
@@ -864,6 +864,9 @@ function getInteractiveBlocksCount(blocks: ExerciseBlock[]): number {
     "word_order",
     "matching",
     "essay",
+    "image_choice",
+    "drag_words",
+    "sentence_choice",
   ];
   return blocks.filter((b) => interactiveTypes.includes(b.block_type)).length;
 }

@@ -374,11 +374,11 @@ export default function SchedulePage() {
             <div className="text-gray-500">Загрузка...</div>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-auto max-h-[calc(100vh-200px)]">
             <table className="w-full border-collapse">
-              <thead>
+              <thead className="sticky top-0 z-10">
                 <tr>
-                  <th className="w-16 p-3 border-b border-r border-gray-100 bg-gray-50 text-gray-500 text-sm font-medium">
+                  <th className="w-16 p-3 border-b border-r border-gray-100 bg-gray-50 text-gray-500 text-sm font-medium sticky left-0 z-20">
                     Время
                   </th>
                   {WEEKDAYS.map((day, index) => (
@@ -402,7 +402,7 @@ export default function SchedulePage() {
               <tbody>
                 {TIME_SLOTS.map((time, timeIndex) => (
                   <tr key={time}>
-                    <td className="p-2 border-b border-r border-gray-100 bg-gray-50 text-center text-sm text-gray-500 font-medium">
+                    <td className="p-2 border-b border-r border-gray-100 bg-gray-50 text-center text-sm text-gray-500 font-medium sticky left-0 z-[5]">
                       {time}
                     </td>
                     {WEEKDAYS.map((_, dayIndex) => {

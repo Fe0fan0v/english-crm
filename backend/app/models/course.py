@@ -37,6 +37,7 @@ class ExerciseBlockType(str, PyEnum):
     FLASHCARDS = "flashcards"  # Interactive flashcards
     ESSAY = "essay"
     DRAG_WORDS = "drag_words"  # Drag words into gaps
+    SENTENCE_CHOICE = "sentence_choice"  # Dropdown-based sentence selection
 
 
 class Course(Base):
@@ -150,6 +151,9 @@ class InteractiveLesson(Base):
     is_homework: Mapped[bool] = mapped_column(
         Boolean, default=False
     )  # Mark as homework
+    is_standalone: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )  # Standalone lesson (not part of any course)
     created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

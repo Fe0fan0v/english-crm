@@ -19,6 +19,20 @@ from app.schemas.vocabulary import (
 router = APIRouter()
 
 
+@router.get("/lookup")
+async def lookup_word_endpoint(
+    word: str = Query(..., min_length=1, max_length=100),
+    current_user: CurrentUser = None,
+):
+    """Look up word phonetics and definition from Free Dictionary API."""
+    from app.utils.dictionary import lookup_word
+
+    result = await lookup_word(word.strip().lower())
+    if result is None:
+        return {"phonetic": "", "definition": ""}
+    return result
+
+
 def _word_to_response(word: VocabularyWord) -> VocabularyWordResponse:
     return VocabularyWordResponse(
         id=word.id,

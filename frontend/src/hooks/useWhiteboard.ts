@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type WhiteboardTool =
   | "pen"
@@ -66,6 +66,7 @@ export interface UseWhiteboardReturn {
   undo: () => UndoAction | null;
   redo: () => UndoAction | null;
   loadSnapshot: (elements: WhiteboardElement[]) => void;
+  clearStorage: () => void;
   canUndo: boolean;
   canRedo: boolean;
 }
@@ -144,8 +145,29 @@ function distToSegment(
   return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
 }
 
-export function useWhiteboard(): UseWhiteboardReturn {
-  const [elements, setElements] = useState<WhiteboardElement[]>([]);
+export function useWhiteboard(sessionKey?: string): UseWhiteboardReturn {
+  const storageKey = sessionKey ? `wb_${sessionKey}` : null;
+
+  const loadFromStorage = (): WhiteboardElement[] => {
+    if (!storageKey) return [];
+    try {
+      const saved = sessionStorage.getItem(storageKey);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const saveToStorage = (els: WhiteboardElement[]) => {
+    if (!storageKey) return;
+    try {
+      sessionStorage.setItem(storageKey, JSON.stringify(els));
+    } catch {
+      // sessionStorage full or unavailable
+    }
+  };
+
+  const [elements, setElements] = useState<WhiteboardElement[]>(loadFromStorage);
   const [activeTool, setActiveTool] = useState<WhiteboardTool>("pen");
   const [color, setColor] = useState("#000000");
   const [lineWidth, setLineWidth] = useState(3);
@@ -157,6 +179,11 @@ export function useWhiteboard(): UseWhiteboardReturn {
   const redoStack = useRef<UndoAction[]>([]);
   const isDrawing = useRef(false);
   const startPoint = useRef<{ x: number; y: number } | null>(null);
+
+  // Persist elements to sessionStorage
+  useEffect(() => {
+    saveToStorage(elements);
+  }, [elements]);
 
   const pushUndo = useCallback((action: UndoAction) => {
     undoStack.current.push(action);
@@ -239,6 +266,12 @@ export function useWhiteboard(): UseWhiteboardReturn {
     redoStack.current = [];
     setUndoVersion((v) => v + 1);
   }, []);
+
+  const clearStorage = useCallback(() => {
+    if (storageKey) {
+      try { sessionStorage.removeItem(storageKey); } catch { /* ignore */ }
+    }
+  }, [storageKey]);
 
   const handlePointerDown = useCallback(
     (vx: number, vy: number) => {
@@ -437,6 +470,7 @@ export function useWhiteboard(): UseWhiteboardReturn {
     undo,
     redo,
     loadSnapshot,
+    clearStorage,
     canUndo: undoStack.current.length > 0,
     canRedo: redoStack.current.length > 0,
   };

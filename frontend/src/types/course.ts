@@ -19,7 +19,8 @@ export type ExerciseBlockType =
   | "flashcards"
   | "essay"
   | "page_break"
-  | "drag_words";
+  | "drag_words"
+  | "sentence_choice";
 
 // Content type interfaces for each block type
 
@@ -79,10 +80,17 @@ export interface TrueFalseBlockContent {
   explanation?: string | null;
 }
 
+export interface WordOrderSentence {
+  correct_sentence: string;
+  shuffled_words: string[];
+  hint?: string | null;
+}
+
 export interface WordOrderBlockContent {
   correct_sentence: string;
   shuffled_words: string[];
   hint?: string | null;
+  sentences?: WordOrderSentence[];
 }
 
 export interface MatchingPair {
@@ -190,6 +198,16 @@ export interface DragWordsBlockContent {
   distractors?: string[];
 }
 
+export interface SentenceChoiceQuestion {
+  id: string;
+  options: string[];
+  correct_index?: number; // stripped for students
+}
+
+export interface SentenceChoiceBlockContent {
+  questions: SentenceChoiceQuestion[];
+}
+
 // Union type for all block content types
 export type BlockContent =
   | TextBlockContent
@@ -211,7 +229,8 @@ export type BlockContent =
   | FlashcardsBlockContent
   | EssayBlockContent
   | PageBreakBlockContent
-  | DragWordsBlockContent;
+  | DragWordsBlockContent
+  | SentenceChoiceBlockContent;
 
 // Exercise Block
 export interface ExerciseBlock {
@@ -377,6 +396,7 @@ export const BLOCK_TYPE_LABELS: Record<ExerciseBlockType, string> = {
   essay: "Эссе",
   page_break: "Разрыв страницы",
   drag_words: "Перетаскивание слов",
+  sentence_choice: "Выбор предложения",
 };
 
 export const CONTENT_BLOCK_TYPES: ExerciseBlockType[] = [
@@ -402,6 +422,7 @@ export const INTERACTIVE_BLOCK_TYPES: ExerciseBlockType[] = [
   "flashcards",
   "essay",
   "drag_words",
+  "sentence_choice",
 ];
 
 // ============== Exercise Results ==============
@@ -411,6 +432,11 @@ export interface ExerciseResultSubmit {
   answer: unknown;
 }
 
+export interface SentenceResult {
+  is_correct: boolean;
+  correct_sentence: string;
+}
+
 export interface ExerciseResultDetails {
   gap_results?: Record<string, boolean>;
   correct_answers?: Record<string, string>;
@@ -418,9 +444,11 @@ export interface ExerciseResultDetails {
   pair_results?: Record<string, boolean>;
   correct_pairs?: Record<string, string>;
   drag_results?: Record<string, boolean>;
+  question_results?: Record<string, boolean>;
   is_correct?: boolean;
   correct_answer?: boolean;
   correct_sentence?: string;
+  sentence_results?: SentenceResult[];
 }
 
 export interface ExerciseResultResponse {

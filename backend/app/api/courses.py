@@ -105,6 +105,14 @@ def strip_answers_from_content(block_type: str, content: dict) -> dict:
     if block_type == "word_order":
         content = dict(content)
         content.pop("correct_sentence", None)
+        # Strip correct_sentence from each item in sentences array
+        if "sentences" in content and isinstance(content["sentences"], list):
+            stripped_sentences = []
+            for s in content["sentences"]:
+                stripped = dict(s)
+                stripped.pop("correct_sentence", None)
+                stripped_sentences.append(stripped)
+            content["sentences"] = stripped_sentences
         return content
 
     if block_type == "matching":
@@ -147,6 +155,19 @@ def strip_answers_from_content(block_type: str, content: dict) -> dict:
         for w in content.get("words", []):
             stripped_words.append({"index": w.get("index")})
         content["words"] = stripped_words
+        return content
+
+    if block_type == "sentence_choice":
+        content = dict(content)
+        stripped_questions = []
+        for q in content.get("questions", []):
+            stripped_questions.append(
+                {
+                    "id": q.get("id"),
+                    "options": q.get("options", []),
+                }
+            )
+        content["questions"] = stripped_questions
         return content
 
     return content

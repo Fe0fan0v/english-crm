@@ -29,6 +29,8 @@ INTERACTIVE_TYPES = {
     "image_choice",
     "essay",
     "flashcards",
+    "drag_words",
+    "sentence_choice",
 }
 
 

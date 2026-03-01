@@ -276,6 +276,7 @@ class InteractiveLessonResponse(InteractiveLessonBase):
     id: int
     topic_id: int | None = None  # New structure
     section_id: int | None = None  # Old structure (for backward compatibility)
+    is_standalone: bool = False
     created_by_id: int
     created_at: datetime
     updated_at: datetime

@@ -23,6 +23,9 @@ def grade_answer(block_type: str, content: dict[str, Any], answer: Any) -> bool 
             return _grade_image_choice(content, answer)
         elif block_type == "drag_words":
             return _grade_drag_words(content, answer)
+        elif block_type == "sentence_choice":
+            is_correct, _ = _grade_sentence_choice(content, answer)
+            return is_correct
         elif block_type == "essay":
             return None
         elif block_type == "flashcards":
@@ -77,11 +80,33 @@ def _grade_true_false(content: dict, answer: Any) -> bool:
 
 
 def _grade_word_order(content: dict, answer: Any) -> bool:
-    """Check word_order: joined words must equal correct_sentence."""
-    correct = content.get("correct_sentence", "")
-    if not isinstance(answer, list):
-        return False
-    return " ".join(str(w) for w in answer) == correct
+    """Check word_order: joined words must equal correct_sentence.
+
+    Supports both single sentence (old format) and multiple sentences (new format).
+    - Old format: answer is string[] (list of words), content has correct_sentence
+    - New format: answer is string[][] (list of lists of words), content has sentences[]
+    """
+    sentences = content.get("sentences")
+    if sentences and isinstance(sentences, list) and len(sentences) > 0:
+        # Multi-sentence mode: answer is string[][] (array of arrays of words)
+        if not isinstance(answer, list):
+            return False
+        if len(answer) != len(sentences):
+            return False
+        for i, sentence in enumerate(sentences):
+            correct = sentence.get("correct_sentence", "")
+            words = answer[i] if i < len(answer) else []
+            if not isinstance(words, list):
+                return False
+            if " ".join(str(w) for w in words) != correct:
+                return False
+        return True
+    else:
+        # Single sentence mode (backward compat)
+        correct = content.get("correct_sentence", "")
+        if not isinstance(answer, list):
+            return False
+        return " ".join(str(w) for w in answer) == correct
 
 
 def _grade_matching(content: dict, answer: Any) -> bool:
@@ -115,6 +140,34 @@ def _grade_drag_words(content: dict, answer: Any) -> bool:
         if user_answer != correct:
             return False
     return True
+
+
+def _grade_sentence_choice(content: dict, answer: Any) -> tuple[bool, dict]:
+    """Grade sentence_choice block.
+
+    Each question has a correct_index; user answer is {question_id: selected_index}.
+    """
+    questions = content.get("questions", [])
+    if not questions or not isinstance(answer, dict):
+        return False, {"question_results": {}}
+
+    question_results = {}
+    all_correct = True
+    correct_answers = {}
+    for q in questions:
+        qid = str(q.get("id", ""))
+        correct_idx = q.get("correct_index", 0)
+        user_answer = answer.get(qid)
+        is_correct = user_answer == correct_idx
+        question_results[qid] = is_correct
+        if not is_correct:
+            all_correct = False
+            correct_answers[qid] = correct_idx
+
+    return all_correct, {
+        "question_results": question_results,
+        "correct_answers": correct_answers,
+    }
 
 
 def grade_answer_detailed(
@@ -181,13 +234,40 @@ def grade_answer_detailed(
             return {"is_correct": answer == is_true, "correct_answer": is_true}
 
         if block_type == "word_order":
-            correct = content.get("correct_sentence", "")
-            if not isinstance(answer, list):
-                return {"is_correct": False, "correct_sentence": correct}
-            return {
-                "is_correct": " ".join(str(w) for w in answer) == correct,
-                "correct_sentence": correct,
-            }
+            sentences = content.get("sentences")
+            if sentences and isinstance(sentences, list) and len(sentences) > 0:
+                # Multi-sentence mode
+                if not isinstance(answer, list):
+                    sentence_results = [
+                        {"is_correct": False, "correct_sentence": s.get("correct_sentence", "")}
+                        for s in sentences
+                    ]
+                    return {"is_correct": False, "sentence_results": sentence_results}
+                sentence_results = []
+                all_correct = True
+                for i, sentence in enumerate(sentences):
+                    correct = sentence.get("correct_sentence", "")
+                    words = answer[i] if i < len(answer) else []
+                    if not isinstance(words, list):
+                        is_sent_correct = False
+                    else:
+                        is_sent_correct = " ".join(str(w) for w in words) == correct
+                    if not is_sent_correct:
+                        all_correct = False
+                    sentence_results.append({
+                        "is_correct": is_sent_correct,
+                        "correct_sentence": correct,
+                    })
+                return {"is_correct": all_correct, "sentence_results": sentence_results}
+            else:
+                # Single sentence mode (backward compat)
+                correct = content.get("correct_sentence", "")
+                if not isinstance(answer, list):
+                    return {"is_correct": False, "correct_sentence": correct}
+                return {
+                    "is_correct": " ".join(str(w) for w in answer) == correct,
+                    "correct_sentence": correct,
+                }
 
         if block_type == "matching":
             pairs = content.get("pairs", [])
@@ -239,6 +319,10 @@ def grade_answer_detailed(
                 if not is_drag_correct:
                     correct_answers[str(idx)] = word_item.get("word", "")
             return {"drag_results": drag_results, "correct_answers": correct_answers}
+
+        if block_type == "sentence_choice":
+            _, details = _grade_sentence_choice(content, answer)
+            return details
 
         return None
     except Exception:

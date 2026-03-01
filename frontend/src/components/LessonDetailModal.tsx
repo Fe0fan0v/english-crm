@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { lessonsApi, teacherApi, courseMaterialsApi, homeworkApi } from "../services/api";
+import { lessonsApi, teacherApi, courseMaterialsApi, homeworkApi, homeworkLessonsApi, type StandaloneLesson } from "../services/api";
 import { liveSessionApi } from "../services/liveSessionApi";
 import { useAuthStore } from "../store/authStore";
 import type { LessonDetail, AttendanceStatus, LessonMaterial, LessonCourseMaterial, HomeworkAssignment } from "../types";
@@ -47,6 +47,8 @@ export default function LessonDetailModal({
   const [isStartingLiveSession, setIsStartingLiveSession] = useState(false);
   const [homeworkAssignments, setHomeworkAssignments] = useState<HomeworkAssignment[]>([]);
   const [isAssigningHomework, setIsAssigningHomework] = useState(false);
+  const [standaloneLessons, setStandaloneLessons] = useState<StandaloneLesson[]>([]);
+  const [showStandalonePicker, setShowStandalonePicker] = useState(false);
   const { user: currentUser } = useAuthStore();
 
   useEffect(() => {
@@ -61,6 +63,7 @@ export default function LessonDetailModal({
       loadCourseMaterials();
       if (currentUser?.role !== "student") {
         loadHomeworkAssignments();
+        loadStandaloneLessons();
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -105,6 +108,29 @@ export default function LessonDetailModal({
       setHomeworkAssignments(data);
     } catch (err) {
       console.error("Failed to load homework:", err);
+    }
+  };
+
+  const loadStandaloneLessons = async () => {
+    try {
+      const data = await homeworkLessonsApi.list();
+      setStandaloneLessons(data);
+    } catch {
+      // Standalone lessons not available (e.g., non-teacher)
+    }
+  };
+
+  const handleAssignStandaloneHomework = async (interactiveLessonId: number) => {
+    try {
+      setIsAssigningHomework(true);
+      await homeworkApi.assign(lessonId, interactiveLessonId);
+      await loadHomeworkAssignments();
+      setShowStandalonePicker(false);
+    } catch (err) {
+      console.error("Failed to assign standalone homework:", err);
+      setError("Не удалось назначить ДЗ");
+    } finally {
+      setIsAssigningHomework(false);
     }
   };
 
@@ -702,6 +728,46 @@ export default function LessonDetailModal({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                   </svg>
                   <p>Курсовых материалов нет</p>
+                </div>
+              )}
+
+              {/* Standalone Homework Picker */}
+              {currentUser?.role !== "student" && standaloneLessons.length > 0 && (
+                <div className="mt-4 border-t border-gray-200 pt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-semibold text-gray-700">Свои задания</h3>
+                    <button
+                      onClick={() => setShowStandalonePicker(!showStandalonePicker)}
+                      className="text-xs text-purple-600 hover:text-purple-700"
+                    >
+                      {showStandalonePicker ? "Скрыть" : "Назначить как ДЗ"}
+                    </button>
+                  </div>
+                  {showStandalonePicker && (
+                    <div className="space-y-1 max-h-40 overflow-y-auto">
+                      {standaloneLessons.map((sl) => {
+                        const assigned = homeworkAssignments.some(
+                          (hw) => hw.interactive_lesson_id === sl.id,
+                        );
+                        return (
+                          <div key={sl.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                            <span className="text-sm text-gray-700 truncate flex-1">{sl.title}</span>
+                            {assigned ? (
+                              <span className="text-xs text-green-600 font-medium">Назначено</span>
+                            ) : (
+                              <button
+                                onClick={() => handleAssignStandaloneHomework(sl.id)}
+                                disabled={isAssigningHomework}
+                                className="btn btn-sm bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 text-xs"
+                              >
+                                Задать ДЗ
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 

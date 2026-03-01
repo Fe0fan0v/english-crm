@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import func, or_, select
 
@@ -18,6 +20,7 @@ from app.schemas.group import (
 )
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 async def sync_group_students_to_future_lessons(
@@ -39,6 +42,12 @@ async def sync_group_students_to_future_lessons(
         )
     )
     future_lessons = future_lessons_result.scalars().all()
+
+    logger.info(
+        f"sync_group_students: group={group_id}, "
+        f"added={added_student_ids}, removed={removed_student_ids}, "
+        f"future_lessons={len(future_lessons)}"
+    )
 
     if not future_lessons:
         return
@@ -72,6 +81,9 @@ async def sync_group_students_to_future_lessons(
             lesson_student = existing.scalar_one_or_none()
             if lesson_student:
                 await db.delete(lesson_student)
+
+    await db.flush()
+    logger.info(f"sync_group_students: done for group={group_id}")
 
 
 async def ensure_teacher_student_assignment(

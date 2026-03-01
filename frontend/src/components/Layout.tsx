@@ -392,6 +392,12 @@ const navItems: NavItem[] = [
     icon: icons.book,
     roles: ["teacher"],
   },
+  {
+    path: "/homework/editor",
+    label: "Конструктор заданий",
+    icon: icons.test,
+    roles: ["teacher"],
+  },
   // Student items
   {
     path: "/student",

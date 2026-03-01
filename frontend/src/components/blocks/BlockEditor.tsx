@@ -1,6 +1,7 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import type { ExerciseBlock } from "../../types/course";
 import { courseUploadApi } from "../../services/courseApi";
+import { vocabularyApi } from "../../services/api";
 import HtmlEditor from "../HtmlEditor";
 
 interface BlockEditorProps {
@@ -126,11 +127,8 @@ export default function BlockEditor({
       case "word_order":
         return (
           <WordOrderEditor
-            correctSentence={(content.correct_sentence as string) || ""}
-            hint={(content.hint as string) || ""}
-            onCorrectSentenceChange={(s) => updateField("correct_sentence", s)}
-            onHintChange={(h) => updateField("hint", h)}
-            onShuffledWordsChange={(w) => updateField("shuffled_words", w)}
+            content={content}
+            onContentChange={setContent}
           />
         );
 
@@ -246,6 +244,18 @@ export default function BlockEditor({
           />
         );
 
+      case "sentence_choice":
+        return (
+          <SentenceChoiceEditor
+            questions={
+              (content.questions as SentenceChoiceQuestionItem[]) || []
+            }
+            onQuestionsChange={(questions) =>
+              updateField("questions", questions)
+            }
+          />
+        );
+
       default:
         return (
           <div className="text-gray-500">
@@ -354,6 +364,12 @@ interface CarouselImageItem {
 interface DragWordItem {
   index: number;
   word: string;
+}
+
+interface SentenceChoiceQuestionItem {
+  id: string;
+  options: string[];
+  correct_index: number;
 }
 
 // File Upload Button Component
@@ -1040,59 +1056,160 @@ function TrueFalseEditor({
   );
 }
 
+interface WordOrderSentenceItem {
+  correct_sentence: string;
+  shuffled_words: string[];
+  hint?: string;
+}
+
 function WordOrderEditor({
-  correctSentence,
-  hint,
-  onCorrectSentenceChange,
-  onHintChange,
-  onShuffledWordsChange,
+  content,
+  onContentChange,
 }: {
-  correctSentence: string;
-  hint: string;
-  onCorrectSentenceChange: (s: string) => void;
-  onHintChange: (h: string) => void;
-  onShuffledWordsChange: (w: string[]) => void;
+  content: Record<string, unknown>;
+  onContentChange: (c: Record<string, unknown>) => void;
 }) {
-  const generateShuffled = () => {
-    const words = correctSentence.split(/\s+/).filter(Boolean);
-    const shuffled = [...words].sort(() => Math.random() - 0.5);
-    onShuffledWordsChange(shuffled);
+  // Initialize sentences from content
+  const initSentences = (): WordOrderSentenceItem[] => {
+    const existing = content.sentences as WordOrderSentenceItem[] | undefined;
+    if (existing && Array.isArray(existing) && existing.length > 0) {
+      return existing.map((s) => ({
+        correct_sentence: s.correct_sentence || "",
+        shuffled_words: s.shuffled_words || [],
+        hint: s.hint || "",
+      }));
+    }
+    // Backward compat: single sentence from old fields
+    return [
+      {
+        correct_sentence: (content.correct_sentence as string) || "",
+        shuffled_words: (content.shuffled_words as string[]) || [],
+        hint: (content.hint as string) || "",
+      },
+    ];
+  };
+
+  const [sentences, setSentences] = useState<WordOrderSentenceItem[]>(initSentences);
+
+  const generateShuffled = (sentence: string): string[] => {
+    const words = sentence.split(/\s+/).filter(Boolean);
+    return [...words].sort(() => Math.random() - 0.5);
+  };
+
+  const updateSentence = (index: number, field: keyof WordOrderSentenceItem, value: unknown) => {
+    const updated = sentences.map((s, i) => {
+      if (i !== index) return s;
+      const newSentence = { ...s, [field]: value };
+      // Auto-generate shuffled_words when correct_sentence changes
+      if (field === "correct_sentence") {
+        newSentence.shuffled_words = generateShuffled(value as string);
+      }
+      return newSentence;
+    });
+    setSentences(updated);
+    syncToContent(updated);
+  };
+
+  const shuffleSentence = (index: number) => {
+    const updated = sentences.map((s, i) => {
+      if (i !== index) return s;
+      return { ...s, shuffled_words: generateShuffled(s.correct_sentence) };
+    });
+    setSentences(updated);
+    syncToContent(updated);
+  };
+
+  const addSentence = () => {
+    const updated = [...sentences, { correct_sentence: "", shuffled_words: [], hint: "" }];
+    setSentences(updated);
+    syncToContent(updated);
+  };
+
+  const removeSentence = (index: number) => {
+    if (sentences.length <= 1) return;
+    const updated = sentences.filter((_, i) => i !== index);
+    setSentences(updated);
+    syncToContent(updated);
+  };
+
+  const syncToContent = (sents: WordOrderSentenceItem[]) => {
+    const first = sents[0] || { correct_sentence: "", shuffled_words: [], hint: "" };
+    onContentChange({
+      ...content,
+      // Backward compat: always set old top-level fields from first sentence
+      correct_sentence: first.correct_sentence,
+      shuffled_words: first.shuffled_words,
+      hint: first.hint || null,
+      // New multi-sentence array
+      sentences: sents.map((s) => ({
+        correct_sentence: s.correct_sentence,
+        shuffled_words: s.shuffled_words,
+        hint: s.hint || null,
+      })),
+    });
   };
 
   return (
     <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Правильное предложение
-        </label>
-        <textarea
-          value={correctSentence}
-          onChange={(e) => onCorrectSentenceChange(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-          rows={2}
-          placeholder="The quick brown fox jumps over the lazy dog."
-        />
-        <button
-          type="button"
-          onClick={generateShuffled}
-          className="mt-2 text-sm text-purple-600 hover:text-purple-700"
-        >
-          Перемешать слова
-        </button>
-      </div>
+      {sentences.map((sentence, index) => (
+        <div key={index} className="p-4 border border-gray-200 rounded-lg space-y-3 relative">
+          {sentences.length > 1 && (
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-sm font-medium text-gray-500">
+                Предложение {index + 1}
+              </span>
+              <button
+                type="button"
+                onClick={() => removeSentence(index)}
+                className="text-red-400 hover:text-red-600 text-sm"
+              >
+                Удалить
+              </button>
+            </div>
+          )}
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Подсказка (необязательно)
-        </label>
-        <input
-          type="text"
-          value={hint}
-          onChange={(e) => onHintChange(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-          placeholder="Подсказка для студента..."
-        />
-      </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Правильное предложение
+            </label>
+            <textarea
+              value={sentence.correct_sentence}
+              onChange={(e) => updateSentence(index, "correct_sentence", e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              rows={2}
+              placeholder="The quick brown fox jumps over the lazy dog."
+            />
+            <button
+              type="button"
+              onClick={() => shuffleSentence(index)}
+              className="mt-2 text-sm text-purple-600 hover:text-purple-700"
+            >
+              Перемешать слова
+            </button>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Подсказка (необязательно)
+            </label>
+            <input
+              type="text"
+              value={sentence.hint || ""}
+              onChange={(e) => updateSentence(index, "hint", e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              placeholder="Подсказка для студента..."
+            />
+          </div>
+        </div>
+      ))}
+
+      <button
+        type="button"
+        onClick={addSentence}
+        className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-purple-400 hover:text-purple-600 transition-colors"
+      >
+        + Добавить предложение
+      </button>
     </div>
   );
 }
@@ -2177,6 +2294,147 @@ function DragWordsEditor({
   );
 }
 
+function VocabularyWordRow({
+  word,
+  index,
+  showTranscription,
+  onUpdate,
+  onRemove,
+}: {
+  word: VocabularyWord;
+  index: number;
+  showTranscription: boolean;
+  onUpdate: (index: number, field: keyof VocabularyWord, value: string) => void;
+  onRemove: (index: number) => void;
+}) {
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [definition, setDefinition] = useState<string>("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastLookedUpRef = useRef<string>("");
+
+  const doLookup = useCallback(
+    async (wordText: string, currentTranscription: string) => {
+      const trimmed = wordText.trim();
+      if (!trimmed || trimmed === lastLookedUpRef.current) return;
+      lastLookedUpRef.current = trimmed;
+      setLookupLoading(true);
+      try {
+        const result = await vocabularyApi.lookup(trimmed);
+        if (result.phonetic && !currentTranscription) {
+          onUpdate(index, "transcription", result.phonetic);
+        }
+        setDefinition(result.definition || "");
+      } catch {
+        // silently ignore lookup errors
+      } finally {
+        setLookupLoading(false);
+      }
+    },
+    [index, onUpdate],
+  );
+
+  const handleWordChange = useCallback(
+    (value: string) => {
+      onUpdate(index, "word", value);
+      setDefinition("");
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (value.trim()) {
+        debounceRef.current = setTimeout(() => {
+          doLookup(value, word.transcription || "");
+        }, 500);
+      }
+    },
+    [index, onUpdate, doLookup, word.transcription],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+
+  return (
+    <div className="p-3 border border-gray-200 rounded-lg">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-medium text-gray-500">
+          Слово {index + 1}
+        </span>
+        <button
+          type="button"
+          onClick={() => onRemove(index)}
+          className="p-1 text-red-500 hover:bg-red-50 rounded"
+        >
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">
+            Слово (англ.)
+            {lookupLoading && (
+              <span className="ml-1 inline-block w-3 h-3 border-2 border-purple-400 border-t-transparent rounded-full animate-spin align-middle" />
+            )}
+          </label>
+          <input
+            type="text"
+            value={word.word}
+            onChange={(e) => handleWordChange(e.target.value)}
+            className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm"
+            placeholder="manufacturing"
+          />
+          {definition && (
+            <p className="text-xs text-gray-400 mt-1 italic truncate" title={definition}>
+              {definition}
+            </p>
+          )}
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">
+            Перевод
+          </label>
+          <input
+            type="text"
+            value={word.translation}
+            onChange={(e) =>
+              onUpdate(index, "translation", e.target.value)
+            }
+            className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm"
+            placeholder="производство"
+          />
+        </div>
+      </div>
+      {showTranscription && (
+        <div className="mt-2">
+          <label className="block text-xs text-gray-500 mb-1">
+            Транскрипция
+          </label>
+          <input
+            type="text"
+            value={word.transcription || ""}
+            onChange={(e) =>
+              onUpdate(index, "transcription", e.target.value)
+            }
+            className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm"
+            placeholder="[ˌmænjʊˈfæktʃərɪŋ]"
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function VocabularyEditor({
   words,
   showTranscription,
@@ -2192,20 +2450,21 @@ function VocabularyEditor({
     onWordsChange([...words, { word: "", translation: "", transcription: "" }]);
   };
 
-  const updateWord = (
-    index: number,
-    field: keyof VocabularyWord,
-    value: string,
-  ) => {
-    const newWords = words.map((w, i) =>
-      i === index ? { ...w, [field]: value } : w,
-    );
-    onWordsChange(newWords);
-  };
+  const updateWord = useCallback(
+    (index: number, field: keyof VocabularyWord, value: string) => {
+      onWordsChange(
+        words.map((w, i) => (i === index ? { ...w, [field]: value } : w)),
+      );
+    },
+    [words, onWordsChange],
+  );
 
-  const removeWord = (index: number) => {
-    onWordsChange(words.filter((_, i) => i !== index));
-  };
+  const removeWord = useCallback(
+    (index: number) => {
+      onWordsChange(words.filter((_, i) => i !== index));
+    },
+    [words, onWordsChange],
+  );
 
   return (
     <div className="space-y-4">
@@ -2235,14 +2494,111 @@ function VocabularyEditor({
         </div>
         <div className="space-y-3">
           {words.map((word, index) => (
-            <div key={index} className="p-3 border border-gray-200 rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-500">
-                  Слово {index + 1}
-                </span>
+            <VocabularyWordRow
+              key={index}
+              word={word}
+              index={index}
+              showTranscription={showTranscription}
+              onUpdate={updateWord}
+              onRemove={removeWord}
+            />
+          ))}
+          {words.length === 0 && (
+            <div className="text-center py-4 text-gray-400 text-sm">
+              Нажмите "Добавить слово" чтобы начать
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SentenceChoiceEditor({
+  questions,
+  onQuestionsChange,
+}: {
+  questions: SentenceChoiceQuestionItem[];
+  onQuestionsChange: (questions: SentenceChoiceQuestionItem[]) => void;
+}) {
+  const addQuestion = () => {
+    const nextId = `q${questions.length + 1}`;
+    onQuestionsChange([
+      ...questions,
+      { id: nextId, options: ["", ""], correct_index: 0 },
+    ]);
+  };
+
+  const updateQuestion = (
+    index: number,
+    field: keyof SentenceChoiceQuestionItem,
+    value: unknown,
+  ) => {
+    onQuestionsChange(
+      questions.map((q, i) => (i === index ? { ...q, [field]: value } : q)),
+    );
+  };
+
+  const removeQuestion = (index: number) => {
+    onQuestionsChange(questions.filter((_, i) => i !== index));
+  };
+
+  const addOption = (qIndex: number) => {
+    const q = questions[qIndex];
+    updateQuestion(qIndex, "options", [...q.options, ""]);
+  };
+
+  const updateOption = (qIndex: number, optIndex: number, value: string) => {
+    const q = questions[qIndex];
+    const newOptions = q.options.map((o, i) => (i === optIndex ? value : o));
+    updateQuestion(qIndex, "options", newOptions);
+  };
+
+  const removeOption = (qIndex: number, optIndex: number) => {
+    const q = questions[qIndex];
+    const newOptions = q.options.filter((_, i) => i !== optIndex);
+    const newCorrectIndex =
+      q.correct_index >= newOptions.length
+        ? Math.max(0, newOptions.length - 1)
+        : q.correct_index > optIndex
+          ? q.correct_index - 1
+          : q.correct_index;
+    onQuestionsChange(
+      questions.map((qq, i) =>
+        i === qIndex
+          ? { ...qq, options: newOptions, correct_index: newCorrectIndex }
+          : qq,
+      ),
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <label className="text-sm font-medium text-gray-700">Вопросы</label>
+        <button
+          type="button"
+          onClick={addQuestion}
+          className="text-sm text-purple-600 hover:text-purple-700"
+        >
+          + Добавить вопрос
+        </button>
+      </div>
+
+      <div className="space-y-4">
+        {questions.map((q, qIndex) => (
+          <div
+            key={q.id}
+            className="p-4 border border-gray-200 rounded-lg bg-gray-50"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium text-gray-600">
+                Вопрос {qIndex + 1}
+              </span>
+              {questions.length > 1 && (
                 <button
                   type="button"
-                  onClick={() => removeWord(index)}
+                  onClick={() => removeQuestion(qIndex)}
                   className="p-1 text-red-500 hover:bg-red-50 rounded"
                 >
                   <svg
@@ -2259,59 +2615,71 @@ function VocabularyEditor({
                     />
                   </svg>
                 </button>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">
-                    Слово (англ.)
-                  </label>
-                  <input
-                    type="text"
-                    value={word.word}
-                    onChange={(e) => updateWord(index, "word", e.target.value)}
-                    className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm"
-                    placeholder="manufacturing"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">
-                    Перевод
-                  </label>
-                  <input
-                    type="text"
-                    value={word.translation}
-                    onChange={(e) =>
-                      updateWord(index, "translation", e.target.value)
-                    }
-                    className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm"
-                    placeholder="производство"
-                  />
-                </div>
-              </div>
-              {showTranscription && (
-                <div className="mt-2">
-                  <label className="block text-xs text-gray-500 mb-1">
-                    Транскрипция
-                  </label>
-                  <input
-                    type="text"
-                    value={word.transcription || ""}
-                    onChange={(e) =>
-                      updateWord(index, "transcription", e.target.value)
-                    }
-                    className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm"
-                    placeholder="[ˌmænjʊˈfæktʃərɪŋ]"
-                  />
-                </div>
               )}
             </div>
-          ))}
-          {words.length === 0 && (
-            <div className="text-center py-4 text-gray-400 text-sm">
-              Нажмите "Добавить слово" чтобы начать
+
+            <div className="space-y-2">
+              {q.options.map((option, optIndex) => (
+                <div key={optIndex} className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name={`sc-correct-${q.id}`}
+                    checked={q.correct_index === optIndex}
+                    onChange={() =>
+                      updateQuestion(qIndex, "correct_index", optIndex)
+                    }
+                    className="w-4 h-4 text-green-600 border-gray-300"
+                    title="Правильный вариант"
+                  />
+                  <input
+                    type="text"
+                    value={option}
+                    onChange={(e) =>
+                      updateOption(qIndex, optIndex, e.target.value)
+                    }
+                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                    placeholder={`Вариант ${optIndex + 1}`}
+                  />
+                  {q.options.length > 2 && (
+                    <button
+                      type="button"
+                      onClick={() => removeOption(qIndex, optIndex)}
+                      className="p-1 text-red-500 hover:bg-red-50 rounded"
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
-          )}
-        </div>
+
+            <button
+              type="button"
+              onClick={() => addOption(qIndex)}
+              className="mt-2 text-xs text-purple-600 hover:text-purple-700"
+            >
+              + Добавить вариант
+            </button>
+          </div>
+        ))}
+
+        {questions.length === 0 && (
+          <div className="text-center py-4 text-gray-400 text-sm">
+            Нажмите "Добавить вопрос" чтобы начать
+          </div>
+        )}
       </div>
     </div>
   );

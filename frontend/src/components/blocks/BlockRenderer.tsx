@@ -11,6 +11,7 @@ const INTERACTIVE_TYPES = [
   "essay",
   "image_choice",
   "drag_words",
+  "sentence_choice",
 ];
 
 export interface MediaCommand {
@@ -173,7 +174,8 @@ export default function BlockRenderer({
             correctSentence={(content.correct_sentence as string) || ""}
             shuffledWords={(content.shuffled_words as string[]) || []}
             hint={(content.hint as string) || ""}
-            answer={answer as string[]}
+            sentences={content.sentences as { correct_sentence: string; shuffled_words: string[]; hint?: string }[] | undefined}
+            answer={answer}
             onAnswerChange={onAnswerChange}
             isChecked={isChecked}
             onCheck={onCheck}
@@ -237,6 +239,20 @@ export default function BlockRenderer({
             words={(content.words as DragWordItem[]) || []}
             distractors={(content.distractors as string[]) || []}
             answer={answer as Record<number, string>}
+            onAnswerChange={onAnswerChange}
+            isChecked={isChecked}
+            onCheck={onCheck}
+            serverDetails={serverDetails}
+          />
+        );
+
+      case "sentence_choice":
+        return (
+          <SentenceChoiceRenderer
+            questions={
+              (content.questions as SentenceChoiceQuestionItem[]) || []
+            }
+            answer={answer as Record<string, number>}
             onAnswerChange={onAnswerChange}
             isChecked={isChecked}
             onCheck={onCheck}
@@ -384,6 +400,12 @@ interface CarouselImageItem {
 interface DragWordItem {
   index: number;
   word: string;
+}
+
+interface SentenceChoiceQuestionItem {
+  id: string;
+  options: string[];
+  correct_index?: number;
 }
 
 // Video Renderer
@@ -1088,32 +1110,34 @@ function TrueFalseRenderer({
   );
 }
 
-// Word Order Renderer
-function WordOrderRenderer({
-  correctSentence,
+// Single sentence area used by WordOrderRenderer
+function WordOrderSentenceArea({
   shuffledWords,
   hint,
-  answer,
-  onAnswerChange,
+  correctSentence,
+  selectedWords,
+  onSelectWord,
+  onRemoveWord,
   isChecked,
-  onCheck,
-  serverDetails,
+  isSentenceCorrect,
+  serverCorrectSentence,
+  canSeeAnswers,
+  sentenceIndex,
+  totalSentences,
 }: {
-  correctSentence: string;
   shuffledWords: string[];
-  hint: string;
-  answer: string[];
-  onAnswerChange: (answer: string[]) => void;
+  hint?: string;
+  correctSentence: string;
+  selectedWords: string[];
+  onSelectWord: (word: string) => void;
+  onRemoveWord: (index: number) => void;
   isChecked: boolean;
-  onCheck: () => void;
-  serverDetails?: ExerciseResultDetails;
+  isSentenceCorrect: boolean;
+  serverCorrectSentence?: string;
+  canSeeAnswers: boolean;
+  sentenceIndex: number;
+  totalSentences: number;
 }) {
-  const { user } = useAuthStore();
-  const canSeeAnswers =
-    user?.role === "admin" ||
-    user?.role === "manager" ||
-    user?.role === "teacher";
-  const selectedWords = answer || [];
   const availableWords = shuffledWords.filter((word, index) => {
     const selectedIndex = selectedWords.indexOf(word);
     if (selectedIndex === -1) return true;
@@ -1123,6 +1147,197 @@ function WordOrderRenderer({
     const usedCount = selectedWords.filter((w) => w === word).length;
     return wordCount > usedCount;
   });
+
+  return (
+    <div className={totalSentences > 1 ? "p-3 border border-gray-100 rounded-lg" : ""}>
+      {totalSentences > 1 && (
+        <div className="text-xs font-medium text-gray-400 mb-2">
+          Предложение {sentenceIndex + 1}
+        </div>
+      )}
+      {hint && <div className="text-sm text-gray-500 mb-3">{hint}</div>}
+
+      {/* Selected words area */}
+      <div
+        className={`min-h-[60px] p-3 rounded-lg border-2 mb-3 ${
+          isChecked
+            ? isSentenceCorrect
+              ? "border-green-500 bg-green-50"
+              : "border-red-500 bg-red-50"
+            : "border-gray-200 bg-gray-50"
+        }`}
+      >
+        {selectedWords.length === 0 ? (
+          <span className="text-gray-400">
+            Нажмите на слова, чтобы составить предложение
+          </span>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {selectedWords.map((word, idx) => (
+              <button
+                key={idx}
+                onClick={() => onRemoveWord(idx)}
+                disabled={isChecked}
+                className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 disabled:hover:bg-purple-100"
+              >
+                {word}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Available words */}
+      <div className="flex flex-wrap gap-2">
+        {availableWords.map((word, idx) => (
+          <button
+            key={idx}
+            onClick={() => onSelectWord(word)}
+            disabled={isChecked}
+            className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+          >
+            {word}
+          </button>
+        ))}
+      </div>
+
+      {isChecked && !isSentenceCorrect && (
+        <div className="mt-3 p-3 rounded-lg bg-yellow-50">
+          <div className="text-sm font-medium mb-1">Правильный ответ:</div>
+          <div className="text-sm text-gray-600">
+            {serverCorrectSentence || correctSentence}
+          </div>
+        </div>
+      )}
+
+      {!isChecked && canSeeAnswers && (
+        <div className="mt-3 p-3 rounded-lg bg-green-50/40 border border-dashed border-green-300">
+          <div className="text-sm text-green-700">
+            <span className="font-medium">Правильный ответ: </span>{correctSentence}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Word Order Renderer (supports single and multi-sentence modes)
+function WordOrderRenderer({
+  correctSentence,
+  shuffledWords,
+  hint,
+  sentences,
+  answer,
+  onAnswerChange,
+  isChecked,
+  onCheck,
+  serverDetails,
+}: {
+  correctSentence: string;
+  shuffledWords: string[];
+  hint: string;
+  sentences?: { correct_sentence: string; shuffled_words: string[]; hint?: string }[];
+  answer: unknown;
+  onAnswerChange: (answer: unknown) => void;
+  isChecked: boolean;
+  onCheck: () => void;
+  serverDetails?: ExerciseResultDetails;
+}) {
+  const { user } = useAuthStore();
+  const canSeeAnswers =
+    user?.role === "admin" ||
+    user?.role === "manager" ||
+    user?.role === "teacher";
+
+  const isMultiMode = sentences && Array.isArray(sentences) && sentences.length > 0;
+
+  if (isMultiMode) {
+    // Multi-sentence mode: answer is string[][] (array of arrays of words)
+    const multiAnswer = (Array.isArray(answer) ? answer : sentences.map(() => [])) as string[][];
+    // Ensure multiAnswer has correct length
+    while (multiAnswer.length < sentences.length) {
+      multiAnswer.push([]);
+    }
+
+    const handleSelectWord = (sentIdx: number, word: string) => {
+      if (isChecked) return;
+      const updated = multiAnswer.map((a, i) =>
+        i === sentIdx ? [...a, word] : a,
+      );
+      onAnswerChange(updated);
+    };
+
+    const handleRemoveWord = (sentIdx: number, wordIdx: number) => {
+      if (isChecked) return;
+      const updated = multiAnswer.map((a, i) =>
+        i === sentIdx ? a.filter((_, wi) => wi !== wordIdx) : a,
+      );
+      onAnswerChange(updated);
+    };
+
+    const allAnswered = multiAnswer.some((a) => a.length > 0);
+
+    // Overall correctness
+    const overallCorrect =
+      isChecked &&
+      (serverDetails?.is_correct !== undefined
+        ? serverDetails.is_correct
+        : sentences.every(
+            (s, i) => multiAnswer[i].join(" ") === s.correct_sentence,
+          ));
+
+    return (
+      <div className="bg-white p-4 rounded-lg border border-gray-100 space-y-4">
+        {sentences.map((sent, sentIdx) => {
+          const sentResult = serverDetails?.sentence_results?.[sentIdx];
+          const isSentCorrect =
+            isChecked &&
+            (sentResult
+              ? sentResult.is_correct
+              : multiAnswer[sentIdx].join(" ") === sent.correct_sentence);
+
+          return (
+            <WordOrderSentenceArea
+              key={sentIdx}
+              shuffledWords={sent.shuffled_words || []}
+              hint={sent.hint}
+              correctSentence={sent.correct_sentence}
+              selectedWords={multiAnswer[sentIdx] || []}
+              onSelectWord={(word) => handleSelectWord(sentIdx, word)}
+              onRemoveWord={(idx) => handleRemoveWord(sentIdx, idx)}
+              isChecked={isChecked}
+              isSentenceCorrect={isSentCorrect}
+              serverCorrectSentence={sentResult?.correct_sentence}
+              canSeeAnswers={canSeeAnswers}
+              sentenceIndex={sentIdx}
+              totalSentences={sentences.length}
+            />
+          );
+        })}
+
+        {isChecked && !overallCorrect && sentences.length > 1 && (
+          <div className="p-3 rounded-lg bg-red-50 border border-red-200">
+            <div className="text-sm text-red-600 font-medium">
+              Не все предложения составлены правильно
+            </div>
+          </div>
+        )}
+
+        {!isChecked && (
+          <button
+            onClick={onCheck}
+            disabled={!allAnswered}
+            className="mt-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+          >
+            Проверить
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // Single sentence mode (backward compat)
+  const selectedWords = (Array.isArray(answer) ? answer : []) as string[];
 
   const isCorrect =
     isChecked &&
@@ -1137,74 +1352,25 @@ function WordOrderRenderer({
 
   const handleRemoveWord = (index: number) => {
     if (isChecked) return;
-    onAnswerChange(selectedWords.filter((_, i) => i !== index));
+    onAnswerChange(selectedWords.filter((_: string, i: number) => i !== index));
   };
 
   return (
     <div className="bg-white p-4 rounded-lg border border-gray-100">
-      {hint && <div className="text-sm text-gray-500 mb-4">{hint}</div>}
-
-      {/* Selected words area */}
-      <div
-        className={`min-h-[60px] p-3 rounded-lg border-2 mb-4 ${
-          isChecked
-            ? isCorrect
-              ? "border-green-500 bg-green-50"
-              : "border-red-500 bg-red-50"
-            : "border-gray-200 bg-gray-50"
-        }`}
-      >
-        {selectedWords.length === 0 ? (
-          <span className="text-gray-400">
-            Нажмите на слова, чтобы составить предложение
-          </span>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {selectedWords.map((word, index) => (
-              <button
-                key={index}
-                onClick={() => handleRemoveWord(index)}
-                disabled={isChecked}
-                className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 disabled:hover:bg-purple-100"
-              >
-                {word}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Available words */}
-      <div className="flex flex-wrap gap-2">
-        {availableWords.map((word, index) => (
-          <button
-            key={index}
-            onClick={() => handleSelectWord(word)}
-            disabled={isChecked}
-            className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50"
-          >
-            {word}
-          </button>
-        ))}
-      </div>
-
-      {isChecked &&
-        !isCorrect && (
-          <div className="mt-4 p-3 rounded-lg bg-yellow-50">
-            <div className="text-sm font-medium mb-1">Правильный ответ:</div>
-            <div className="text-sm text-gray-600">
-              {serverDetails?.correct_sentence || correctSentence}
-            </div>
-          </div>
-        )}
-
-      {!isChecked && canSeeAnswers && (
-        <div className="mt-4 p-3 rounded-lg bg-green-50/40 border border-dashed border-green-300">
-          <div className="text-sm text-green-700">
-            <span className="font-medium">Правильный ответ: </span>{correctSentence}
-          </div>
-        </div>
-      )}
+      <WordOrderSentenceArea
+        shuffledWords={shuffledWords}
+        hint={hint}
+        correctSentence={correctSentence}
+        selectedWords={selectedWords}
+        onSelectWord={handleSelectWord}
+        onRemoveWord={handleRemoveWord}
+        isChecked={isChecked}
+        isSentenceCorrect={isCorrect}
+        serverCorrectSentence={serverDetails?.correct_sentence}
+        canSeeAnswers={canSeeAnswers}
+        sentenceIndex={0}
+        totalSentences={1}
+      />
 
       {!isChecked && (
         <button
@@ -1285,7 +1451,7 @@ function MatchingRenderer({
     <div className="bg-white p-4 rounded-lg border border-gray-100">
       <div className="flex gap-4">
         {/* Left column */}
-        <div className="flex-1 space-y-2">
+        <div className="flex-1 basis-1/2 min-w-0 space-y-2">
           {pairs.map((pair) => {
             const result = isCorrect(pair.left);
             return (
@@ -1294,7 +1460,7 @@ function MatchingRenderer({
                 onClick={() => handleLeftClick(pair.left)}
                 disabled={isChecked}
                 title={canSeeAnswers ? `✓ ${pair.right}` : undefined}
-                className={`w-full px-4 py-3 rounded-lg border-2 text-left transition-colors ${
+                className={`w-full min-h-[48px] px-4 py-3 rounded-lg border-2 text-left transition-colors break-words ${
                   result === true
                     ? "border-green-500 bg-green-50"
                     : result === false
@@ -1313,7 +1479,7 @@ function MatchingRenderer({
         </div>
 
         {/* Right column */}
-        <div className="flex-1 space-y-2">
+        <div className="flex-1 basis-1/2 min-w-0 space-y-2">
           {rightItems.map((right) => {
             const isMatched = Object.values(matches).includes(right);
             const isImage =
@@ -1325,7 +1491,7 @@ function MatchingRenderer({
                 key={right}
                 onClick={() => handleRightClick(right)}
                 disabled={isChecked || !selectedLeft}
-                className={`w-full px-4 py-3 rounded-lg border-2 text-left transition-colors ${
+                className={`w-full min-h-[48px] px-4 py-3 rounded-lg border-2 text-left transition-colors break-words ${
                   isMatched
                     ? "border-blue-300 bg-blue-50"
                     : "border-gray-200 hover:border-gray-300"
@@ -2218,6 +2384,182 @@ function DragWordsRenderer({
               <div key={idx}>Пропуск {Number(idx) + 1}: <span className="font-medium text-green-700">{word}</span></div>
             ))}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Sentence Choice Renderer
+function SentenceChoiceRenderer({
+  questions,
+  answer,
+  onAnswerChange,
+  isChecked,
+  onCheck,
+  serverDetails,
+}: {
+  questions: SentenceChoiceQuestionItem[];
+  answer: Record<string, number>;
+  onAnswerChange: (answer: Record<string, number>) => void;
+  isChecked: boolean;
+  onCheck: () => void;
+  serverDetails?: ExerciseResultDetails;
+}) {
+  const { user } = useAuthStore();
+  const canSeeAnswers =
+    user?.role === "admin" ||
+    user?.role === "manager" ||
+    user?.role === "teacher";
+  const answers = answer || {};
+
+  const handleSelect = (questionId: string, optionIndex: number) => {
+    if (isChecked) return;
+    onAnswerChange({ ...answers, [questionId]: optionIndex });
+  };
+
+  const isQuestionCorrect = (questionId: string): boolean | null => {
+    if (!isChecked) return null;
+    if (serverDetails?.question_results) {
+      return serverDetails.question_results[questionId] ?? null;
+    }
+    // Fallback for admin/teacher
+    const q = questions.find((qq) => qq.id === questionId);
+    if (!q || q.correct_index === undefined) return null;
+    return answers[questionId] === q.correct_index;
+  };
+
+  const allCorrect =
+    isChecked &&
+    (serverDetails?.question_results
+      ? Object.values(serverDetails.question_results).every(Boolean)
+      : questions.every(
+          (q) =>
+            q.correct_index !== undefined &&
+            answers[q.id] === q.correct_index,
+        ));
+
+  const allAnswered =
+    questions.length > 0 &&
+    questions.every((q) => answers[q.id] !== undefined);
+
+  return (
+    <div className="bg-white p-4 rounded-lg border border-gray-100">
+      <div className="space-y-4">
+        {questions.map((q, qIndex) => {
+          const result = isQuestionCorrect(q.id);
+          const correctIdx =
+            isChecked && !result && serverDetails?.correct_answers
+              ? (serverDetails.correct_answers as unknown as Record<string, number>)[q.id]
+              : undefined;
+
+          return (
+            <div key={q.id} className="flex items-start gap-3">
+              <span className="text-sm font-medium text-gray-500 mt-2 min-w-[24px]">
+                {qIndex + 1}.
+              </span>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <select
+                    value={answers[q.id] !== undefined ? answers[q.id] : ""}
+                    onChange={(e) =>
+                      handleSelect(
+                        q.id,
+                        e.target.value === "" ? -1 : Number(e.target.value),
+                      )
+                    }
+                    disabled={isChecked}
+                    title={
+                      canSeeAnswers && q.correct_index !== undefined
+                        ? `Correct: ${q.options[q.correct_index] || ""}`
+                        : undefined
+                    }
+                    className={`flex-1 px-3 py-2 border-2 rounded-lg text-sm transition-colors ${
+                      result === true
+                        ? "border-green-500 bg-green-50 text-green-700"
+                        : result === false
+                          ? "border-red-500 bg-red-50 text-red-700"
+                          : canSeeAnswers && !isChecked && q.correct_index !== undefined
+                            ? "border-green-300 border-dashed bg-green-50/40"
+                            : "border-gray-200 bg-white"
+                    }`}
+                  >
+                    <option value="">-- Выберите --</option>
+                    {q.options.map((opt, optIdx) => (
+                      <option key={optIdx} value={optIdx}>
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                  {result === true && (
+                    <svg
+                      className="w-5 h-5 text-green-500 flex-shrink-0"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  )}
+                  {result === false && (
+                    <svg
+                      className="w-5 h-5 text-red-500 flex-shrink-0"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  )}
+                </div>
+                {isChecked &&
+                  result === false &&
+                  correctIdx !== undefined &&
+                  q.options[correctIdx] && (
+                    <div className="mt-1 text-xs text-green-600">
+                      Правильно:{" "}
+                      <span className="font-medium">
+                        {q.options[correctIdx]}
+                      </span>
+                    </div>
+                  )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Check button */}
+      {!isChecked && (
+        <button
+          onClick={onCheck}
+          disabled={!allAnswered}
+          className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+        >
+          Проверить
+        </button>
+      )}
+
+      {/* Result */}
+      {isChecked && (
+        <div
+          className={`mt-3 p-3 rounded-lg text-sm font-medium ${
+            allCorrect
+              ? "bg-green-50 text-green-700 border border-green-200"
+              : "bg-red-50 text-red-700 border border-red-200"
+          }`}
+        >
+          {allCorrect ? "Правильно!" : "Есть ошибки. Попробуйте ещё раз."}
         </div>
       )}
     </div>
