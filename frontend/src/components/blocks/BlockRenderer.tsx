@@ -46,6 +46,7 @@ export default function BlockRenderer({
   onMediaControl,
   mediaCommand,
 }: BlockRendererProps) {
+  const { user } = useAuthStore();
   const content = block.content as Record<string, unknown>;
 
   // Render block content based on type
@@ -107,8 +108,19 @@ export default function BlockRenderer({
         );
 
       case "teaching_guide":
-        // Teaching guide is only visible in editor, not for students
-        return null;
+        // Hidden from students (also stripped by backend), visible for teachers/admins/managers
+        if (user?.role === "student") return null;
+        return (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div className="text-xs text-red-500 font-medium mb-1">
+              Заметка для преподавателя
+            </div>
+            <div
+              className="prose prose-sm max-w-none text-red-700"
+              dangerouslySetInnerHTML={{ __html: (content.html as string) || "" }}
+            />
+          </div>
+        );
 
       case "remember":
         return (
@@ -249,6 +261,7 @@ export default function BlockRenderer({
       case "sentence_choice":
         return (
           <SentenceChoiceRenderer
+            text={(content.text as string) || ""}
             questions={
               (content.questions as SentenceChoiceQuestionItem[]) || []
             }
@@ -2392,6 +2405,7 @@ function DragWordsRenderer({
 
 // Sentence Choice Renderer
 function SentenceChoiceRenderer({
+  text,
   questions,
   answer,
   onAnswerChange,
@@ -2399,6 +2413,7 @@ function SentenceChoiceRenderer({
   onCheck,
   serverDetails,
 }: {
+  text: string;
   questions: SentenceChoiceQuestionItem[];
   answer: Record<string, number>;
   onAnswerChange: (answer: Record<string, number>) => void;
@@ -2423,7 +2438,6 @@ function SentenceChoiceRenderer({
     if (serverDetails?.question_results) {
       return serverDetails.question_results[questionId] ?? null;
     }
-    // Fallback for admin/teacher
     const q = questions.find((qq) => qq.id === questionId);
     if (!q || q.correct_index === undefined) return null;
     return answers[questionId] === q.correct_index;
@@ -2443,13 +2457,116 @@ function SentenceChoiceRenderer({
     questions.length > 0 &&
     questions.every((q) => answers[q.id] !== undefined);
 
+  const renderTextWithLineBreaks = (textPart: string) => {
+    const lines = textPart.split("\n");
+    return lines.map((line, lineIndex) => (
+      <span key={lineIndex}>
+        {line}
+        {lineIndex < lines.length - 1 && <br />}
+      </span>
+    ));
+  };
+
+  const renderSelectForQuestion = (q: SentenceChoiceQuestionItem) => {
+    const result = isQuestionCorrect(q.id);
+    const correctIdx =
+      isChecked && result === false && serverDetails?.correct_answers
+        ? (serverDetails.correct_answers as unknown as Record<string, number>)[q.id]
+        : undefined;
+
+    return (
+      <span key={q.id} className="inline-block mx-1 align-baseline">
+        <select
+          value={answers[q.id] !== undefined ? answers[q.id] : ""}
+          onChange={(e) =>
+            handleSelect(
+              q.id,
+              e.target.value === "" ? -1 : Number(e.target.value),
+            )
+          }
+          disabled={isChecked}
+          title={
+            canSeeAnswers && q.correct_index !== undefined
+              ? `Correct: ${q.options[q.correct_index] || ""}`
+              : undefined
+          }
+          className={`px-2 py-1 border-b-2 text-sm rounded-none bg-transparent focus:outline-none transition-colors ${
+            result === true
+              ? "border-green-500 bg-green-50 text-green-700"
+              : result === false
+                ? "border-red-500 bg-red-50 text-red-700"
+                : canSeeAnswers && !isChecked && q.correct_index !== undefined
+                  ? "border-green-300 border-dashed bg-green-50/40"
+                  : "border-purple-300 focus:border-purple-500"
+          }`}
+        >
+          <option value="">...</option>
+          {q.options.map((opt, optIdx) => (
+            <option key={optIdx} value={optIdx}>
+              {opt}
+            </option>
+          ))}
+        </select>
+        {isChecked && result === false && correctIdx !== undefined && q.options[correctIdx] && (
+          <span className="text-xs text-green-600 ml-1">
+            ({q.options[correctIdx]})
+          </span>
+        )}
+      </span>
+    );
+  };
+
+  // Inline mode: text with {0}, {1} placeholders replaced by <select>
+  if (text) {
+    const parts = text.split(/\{(\d+)\}/);
+
+    return (
+      <div className="bg-white p-4 rounded-lg border border-gray-100">
+        <div className="text-lg leading-relaxed">
+          {parts.map((part, index) => {
+            if (index % 2 === 0) {
+              return <span key={index}>{renderTextWithLineBreaks(part)}</span>;
+            }
+            const qIndex = parseInt(part, 10);
+            const q = questions.find((qq) => qq.id === String(qIndex));
+            if (!q) return <span key={index} className="text-red-400">[?]</span>;
+            return renderSelectForQuestion(q);
+          })}
+        </div>
+
+        {!isChecked && (
+          <button
+            onClick={onCheck}
+            disabled={!allAnswered}
+            className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+          >
+            Проверить
+          </button>
+        )}
+
+        {isChecked && (
+          <div
+            className={`mt-3 p-3 rounded-lg text-sm font-medium ${
+              allCorrect
+                ? "bg-green-50 text-green-700 border border-green-200"
+                : "bg-red-50 text-red-700 border border-red-200"
+            }`}
+          >
+            {allCorrect ? "Правильно!" : "Есть ошибки. Попробуйте ещё раз."}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Legacy mode: numbered list of dropdowns (backward compatibility)
   return (
     <div className="bg-white p-4 rounded-lg border border-gray-100">
       <div className="space-y-4">
         {questions.map((q, qIndex) => {
           const result = isQuestionCorrect(q.id);
           const correctIdx =
-            isChecked && !result && serverDetails?.correct_answers
+            isChecked && result === false && serverDetails?.correct_answers
               ? (serverDetails.correct_answers as unknown as Record<string, number>)[q.id]
               : undefined;
 
@@ -2539,7 +2656,6 @@ function SentenceChoiceRenderer({
         })}
       </div>
 
-      {/* Check button */}
       {!isChecked && (
         <button
           onClick={onCheck}
@@ -2550,7 +2666,6 @@ function SentenceChoiceRenderer({
         </button>
       )}
 
-      {/* Result */}
       {isChecked && (
         <div
           className={`mt-3 p-3 rounded-lg text-sm font-medium ${

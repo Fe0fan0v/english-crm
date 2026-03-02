@@ -205,6 +205,7 @@ export interface SentenceChoiceQuestion {
 }
 
 export interface SentenceChoiceBlockContent {
+  text?: string;
   questions: SentenceChoiceQuestion[];
 }
 

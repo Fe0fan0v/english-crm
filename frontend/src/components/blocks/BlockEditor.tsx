@@ -247,9 +247,11 @@ export default function BlockEditor({
       case "sentence_choice":
         return (
           <SentenceChoiceEditor
+            text={(content.text as string) || ""}
             questions={
               (content.questions as SentenceChoiceQuestionItem[]) || []
             }
+            onTextChange={(text) => updateField("text", text)}
             onQuestionsChange={(questions) =>
               updateField("questions", questions)
             }
@@ -2515,17 +2517,21 @@ function VocabularyEditor({
 }
 
 function SentenceChoiceEditor({
+  text,
   questions,
+  onTextChange,
   onQuestionsChange,
 }: {
+  text: string;
   questions: SentenceChoiceQuestionItem[];
+  onTextChange: (text: string) => void;
   onQuestionsChange: (questions: SentenceChoiceQuestionItem[]) => void;
 }) {
   const addQuestion = () => {
-    const nextId = `q${questions.length + 1}`;
+    const newIndex = questions.length;
     onQuestionsChange([
       ...questions,
-      { id: nextId, options: ["", ""], correct_index: 0 },
+      { id: String(newIndex), options: ["", ""], correct_index: 0 },
     ]);
   };
 
@@ -2572,140 +2578,148 @@ function SentenceChoiceEditor({
     );
   };
 
-  const exampleOptions = [
-    ["I have been to London", "I has been to London", "I have be to London"],
-    ["She doesn't like coffee", "She don't like coffee", "She not like coffee"],
-    ["They were playing football", "They was playing football"],
-  ];
-
   return (
     <div className="space-y-4">
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
         <p className="font-medium mb-1">Как работает этот блок?</p>
-        <p>Ученик увидит пронумерованный список с <strong>выпадающими списками</strong>. В каждом — варианты на выбор. Задача — выбрать правильный вариант.</p>
-        <p className="mt-1 text-blue-500">Отметьте правильный вариант радио-кнопкой слева от текста.</p>
+        <p>Введите текст с пропусками <code className="bg-blue-100 px-1 rounded">{"{0}"}</code>, <code className="bg-blue-100 px-1 rounded">{"{1}"}</code> и т.д. Каждый пропуск — <strong>выпадающий список</strong> с вариантами ответа.</p>
+        <p className="mt-1 text-blue-500">Отметьте правильный вариант радио-кнопкой слева.</p>
       </div>
 
-      <div className="flex items-center justify-between">
-        <label className="text-sm font-medium text-gray-700">Вопросы</label>
-        <button
-          type="button"
-          onClick={addQuestion}
-          className="text-sm text-purple-600 hover:text-purple-700"
-        >
-          + Добавить вопрос
-        </button>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Текст с пропусками (используйте {"{0}"}, {"{1}"} и т.д.)
+        </label>
+        <textarea
+          value={text}
+          onChange={(e) => onTextChange(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+          rows={6}
+          placeholder={"I {0} to London last year.\nShe {1} there too."}
+        />
+        <p className="text-xs text-gray-400 mt-1">
+          Нажмите Enter для переноса на новую строку
+        </p>
       </div>
 
-      <div className="space-y-4">
-        {questions.map((q, qIndex) => {
-          const exOpts = exampleOptions[qIndex % exampleOptions.length];
-          return (
-          <div
-            key={q.id}
-            className="p-4 border border-gray-200 rounded-lg bg-gray-50"
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-sm font-medium text-gray-700">Пропуски</label>
+          <button
+            type="button"
+            onClick={addQuestion}
+            className="text-sm text-purple-600 hover:text-purple-700"
           >
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-sm font-medium text-gray-600">
-                Вопрос {qIndex + 1}
-              </span>
-              {questions.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removeQuestion(qIndex)}
-                  className="p-1 text-red-500 hover:bg-red-50 rounded"
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              )}
-            </div>
-            <p className="text-xs text-gray-400 mb-3">Ученик увидит выпадающий список с этими вариантами</p>
-
-            <div className="space-y-2">
-              {q.options.map((option, optIndex) => (
-                <div key={optIndex} className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name={`sc-correct-${q.id}`}
-                    checked={q.correct_index === optIndex}
-                    onChange={() =>
-                      updateQuestion(qIndex, "correct_index", optIndex)
-                    }
-                    className="w-4 h-4 text-green-600 border-gray-300"
-                    title="Отметьте как правильный вариант"
-                  />
-                  <input
-                    type="text"
-                    value={option}
-                    onChange={(e) =>
-                      updateOption(qIndex, optIndex, e.target.value)
-                    }
-                    className={`flex-1 px-3 py-2 border rounded-lg text-sm ${
-                      q.correct_index === optIndex
-                        ? "border-green-300 bg-green-50/50"
-                        : "border-gray-200"
-                    }`}
-                    placeholder={exOpts[optIndex] || `Вариант ${optIndex + 1}`}
-                  />
-                  {q.options.length > 2 && (
-                    <button
-                      type="button"
-                      onClick={() => removeOption(qIndex, optIndex)}
-                      className="p-1 text-red-500 hover:bg-red-50 rounded"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-            {q.correct_index !== undefined && q.options[q.correct_index] && (
-              <div className="mt-2 text-xs text-green-600">
-                Правильный ответ: {q.options[q.correct_index] || `Вариант ${q.correct_index + 1}`}
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={() => addOption(qIndex)}
-              className="mt-2 text-xs text-purple-600 hover:text-purple-700"
+            + Добавить пропуск
+          </button>
+        </div>
+        <div className="space-y-4">
+          {questions.map((q, qIndex) => (
+            <div
+              key={q.id}
+              className="p-4 border border-gray-200 rounded-lg bg-gray-50"
             >
-              + Добавить вариант
-            </button>
-          </div>
-          );
-        })}
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-medium text-gray-600">
+                  Пропуск {`{${qIndex}}`}
+                </span>
+                {questions.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeQuestion(qIndex)}
+                    className="p-1 text-red-500 hover:bg-red-50 rounded"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                )}
+              </div>
+              <p className="text-xs text-gray-400 mb-3">Варианты для выпадающего списка</p>
 
-        {questions.length === 0 && (
-          <div className="text-center py-6 text-gray-400 text-sm border-2 border-dashed border-gray-200 rounded-lg">
-            <p>Нажмите «+ Добавить вопрос» чтобы начать</p>
-            <p className="mt-1 text-xs">Каждый вопрос — это выпадающий список для ученика</p>
-          </div>
-        )}
+              <div className="space-y-2">
+                {q.options.map((option, optIndex) => (
+                  <div key={optIndex} className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name={`sc-correct-${q.id}`}
+                      checked={q.correct_index === optIndex}
+                      onChange={() =>
+                        updateQuestion(qIndex, "correct_index", optIndex)
+                      }
+                      className="w-4 h-4 text-green-600 border-gray-300"
+                      title="Отметьте как правильный вариант"
+                    />
+                    <input
+                      type="text"
+                      value={option}
+                      onChange={(e) =>
+                        updateOption(qIndex, optIndex, e.target.value)
+                      }
+                      className={`flex-1 px-3 py-2 border rounded-lg text-sm ${
+                        q.correct_index === optIndex
+                          ? "border-green-300 bg-green-50/50"
+                          : "border-gray-200"
+                      }`}
+                      placeholder={`Вариант ${optIndex + 1}`}
+                    />
+                    {q.options.length > 2 && (
+                      <button
+                        type="button"
+                        onClick={() => removeOption(qIndex, optIndex)}
+                        className="p-1 text-red-500 hover:bg-red-50 rounded"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {q.correct_index !== undefined && q.options[q.correct_index] && (
+                <div className="mt-2 text-xs text-green-600">
+                  Правильный ответ: {q.options[q.correct_index]}
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => addOption(qIndex)}
+                className="mt-2 text-xs text-purple-600 hover:text-purple-700"
+              >
+                + Добавить вариант
+              </button>
+            </div>
+          ))}
+
+          {questions.length === 0 && (
+            <div className="text-center py-6 text-gray-400 text-sm border-2 border-dashed border-gray-200 rounded-lg">
+              <p>Нажмите «+ Добавить пропуск» чтобы начать</p>
+              <p className="mt-1 text-xs">Каждый пропуск — это выпадающий список в тексте</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
