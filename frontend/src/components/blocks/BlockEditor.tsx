@@ -2572,8 +2572,20 @@ function SentenceChoiceEditor({
     );
   };
 
+  const exampleOptions = [
+    ["I have been to London", "I has been to London", "I have be to London"],
+    ["She doesn't like coffee", "She don't like coffee", "She not like coffee"],
+    ["They were playing football", "They was playing football"],
+  ];
+
   return (
     <div className="space-y-4">
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
+        <p className="font-medium mb-1">Как работает этот блок?</p>
+        <p>Ученик увидит пронумерованный список с <strong>выпадающими списками</strong>. В каждом — варианты на выбор. Задача — выбрать правильный вариант.</p>
+        <p className="mt-1 text-blue-500">Отметьте правильный вариант радио-кнопкой слева от текста.</p>
+      </div>
+
       <div className="flex items-center justify-between">
         <label className="text-sm font-medium text-gray-700">Вопросы</label>
         <button
@@ -2586,12 +2598,14 @@ function SentenceChoiceEditor({
       </div>
 
       <div className="space-y-4">
-        {questions.map((q, qIndex) => (
+        {questions.map((q, qIndex) => {
+          const exOpts = exampleOptions[qIndex % exampleOptions.length];
+          return (
           <div
             key={q.id}
             className="p-4 border border-gray-200 rounded-lg bg-gray-50"
           >
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-1">
               <span className="text-sm font-medium text-gray-600">
                 Вопрос {qIndex + 1}
               </span>
@@ -2617,6 +2631,7 @@ function SentenceChoiceEditor({
                 </button>
               )}
             </div>
+            <p className="text-xs text-gray-400 mb-3">Ученик увидит выпадающий список с этими вариантами</p>
 
             <div className="space-y-2">
               {q.options.map((option, optIndex) => (
@@ -2629,7 +2644,7 @@ function SentenceChoiceEditor({
                       updateQuestion(qIndex, "correct_index", optIndex)
                     }
                     className="w-4 h-4 text-green-600 border-gray-300"
-                    title="Правильный вариант"
+                    title="Отметьте как правильный вариант"
                   />
                   <input
                     type="text"
@@ -2637,8 +2652,12 @@ function SentenceChoiceEditor({
                     onChange={(e) =>
                       updateOption(qIndex, optIndex, e.target.value)
                     }
-                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                    placeholder={`Вариант ${optIndex + 1}`}
+                    className={`flex-1 px-3 py-2 border rounded-lg text-sm ${
+                      q.correct_index === optIndex
+                        ? "border-green-300 bg-green-50/50"
+                        : "border-gray-200"
+                    }`}
+                    placeholder={exOpts[optIndex] || `Вариант ${optIndex + 1}`}
                   />
                   {q.options.length > 2 && (
                     <button
@@ -2664,6 +2683,11 @@ function SentenceChoiceEditor({
                 </div>
               ))}
             </div>
+            {q.correct_index !== undefined && q.options[q.correct_index] && (
+              <div className="mt-2 text-xs text-green-600">
+                Правильный ответ: {q.options[q.correct_index] || `Вариант ${q.correct_index + 1}`}
+              </div>
+            )}
 
             <button
               type="button"
@@ -2673,11 +2697,13 @@ function SentenceChoiceEditor({
               + Добавить вариант
             </button>
           </div>
-        ))}
+          );
+        })}
 
         {questions.length === 0 && (
-          <div className="text-center py-4 text-gray-400 text-sm">
-            Нажмите "Добавить вопрос" чтобы начать
+          <div className="text-center py-6 text-gray-400 text-sm border-2 border-dashed border-gray-200 rounded-lg">
+            <p>Нажмите «+ Добавить вопрос» чтобы начать</p>
+            <p className="mt-1 text-xs">Каждый вопрос — это выпадающий список для ученика</p>
           </div>
         )}
       </div>
