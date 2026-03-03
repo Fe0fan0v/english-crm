@@ -450,6 +450,7 @@ export interface StudentLessonInfo {
   duration_minutes: number;
   status: LessonStatus;
   group_name: string | null;
+  balance_insufficient: boolean;
 }
 
 export interface StudentDashboardResponse {

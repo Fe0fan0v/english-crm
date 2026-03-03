@@ -126,6 +126,7 @@ class StudentLessonInfo(BaseModel):
     duration_minutes: int = 60
     status: LessonStatus
     group_name: str | None
+    balance_insufficient: bool = False
 
 
 class StudentDashboardResponse(BaseModel):

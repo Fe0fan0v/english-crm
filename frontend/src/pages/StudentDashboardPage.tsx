@@ -559,9 +559,7 @@ export default function StudentDashboardPage() {
                 }
 
                 return dayLessons.map((lesson) => {
-                  const lessonBalance = parseFloat(stats?.balance || "0");
-                  const lessonPrice = parseFloat(lesson.lesson_price || "0");
-                  const hasInsufficientBalance = lessonBalance < lessonPrice && lesson.status !== "completed" && lesson.status !== "cancelled";
+                  const hasInsufficientBalance = lesson.balance_insufficient && lesson.status !== "completed" && lesson.status !== "cancelled";
                   const lessonTime = new Date(lesson.scheduled_at);
 
                   return (
@@ -668,9 +666,7 @@ export default function StudentDashboardPage() {
                         return (
                           <td key={dayIndex} className="p-1 align-top min-w-[120px]">
                             {lessons.map((lesson) => {
-                              const balance = parseFloat(stats?.balance || "0");
-                              const price = parseFloat(lesson.lesson_price || "0");
-                              const hasInsufficientBalance = balance < price && lesson.status !== "completed" && lesson.status !== "cancelled";
+                              const hasInsufficientBalance = lesson.balance_insufficient && lesson.status !== "completed" && lesson.status !== "cancelled";
 
                               return (
                                 <div
@@ -1165,6 +1161,18 @@ export default function StudentDashboardPage() {
 
               {/* Meeting URL */}
               {(() => {
+                if (selectedLesson.balance_insufficient && selectedLesson.status !== "completed" && selectedLesson.status !== "cancelled") {
+                  return (
+                    <div className="mt-4">
+                      <div className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-orange-100 text-orange-700 rounded-xl font-medium">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        Пополните баланс для доступа к уроку
+                      </div>
+                    </div>
+                  );
+                }
                 const meetState = getMeetingUrlState(selectedLesson);
                 if (meetState === 'hidden') return null;
                 return (

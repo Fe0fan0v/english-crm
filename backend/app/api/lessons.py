@@ -322,7 +322,7 @@ async def create_lessons_batch(
             detail="Не удалось сформировать расписание",
         )
 
-    # Check students balance before creating any lessons
+    # Warn teacher about low balance (non-blocking)
     price = lesson_type.price
     insufficient_balance_students = []
     for sid in student_ids:
@@ -333,10 +333,13 @@ async def create_lessons_batch(
             )
     if insufficient_balance_students:
         names = ", ".join(insufficient_balance_students)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Недостаточно средств для оплаты урока ({price:,.0f} тг) у учеников: {names}. Пополните баланс перед созданием урока.",
+        notification = Notification(
+            user_id=data.teacher_id,
+            type=NotificationType.LOW_BALANCE.value,
+            title="Низкий баланс учеников",
+            message=f"Урок создан, но у учеников недостаточно средств ({price:,.0f} тг): {names}.",
         )
+        db.add(notification)
 
     # Create teacher-student assignments for all students (do this once)
     for student_id in student_ids:
@@ -692,7 +695,7 @@ async def create_lesson(
                 detail=f"Ученики уже заняты в это время: {conflict_details}{more}",
             )
 
-    # Check students balance
+    # Warn teacher about low balance (non-blocking)
     price = lesson_type.price
     insufficient_balance_students = []
     for sid in student_ids:
@@ -703,10 +706,13 @@ async def create_lesson(
             )
     if insufficient_balance_students:
         names = ", ".join(insufficient_balance_students)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Недостаточно средств для оплаты урока ({price:,.0f} тг) у учеников: {names}. Пополните баланс перед созданием урока.",
+        notification = Notification(
+            user_id=data.teacher_id,
+            type=NotificationType.LOW_BALANCE.value,
+            title="Низкий баланс учеников",
+            message=f"Урок создан, но у учеников недостаточно средств ({price:,.0f} тг): {names}.",
         )
+        db.add(notification)
 
     # Create lesson
     lesson = Lesson(

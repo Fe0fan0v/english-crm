@@ -148,22 +148,27 @@ async def get_student_dashboard(
         key=lambda ls: ls.lesson.scheduled_at,
     )[:10]
 
-    lessons_list = [
-        StudentLessonInfo(
-            id=ls.lesson.id,
-            title=ls.lesson.title,
-            scheduled_at=ls.lesson.scheduled_at,
-            teacher_id=ls.lesson.teacher.id,
-            teacher_name=ls.lesson.teacher.name,
-            lesson_type_name=ls.lesson.lesson_type.name,
-            lesson_price=ls.lesson.lesson_type.price,
-            meeting_url=ls.lesson.meeting_url or ls.lesson.teacher.meeting_url,
-            duration_minutes=ls.lesson.duration_minutes,
-            status=ls.lesson.status,
-            group_name=None,  # TODO: link lessons to groups
+    lessons_list = []
+    for ls in upcoming_lessons:
+        price = ls.lesson.lesson_type.price
+        has_insufficient_balance = current_user.balance < price
+        raw_url = ls.lesson.meeting_url or ls.lesson.teacher.meeting_url
+        lessons_list.append(
+            StudentLessonInfo(
+                id=ls.lesson.id,
+                title=ls.lesson.title,
+                scheduled_at=ls.lesson.scheduled_at,
+                teacher_id=ls.lesson.teacher.id,
+                teacher_name=ls.lesson.teacher.name,
+                lesson_type_name=ls.lesson.lesson_type.name,
+                lesson_price=price,
+                meeting_url=None if has_insufficient_balance else raw_url,
+                duration_minutes=ls.lesson.duration_minutes,
+                status=ls.lesson.status,
+                group_name=None,
+                balance_insufficient=has_insufficient_balance,
+            )
         )
-        for ls in upcoming_lessons
-    ]
 
     return StudentDashboardResponse(
         stats=stats,
@@ -200,22 +205,28 @@ async def get_student_schedule(
         if date_from_naive <= ls.lesson.scheduled_at <= date_to_naive
     ]
 
-    return [
-        StudentLessonInfo(
-            id=ls.lesson.id,
-            title=ls.lesson.title,
-            scheduled_at=ls.lesson.scheduled_at,
-            teacher_id=ls.lesson.teacher.id,
-            teacher_name=ls.lesson.teacher.name,
-            lesson_type_name=ls.lesson.lesson_type.name,
-            lesson_price=ls.lesson.lesson_type.price,
-            meeting_url=ls.lesson.meeting_url or ls.lesson.teacher.meeting_url,
-            duration_minutes=ls.lesson.duration_minutes,
-            status=ls.lesson.status,
-            group_name=None,
+    result_lessons = []
+    for ls in sorted(lessons_in_range, key=lambda ls: ls.lesson.scheduled_at):
+        price = ls.lesson.lesson_type.price
+        has_insufficient_balance = current_user.balance < price
+        raw_url = ls.lesson.meeting_url or ls.lesson.teacher.meeting_url
+        result_lessons.append(
+            StudentLessonInfo(
+                id=ls.lesson.id,
+                title=ls.lesson.title,
+                scheduled_at=ls.lesson.scheduled_at,
+                teacher_id=ls.lesson.teacher.id,
+                teacher_name=ls.lesson.teacher.name,
+                lesson_type_name=ls.lesson.lesson_type.name,
+                lesson_price=price,
+                meeting_url=None if has_insufficient_balance else raw_url,
+                duration_minutes=ls.lesson.duration_minutes,
+                status=ls.lesson.status,
+                group_name=None,
+                balance_insufficient=has_insufficient_balance,
+            )
         )
-        for ls in sorted(lessons_in_range, key=lambda ls: ls.lesson.scheduled_at)
-    ]
+    return result_lessons
 
 
 @router.get("/groups", response_model=list[StudentGroupSummary])
