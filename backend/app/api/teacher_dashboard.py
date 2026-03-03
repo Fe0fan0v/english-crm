@@ -193,6 +193,7 @@ async def get_teacher_dashboard(
                 name=ls.student.name,
                 attendance_status=ls.attendance_status,
                 charged=ls.charged,
+                remaining_lessons=int(ls.student.balance / lesson.lesson_type.price) if lesson.lesson_type.price > 0 and ls.student.balance > 0 else 0,
             )
             for ls in lesson.students
         ]
@@ -599,6 +600,7 @@ async def get_teacher_dashboard_by_id(
                 name=ls.student.name,
                 attendance_status=ls.attendance_status,
                 charged=ls.charged,
+                remaining_lessons=int(ls.student.balance / lesson.lesson_type.price) if lesson.lesson_type.price > 0 and ls.student.balance > 0 else 0,
             )
             for ls in lesson.students
         ]
@@ -846,6 +848,7 @@ async def get_teacher_lesson(
                 name=ls.student.name,
                 attendance_status=ls.attendance_status,
                 charged=ls.charged,
+                remaining_lessons=int(ls.student.balance / lesson.lesson_type.price) if lesson.lesson_type.price > 0 and ls.student.balance > 0 else 0,
             )
             for ls in lesson.students
         ],
@@ -1000,6 +1003,7 @@ async def create_teacher_lesson(
                 name=ls.student.name,
                 attendance_status=ls.attendance_status,
                 charged=ls.charged,
+                remaining_lessons=int(ls.student.balance / lesson.lesson_type.price) if lesson.lesson_type.price > 0 and ls.student.balance > 0 else 0,
             )
             for ls in lesson.students
         ],
@@ -1278,6 +1282,7 @@ async def update_teacher_lesson(
                 name=ls.student.name,
                 attendance_status=ls.attendance_status,
                 charged=ls.charged,
+                remaining_lessons=int(ls.student.balance / lesson.lesson_type.price) if lesson.lesson_type.price > 0 and ls.student.balance > 0 else 0,
             )
             for ls in lesson.students
         ],

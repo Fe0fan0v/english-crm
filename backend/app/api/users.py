@@ -13,7 +13,7 @@ from app.api.uploads import (
 )
 from app.config import settings
 from app.models.group import Group, GroupStudent
-from app.models.lesson import LessonStudent
+from app.models.lesson import Lesson, LessonStudent
 from app.models.lesson_type import LessonType
 from app.models.teacher_student import TeacherStudent
 from app.models.transaction import Transaction, TransactionType
@@ -96,8 +96,35 @@ async def list_users(
 
     pages = (total + size - 1) // size if total > 0 else 1
 
+    # Calculate remaining_lessons_total for students
+    student_ids = [u.id for u in users if u.role == UserRole.STUDENT]
+    remaining_map: dict[int, Decimal] = {}
+    if student_ids:
+        min_price_query = (
+            select(
+                LessonStudent.student_id,
+                func.min(LessonType.price).label("min_price"),
+            )
+            .join(Lesson, LessonStudent.lesson_id == Lesson.id)
+            .join(LessonType, Lesson.lesson_type_id == LessonType.id)
+            .where(LessonStudent.student_id.in_(student_ids))
+            .group_by(LessonStudent.student_id)
+        )
+        min_prices_result = await db.execute(min_price_query)
+        for row in min_prices_result:
+            if row.min_price and row.min_price > 0:
+                remaining_map[row.student_id] = row.min_price
+
+    items = []
+    for u in users:
+        resp = UserResponse.model_validate(u)
+        if u.role == UserRole.STUDENT and u.id in remaining_map:
+            min_price = remaining_map[u.id]
+            resp.remaining_lessons_total = int(u.balance / min_price) if u.balance > 0 else 0
+        items.append(resp)
+
     return UserListResponse(
-        items=users,
+        items=items,
         total=total,
         page=page,
         size=size,

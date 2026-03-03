@@ -782,6 +782,98 @@ async def update_lesson(
 
     update_data = data.model_dump(exclude_unset=True)
 
+    # Tariff correction for completed lessons
+    new_lesson_type_id = update_data.get("lesson_type_id")
+    if (
+        new_lesson_type_id
+        and new_lesson_type_id != lesson.lesson_type_id
+        and lesson.status == LessonStatus.COMPLETED
+    ):
+        old_lt = lesson.lesson_type
+        new_lt_result = await db.execute(
+            select(LessonType).where(LessonType.id == new_lesson_type_id)
+        )
+        new_lt = new_lt_result.scalar_one_or_none()
+        if not new_lt:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Тип урока не найден",
+            )
+
+        old_price = old_lt.price
+        new_price = new_lt.price
+        price_diff = new_price - old_price  # positive = more expensive
+
+        teacher = lesson.teacher
+
+        for ls in lesson.students:
+            if not ls.charged:
+                continue
+            student = ls.student
+
+            # Correct student balance
+            if price_diff != 0:
+                # If new price higher -> debit more from student (subtract diff)
+                # If new price lower -> credit back to student (add diff)
+                student.balance -= price_diff
+                correction_type = TransactionType.DEBIT if price_diff > 0 else TransactionType.CREDIT
+                correction_amount = abs(price_diff)
+                db.add(Transaction(
+                    user_id=student.id,
+                    amount=correction_amount,
+                    type=correction_type,
+                    lesson_id=lesson.id,
+                    description=f"Коррекция тарифа: {old_lt.name} → {new_lt.name} (урок #{lesson.id})",
+                ))
+
+            # Correct teacher payment
+            if teacher:
+                # Calculate old teacher payment
+                old_teacher_payment = None
+                new_teacher_payment = None
+                if teacher.level_id:
+                    old_pay_result = await db.execute(
+                        select(LevelLessonTypePayment).where(
+                            and_(
+                                LevelLessonTypePayment.level_id == teacher.level_id,
+                                LevelLessonTypePayment.lesson_type_id == old_lt.id,
+                            )
+                        )
+                    )
+                    old_pay_config = old_pay_result.scalar_one_or_none()
+                    if old_pay_config:
+                        old_teacher_payment = old_pay_config.teacher_payment
+
+                    new_pay_result = await db.execute(
+                        select(LevelLessonTypePayment).where(
+                            and_(
+                                LevelLessonTypePayment.level_id == teacher.level_id,
+                                LevelLessonTypePayment.lesson_type_id == new_lesson_type_id,
+                            )
+                        )
+                    )
+                    new_pay_config = new_pay_result.scalar_one_or_none()
+                    if new_pay_config:
+                        new_teacher_payment = new_pay_config.teacher_payment
+
+                if old_teacher_payment is None:
+                    old_teacher_payment = old_price * Decimal("0.5")
+                if new_teacher_payment is None:
+                    new_teacher_payment = new_price * Decimal("0.5")
+
+                pay_diff = new_teacher_payment - old_teacher_payment
+                if pay_diff != 0:
+                    teacher.balance += pay_diff
+                    teacher_correction_type = TransactionType.CREDIT if pay_diff > 0 else TransactionType.DEBIT
+                    teacher_correction_amount = abs(pay_diff)
+                    db.add(Transaction(
+                        user_id=teacher.id,
+                        amount=teacher_correction_amount,
+                        type=teacher_correction_type,
+                        lesson_id=lesson.id,
+                        description=f"Коррекция тарифа: {old_lt.name} → {new_lt.name} (урок #{lesson.id})",
+                    ))
+
     # Check for conflicts if time or teacher is changing
     new_scheduled_at = update_data.get("scheduled_at", lesson.scheduled_at)
     new_teacher_id = update_data.get("teacher_id", lesson.teacher_id)
@@ -839,6 +931,47 @@ async def update_lesson(
     lesson = result.scalar_one()
 
     return build_lesson_response(lesson)
+
+
+@router.delete("/batch-scheduled")
+async def delete_batch_scheduled(
+    student_id: int = Query(...),
+    db: AsyncSession = Depends(get_db),
+    _: ManagerUser = None,
+):
+    """Delete all SCHEDULED lessons for a specific student."""
+    # Find all scheduled lessons where this student participates
+    lesson_ids_query = (
+        select(Lesson.id)
+        .join(LessonStudent, LessonStudent.lesson_id == Lesson.id)
+        .where(
+            LessonStudent.student_id == student_id,
+            Lesson.status == LessonStatus.SCHEDULED,
+        )
+    )
+    result = await db.execute(lesson_ids_query)
+    lesson_ids = [row[0] for row in result.all()]
+
+    if not lesson_ids:
+        return {"deleted_count": 0, "message": "Нет запланированных уроков для удаления"}
+
+    # Detach transactions from these lessons
+    await db.execute(
+        Transaction.__table__.update()
+        .where(Transaction.lesson_id.in_(lesson_ids))
+        .values(lesson_id=None)
+    )
+
+    # Delete lessons
+    for lid in lesson_ids:
+        lesson_result = await db.execute(select(Lesson).where(Lesson.id == lid))
+        lesson = lesson_result.scalar_one_or_none()
+        if lesson:
+            await db.delete(lesson)
+
+    await db.commit()
+
+    return {"deleted_count": len(lesson_ids), "message": f"Удалено {len(lesson_ids)} запланированных уроков"}
 
 
 @router.delete("/{lesson_id}", status_code=status.HTTP_204_NO_CONTENT)

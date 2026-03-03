@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { lessonsApi, teacherApi, courseMaterialsApi, homeworkApi, homeworkLessonsApi, type StandaloneLesson } from "../services/api";
+import { lessonsApi, teacherApi, courseMaterialsApi, homeworkApi, homeworkLessonsApi, lessonTypesApi, type StandaloneLesson } from "../services/api";
 import { liveSessionApi } from "../services/liveSessionApi";
 import { useAuthStore } from "../store/authStore";
-import type { LessonDetail, AttendanceStatus, LessonMaterial, LessonCourseMaterial, HomeworkAssignment } from "../types";
+import type { LessonDetail, AttendanceStatus, LessonMaterial, LessonCourseMaterial, HomeworkAssignment, LessonType } from "../types";
 import AttachMaterialModal from "./AttachMaterialModal";
 import AttachCourseMaterialModal from "./AttachCourseMaterialModal";
 
@@ -50,13 +50,53 @@ export default function LessonDetailModal({
   const [isAssigningHomework, setIsAssigningHomework] = useState(false);
   const [standaloneLessons, setStandaloneLessons] = useState<StandaloneLesson[]>([]);
   const [showStandalonePicker, setShowStandalonePicker] = useState(false);
+  const [lessonTypes, setLessonTypes] = useState<LessonType[]>([]);
+  const [isChangingLessonType, setIsChangingLessonType] = useState(false);
   const { user: currentUser } = useAuthStore();
   const navigate = useNavigate();
 
   useEffect(() => {
     loadLesson();
+    if (currentUser?.role === 'admin' || currentUser?.role === 'manager') {
+      loadLessonTypes();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lessonId]);
+
+  const loadLessonTypes = async () => {
+    try {
+      const data = await lessonTypesApi.list();
+      setLessonTypes(data.items);
+    } catch (err) {
+      console.error("Failed to load lesson types:", err);
+    }
+  };
+
+  const handleLessonTypeChange = async (newLessonTypeId: number) => {
+    if (!lesson || newLessonTypeId === lesson.lesson_type_id) return;
+    const newType = lessonTypes.find(lt => lt.id === newLessonTypeId);
+    if (!newType) return;
+
+    const hasCharged = lesson.status === 'completed' && lesson.students.some(s => s.attendance_status === 'present' || s.attendance_status === 'absent_unexcused');
+    if (hasCharged) {
+      const ok = confirm(
+        `Сменить тариф с "${lesson.lesson_type_name}" на "${newType.name}" (${parseFloat(newType.price).toLocaleString('ru-RU')} тг)?\n\nБалансы студентов и преподавателя будут автоматически скорректированы.`
+      );
+      if (!ok) return;
+    }
+
+    try {
+      setIsChangingLessonType(true);
+      await lessonsApi.updateLesson(lesson.id, { lesson_type_id: newLessonTypeId });
+      await loadLesson();
+      onUpdate();
+    } catch (err) {
+      console.error("Failed to change lesson type:", err);
+      setError("Не удалось сменить тариф");
+    } finally {
+      setIsChangingLessonType(false);
+    }
+  };
 
   useEffect(() => {
     if (activeTab === "materials" && lesson) {
@@ -428,7 +468,22 @@ export default function LessonDetailModal({
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                   </svg>
-                  {lesson.lesson_type_name}
+                  {(currentUser?.role === 'admin' || currentUser?.role === 'manager') && lessonTypes.length > 0 ? (
+                    <select
+                      value={lesson.lesson_type_id}
+                      onChange={(e) => handleLessonTypeChange(Number(e.target.value))}
+                      disabled={isChangingLessonType}
+                      className="text-sm border border-gray-300 rounded px-2 py-1"
+                    >
+                      {lessonTypes.map(lt => (
+                        <option key={lt.id} value={lt.id}>
+                          {lt.name} ({parseFloat(lt.price).toLocaleString('ru-RU')} тг)
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    lesson.lesson_type_name
+                  )}
                 </div>
                 {lesson.group_name && (
                   <div className="flex items-center gap-2">

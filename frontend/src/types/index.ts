@@ -12,6 +12,7 @@ export interface User {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  remaining_lessons_total?: number;
 }
 
 export interface UserListResponse {
@@ -381,6 +382,7 @@ export interface TeacherLessonStudent {
   name: string;
   attendance_status: AttendanceStatus;
   charged: boolean;
+  remaining_lessons?: number;
 }
 
 export interface TeacherLesson {

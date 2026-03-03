@@ -131,11 +131,24 @@ export default function AttendanceModal({
                 <div key={student.id} className="p-4 bg-gray-50 rounded-xl">
                   <div className="flex items-center justify-between mb-3">
                     <span className="font-medium text-gray-800">{student.name}</span>
-                    {student.charged && (
-                      <span className="text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded">
-                        Списано
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {student.remaining_lessons != null && (
+                        <span className={`text-xs px-2 py-1 rounded ${
+                          student.remaining_lessons > 3
+                            ? 'bg-green-100 text-green-700'
+                            : student.remaining_lessons >= 1
+                              ? 'bg-yellow-100 text-yellow-700'
+                              : 'bg-red-100 text-red-700'
+                        }`}>
+                          ~{student.remaining_lessons} ур.
+                        </span>
+                      )}
+                      {student.charged && (
+                        <span className="text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded">
+                          Списано
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     {(["present", "absent_excused", "absent_unexcused"] as AttendanceStatus[]).map(

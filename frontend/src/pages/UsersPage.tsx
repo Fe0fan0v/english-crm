@@ -229,13 +229,6 @@ export default function UsersPage() {
               key={user.id}
               user={user}
               onProfile={() => navigate(`/users/${user.id}`)}
-              onSchedule={
-                user.role === "teacher"
-                  ? () => navigate(`/teachers/${user.id}`)
-                  : user.role === "student"
-                    ? () => navigate(`/students/${user.id}`)
-                    : undefined
-              }
               onDelete={() => handleDeleteUser(user.id, user.name)}
               levelName={getLevelName(user.level_id)}
               showBalance={activeTab === "students"}
@@ -290,13 +283,12 @@ export default function UsersPage() {
 interface UserCardProps {
   user: User;
   onProfile: () => void;
-  onSchedule?: () => void;
   onDelete: () => void;
   levelName?: string | null;
   showBalance?: boolean;
 }
 
-function UserCard({ user, onProfile, onSchedule, onDelete, levelName, showBalance }: UserCardProps) {
+function UserCard({ user, onProfile, onDelete, levelName, showBalance }: UserCardProps) {
   const balanceNum = showBalance ? Number(user.balance) : 0;
 
   return (
@@ -318,6 +310,20 @@ function UserCard({ user, onProfile, onSchedule, onDelete, levelName, showBalanc
               )}
             >
               {balanceNum.toLocaleString("ru-RU")} тг
+            </span>
+          )}
+          {user.remaining_lessons_total != null && (
+            <span
+              className={clsx(
+                "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold",
+                user.remaining_lessons_total > 3
+                  ? "bg-green-100 text-green-700"
+                  : user.remaining_lessons_total >= 1
+                    ? "bg-yellow-100 text-yellow-700"
+                    : "bg-red-100 text-red-700"
+              )}
+            >
+              ~{user.remaining_lessons_total} ур.
             </span>
           )}
         </div>
@@ -366,25 +372,6 @@ function UserCard({ user, onProfile, onSchedule, onDelete, levelName, showBalanc
       </div>
 
       <div className="flex items-center gap-2">
-        {/* Schedule button for teachers and students */}
-        {(user.role === "teacher" || user.role === "student") && onSchedule && (
-          <button onClick={onSchedule} className="btn btn-secondary">
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            </svg>
-            Расписание
-          </button>
-        )}
         <button onClick={onProfile} className="btn btn-primary">
           <svg
             className="w-4 h-4"

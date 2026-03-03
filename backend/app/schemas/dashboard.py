@@ -58,6 +58,7 @@ class TeacherLessonStudent(BaseModel):
     name: str
     attendance_status: AttendanceStatus
     charged: bool
+    remaining_lessons: int | None = None
 
 
 class TeacherLesson(BaseModel):

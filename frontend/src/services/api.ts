@@ -591,6 +591,7 @@ export const lessonsApi = {
       title?: string;
       status?: LessonStatus;
       meeting_url?: string;
+      lesson_type_id?: number;
     }
   ): Promise<LessonDetail> => {
     const response = await api.put<LessonDetail>(`/lessons/${lessonId}`, data);
@@ -609,6 +610,13 @@ export const lessonsApi = {
 
   deleteLesson: async (lessonId: number): Promise<void> => {
     await api.delete(`/lessons/${lessonId}`);
+  },
+
+  deleteBatchScheduled: async (studentId: number): Promise<{ deleted_count: number; message: string }> => {
+    const response = await api.delete<{ deleted_count: number; message: string }>(`/lessons/batch-scheduled`, {
+      params: { student_id: studentId },
+    });
+    return response.data;
   },
 
   createLessonsBatch: async (data: {
