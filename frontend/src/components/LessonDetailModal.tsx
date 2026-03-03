@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { lessonsApi, teacherApi, courseMaterialsApi, homeworkApi, homeworkLessonsApi, type StandaloneLesson } from "../services/api";
 import { liveSessionApi } from "../services/liveSessionApi";
 import { useAuthStore } from "../store/authStore";
@@ -50,6 +51,7 @@ export default function LessonDetailModal({
   const [standaloneLessons, setStandaloneLessons] = useState<StandaloneLesson[]>([]);
   const [showStandalonePicker, setShowStandalonePicker] = useState(false);
   const { user: currentUser } = useAuthStore();
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadLesson();
@@ -279,13 +281,13 @@ export default function LessonDetailModal({
         interactive_lesson_id: interactiveLessonId,
       });
       const groupParam = lesson && lesson.students.length > 1 ? "&group=1" : "";
-      window.open(`/courses/lessons/${interactiveLessonId}?session=${lessonId}${groupParam}`, "_blank");
+      navigate(`/courses/lessons/${interactiveLessonId}?session=${lessonId}${groupParam}`);
     } catch (err: unknown) {
       const axiosErr = err as { response?: { status?: number; data?: { detail?: string } } };
       // 409 = session already exists — just open it
       if (axiosErr?.response?.status === 409) {
         const groupParam = lesson && lesson.students.length > 1 ? "&group=1" : "";
-        window.open(`/courses/lessons/${interactiveLessonId}?session=${lessonId}${groupParam}`, "_blank");
+        navigate(`/courses/lessons/${interactiveLessonId}?session=${lessonId}${groupParam}`);
         return;
       }
       const msg = err instanceof Error ? err.message : "Не удалось создать сессию";
