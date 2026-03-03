@@ -396,7 +396,7 @@ const navItems: NavItem[] = [
     path: "/homework/editor",
     label: "Конструктор заданий",
     icon: icons.test,
-    roles: ["teacher"],
+    roles: ["admin", "teacher"],
   },
   // Student items
   {

@@ -57,6 +57,10 @@ export default function CourseEditorPage() {
   const [lessonSectionId, setLessonSectionId] = useState<number | null>(null);
   const [lessonForm, setLessonForm] = useState({ title: '', description: '' });
 
+  // Lesson rename
+  const [editingLessonId, setEditingLessonId] = useState<number | null>(null);
+  const [editingLessonTitle, setEditingLessonTitle] = useState('');
+
   useEffect(() => {
     if (id) loadCourse();
   }, [id]);
@@ -208,6 +212,25 @@ export default function CourseEditorPage() {
       });
     } catch (error) {
       console.error('Failed to delete lesson:', error);
+    }
+  };
+
+  const handleRenameLesson = async (lessonId: number) => {
+    if (!course || !editingLessonTitle.trim()) return;
+    try {
+      await interactiveLessonApi.update(lessonId, { title: editingLessonTitle.trim() });
+      setCourse({
+        ...course,
+        sections: course.sections.map(s => ({
+          ...s,
+          lessons: s.lessons.map(l =>
+            l.id === lessonId ? { ...l, title: editingLessonTitle.trim() } : l
+          ),
+        })),
+      });
+      setEditingLessonId(null);
+    } catch (error) {
+      console.error('Failed to rename lesson:', error);
     }
   };
 
@@ -462,17 +485,64 @@ export default function CourseEditorPage() {
                       key={lesson.id}
                       className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50 group"
                     >
-                      <div className="flex items-center gap-3">
-                        <span className="text-gray-400 text-sm">{sectionIndex + 1}.{lessonIndex + 1}</span>
-                        <span className="text-gray-700">{lesson.title}</span>
-                        {!lesson.is_published && (
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <span className="text-gray-400 text-sm flex-shrink-0">{sectionIndex + 1}.{lessonIndex + 1}</span>
+                        {editingLessonId === lesson.id ? (
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <input
+                              type="text"
+                              value={editingLessonTitle}
+                              onChange={(e) => setEditingLessonTitle(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleRenameLesson(lesson.id);
+                                if (e.key === 'Escape') setEditingLessonId(null);
+                              }}
+                              className="flex-1 min-w-0 px-2 py-1 text-sm border border-purple-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
+                              autoFocus
+                            />
+                            <button
+                              onClick={() => handleRenameLesson(lesson.id)}
+                              className="p-1 text-green-600 hover:bg-green-50 rounded"
+                              title="Сохранить"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => setEditingLessonId(null)}
+                              className="p-1 text-gray-400 hover:bg-gray-100 rounded"
+                              title="Отмена"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        ) : (
+                          <span
+                            className="text-gray-700 truncate"
+                            onDoubleClick={() => {
+                              if (!isReadOnly) {
+                                setEditingLessonId(lesson.id);
+                                setEditingLessonTitle(lesson.title);
+                              }
+                            }}
+                            title={lesson.title}
+                          >
+                            {lesson.title}
+                          </span>
+                        )}
+                        {editingLessonId !== lesson.id && !lesson.is_published && (
                           <span className="text-xs px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded">
                             Черновик
                           </span>
                         )}
-                        <span className="text-xs text-gray-400">
-                          {lesson.blocks_count} блоков
-                        </span>
+                        {editingLessonId !== lesson.id && (
+                          <span className="text-xs text-gray-400">
+                            {lesson.blocks_count} блоков
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         {!isReadOnly && (
@@ -507,6 +577,18 @@ export default function CourseEditorPage() {
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingLessonId(lesson.id);
+                                setEditingLessonTitle(lesson.title);
+                              }}
+                              className="p-1 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded"
+                              title="Переименовать"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                               </svg>
                             </button>
                           </>

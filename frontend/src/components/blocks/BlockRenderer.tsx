@@ -1464,7 +1464,7 @@ function MatchingRenderer({
     <div className="bg-white p-4 rounded-lg border border-gray-100">
       <div className="flex gap-4">
         {/* Left column */}
-        <div className="flex-1 basis-1/2 min-w-0 space-y-2">
+        <div className="flex-1 basis-1/2 min-w-0 flex flex-col gap-2">
           {pairs.map((pair) => {
             const result = isCorrect(pair.left);
             return (
@@ -1473,7 +1473,7 @@ function MatchingRenderer({
                 onClick={() => handleLeftClick(pair.left)}
                 disabled={isChecked}
                 title={canSeeAnswers ? `✓ ${pair.right}` : undefined}
-                className={`w-full min-h-[48px] px-4 py-3 rounded-lg border-2 text-left transition-colors break-words ${
+                className={`flex-1 w-full min-h-[48px] px-4 py-3 rounded-lg border-2 text-left transition-colors break-words flex items-center ${
                   result === true
                     ? "border-green-500 bg-green-50"
                     : result === false
@@ -1492,7 +1492,7 @@ function MatchingRenderer({
         </div>
 
         {/* Right column */}
-        <div className="flex-1 basis-1/2 min-w-0 space-y-2">
+        <div className="flex-1 basis-1/2 min-w-0 flex flex-col gap-2">
           {rightItems.map((right) => {
             const isMatched = Object.values(matches).includes(right);
             const isImage =
@@ -1504,7 +1504,7 @@ function MatchingRenderer({
                 key={right}
                 onClick={() => handleRightClick(right)}
                 disabled={isChecked || !selectedLeft}
-                className={`w-full min-h-[48px] px-4 py-3 rounded-lg border-2 text-left transition-colors break-words ${
+                className={`flex-1 w-full min-h-[48px] px-4 py-3 rounded-lg border-2 text-left transition-colors break-words ${
                   isMatched
                     ? "border-blue-300 bg-blue-50"
                     : "border-gray-200 hover:border-gray-300"
@@ -1514,7 +1514,7 @@ function MatchingRenderer({
                   <img
                     src={right}
                     alt=""
-                    className="w-full h-24 object-contain rounded"
+                    className="w-full h-32 object-cover rounded"
                   />
                 ) : (
                   right

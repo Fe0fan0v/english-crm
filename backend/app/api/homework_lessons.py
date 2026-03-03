@@ -40,16 +40,16 @@ async def list_standalone_lessons(
     current_user: TeacherUser,
     db: DBSession,
 ):
-    """List standalone lessons created by the current teacher."""
-    result = await db.execute(
+    """List standalone lessons. Admin/manager see all, teacher sees only own."""
+    query = (
         select(InteractiveLesson)
-        .where(
-            InteractiveLesson.is_standalone == True,
-            InteractiveLesson.created_by_id == current_user.id,
-        )
+        .where(InteractiveLesson.is_standalone == True)
         .options(selectinload(InteractiveLesson.blocks))
         .order_by(InteractiveLesson.updated_at.desc())
     )
+    if current_user.role not in ("admin", "manager"):
+        query = query.where(InteractiveLesson.created_by_id == current_user.id)
+    result = await db.execute(query)
     lessons = result.scalars().all()
 
     return [
