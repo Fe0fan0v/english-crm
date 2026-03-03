@@ -305,10 +305,10 @@ export default function SchedulePage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="page-title">Расписание</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <h1 className="page-title mb-0">Расписание</h1>
 
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-3">
           {/* Create lesson button */}
           <button
             onClick={() => setShowCreateModal(true)}
@@ -375,7 +375,7 @@ export default function SchedulePage() {
           </div>
         ) : (
           <div className="overflow-auto max-h-[calc(100vh-200px)]">
-            <table className="w-full border-collapse">
+            <table className="w-full min-w-[900px] border-collapse">
               <thead className="sticky top-0 z-10">
                 <tr>
                   <th className="w-16 p-3 border-b border-r border-gray-100 bg-gray-50 text-gray-500 text-sm font-medium sticky left-0 z-20">

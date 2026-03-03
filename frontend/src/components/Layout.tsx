@@ -610,7 +610,7 @@ export default function Layout({ children }: LayoutProps) {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 ml-0 lg:ml-64" style={{ overflowX: "clip" }}>
+      <main className="flex-1 ml-0 lg:ml-64 min-w-0">
         <div className="p-4 lg:p-8 pt-[72px] lg:pt-8 max-w-full">{children}</div>
       </main>
     </div>

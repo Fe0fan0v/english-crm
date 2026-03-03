@@ -242,7 +242,7 @@ export default function StudentSchedulePage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
+            <table className="w-full min-w-[900px] border-collapse">
               <thead>
                 <tr>
                   <th className="w-16 p-3 border-b border-r border-gray-100 bg-gray-50 text-gray-500 text-sm font-medium">
