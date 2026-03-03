@@ -924,6 +924,22 @@ async def create_teacher_lesson(
                 detail=f"Ученики уже заняты в это время: {conflict_details}{more}",
             )
 
+    # Check students balance
+    price = lesson_type.price
+    insufficient_balance_students = []
+    for sid in student_ids:
+        student = await db.get(User, sid)
+        if student and student.balance < price:
+            insufficient_balance_students.append(
+                f"{student.name} ({student.balance:,.0f} тг)"
+            )
+    if insufficient_balance_students:
+        names = ", ".join(insufficient_balance_students)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Недостаточно средств для оплаты урока ({price:,.0f} тг) у учеников: {names}. Пополните баланс перед созданием урока.",
+        )
+
     # Create lesson with teacher as owner
     lesson = Lesson(
         title=data.title,
@@ -953,28 +969,6 @@ async def create_teacher_lesson(
             await ensure_teacher_student_assignment(db, current_user.id, student_id)
 
     await db.commit()
-
-    # Notify teacher about students with low balance
-    price = lesson_type.price
-    low_balance_students = []
-    for sid in student_ids:
-        student = await db.get(User, sid)
-        if student and student.balance < price:
-            low_balance_students.append({
-                "id": student.id,
-                "name": student.name,
-                "balance": str(student.balance),
-            })
-    if low_balance_students:
-        names = ", ".join(f"{s['name']} ({s['balance']} тг)" for s in low_balance_students)
-        db.add(Notification(
-            user_id=current_user.id,
-            type=NotificationType.LOW_BALANCE.value,
-            title="Низкий баланс учеников",
-            message=f"У следующих учеников недостаточно средств для оплаты урока ({price:,.0f} тг): {names}",
-            data={"students": low_balance_students, "price": str(price)},
-        ))
-        await db.commit()
 
     # Reload with relationships
     result = await db.execute(
@@ -1074,6 +1068,22 @@ async def create_teacher_lessons_batch(
             detail="Не удалось сформировать расписание",
         )
 
+    # Check students balance before creating any lessons
+    price = lesson_type.price
+    insufficient_balance_students = []
+    for sid in student_ids:
+        student = await db.get(User, sid)
+        if student and student.balance < price:
+            insufficient_balance_students.append(
+                f"{student.name} ({student.balance:,.0f} тг)"
+            )
+    if insufficient_balance_students:
+        names = ", ".join(insufficient_balance_students)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Недостаточно средств для оплаты урока ({price:,.0f} тг) у учеников: {names}. Пополните баланс перед созданием урока.",
+        )
+
     # Create teacher-student assignments
     for student_id in student_ids:
         await ensure_teacher_student_assignment(db, current_user.id, student_id)
@@ -1139,29 +1149,6 @@ async def create_teacher_lessons_batch(
         created_lessons.append(lesson)
 
     await db.commit()
-
-    # Notify teacher about students with low balance (once for the whole batch)
-    if created_lessons:
-        price = lesson_type.price
-        low_balance_students = []
-        for sid in student_ids:
-            student = await db.get(User, sid)
-            if student and student.balance < price:
-                low_balance_students.append({
-                    "id": student.id,
-                    "name": student.name,
-                    "balance": str(student.balance),
-                })
-        if low_balance_students:
-            names = ", ".join(f"{s['name']} ({s['balance']} тг)" for s in low_balance_students)
-            db.add(Notification(
-                user_id=current_user.id,
-                type=NotificationType.LOW_BALANCE.value,
-                title="Низкий баланс учеников",
-                message=f"У следующих учеников недостаточно средств для оплаты урока ({price:,.0f} тг): {names}",
-                data={"students": low_balance_students, "price": str(price)},
-            ))
-            await db.commit()
 
     # Reload lessons with relationships to build response
     created_schedule_lessons = []
