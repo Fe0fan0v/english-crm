@@ -382,8 +382,8 @@ export default function LessonPreviewPage() {
         .filter((item) => item.title && !excludedTypes.includes(item.blockType));
     }
 
-    const blocksForNav = totalPages > 1 ? currentPageBlocks : lesson.blocks;
-    return blocksForNav
+    // Always use all blocks to determine sidebar visibility and navigation
+    return lesson.blocks
       .map((block) => ({
         id: block.id,
         title: block.title || "",
@@ -391,7 +391,7 @@ export default function LessonPreviewPage() {
         index: lesson.blocks.findIndex((b) => b.id === block.id),
       }))
       .filter((item) => item.title && !excludedTypes.includes(item.blockType));
-  }, [lesson, totalPages, currentPageBlocks, isAutoPaginated]);
+  }, [lesson, isAutoPaginated]);
 
   // Find which page a block belongs to
   const findPageForBlock = useCallback(
@@ -406,26 +406,21 @@ export default function LessonPreviewPage() {
 
   const scrollToBlock = useCallback(
     (blockId: number) => {
-      if (isAutoPaginated) {
-        const targetPage = findPageForBlock(blockId);
-        if (targetPage !== currentPage) {
-          setCurrentPage(targetPage);
-          // Scroll after page renders
-          setTimeout(() => {
-            const el = blockRefs.current[blockId];
-            if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-          }, 50);
-        } else {
+      const targetPage = findPageForBlock(blockId);
+      if (totalPages > 1 && targetPage !== currentPage) {
+        setCurrentPage(targetPage);
+        // Scroll after page renders
+        setTimeout(() => {
           const el = blockRefs.current[blockId];
           if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
+        }, 50);
       } else {
         const el = blockRefs.current[blockId];
         if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
       }
       setSidebarOpen(false);
     },
-    [isAutoPaginated, currentPage, findPageForBlock],
+    [totalPages, currentPage, findPageForBlock],
   );
 
   if (loading) {
@@ -445,10 +440,10 @@ export default function LessonPreviewPage() {
   const showSidebar = navItems.length >= 3;
 
   return (
-    <div ref={contentRef} className={`${showSidebar ? "max-w-5xl" : "max-w-3xl"} mx-auto`}>
-      {/* Live Session Banner */}
+    <>
+      {/* Live Session Banner — fixed outside content container */}
       {isLiveMode && (
-        <div className="mb-4 p-3 rounded-xl border-2 border-purple-200 bg-purple-50 flex items-center justify-between sticky top-0 z-30">
+        <div className="sticky top-0 z-30 mb-4 p-3 rounded-xl border-2 border-purple-200 bg-purple-50 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span className="relative flex h-3 w-3">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
@@ -504,6 +499,7 @@ export default function LessonPreviewPage() {
         </div>
       )}
 
+    <div ref={contentRef} className={`${showSidebar ? "max-w-5xl" : "max-w-3xl"} mx-auto`}>
       {/* Remote Cursor */}
       {isLiveMode && liveSession.remoteCursor && liveSession.remoteCursor.visible && (
         <RemoteCursor
@@ -828,7 +824,7 @@ export default function LessonPreviewPage() {
                   </div>
                   <div className="space-y-1">
                     {navItems.map((item) => {
-                      const isActive = isAutoPaginated
+                      const isActive = totalPages > 1
                         ? findPageForBlock(item.id) === currentPage
                         : activeBlockId === item.id;
                       return (
@@ -853,6 +849,7 @@ export default function LessonPreviewPage() {
         )}
       </div>
     </div>
+    </>
   );
 }
 

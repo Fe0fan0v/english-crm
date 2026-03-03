@@ -809,13 +809,15 @@ function FillGapsRenderer({
                 disabled={isChecked}
                 className={`w-32 px-2 py-1 border-b-2 text-center focus:outline-none ${
                   result === null
-                    ? "border-purple-300 focus:border-purple-500"
+                    ? canSeeAnswers && gap?.answer
+                      ? "border-green-400 border-dashed bg-green-50/30"
+                      : "border-purple-300 focus:border-purple-500"
                     : result
                       ? "border-green-500 bg-green-50"
                       : "border-red-500 bg-red-50"
                 }`}
-                placeholder={gap?.hint || "..."}
-                title={canSeeAnswers && gap ? gap.answer : undefined}
+                placeholder={canSeeAnswers && gap?.answer ? gap.answer : (gap?.hint || "...")}
+                title={canSeeAnswers && gap ? `Ответ: ${gap.answer}` : undefined}
               />
               {isChecked && result === false && (
                 canSeeAnswers && gap ? (
@@ -1482,7 +1484,9 @@ function MatchingRenderer({
                         ? "border-purple-500 bg-purple-50"
                         : matches[pair.left]
                           ? "border-blue-300 bg-blue-50"
-                          : "border-gray-200 hover:border-gray-300"
+                          : canSeeAnswers
+                            ? "border-green-400 border-dashed bg-green-50/30"
+                            : "border-gray-200 hover:border-gray-300"
                 }`}
               >
                 {pair.left}
@@ -1554,6 +1558,21 @@ function MatchingRenderer({
             </div>
           </div>
         )}
+
+      {!isChecked && canSeeAnswers && (
+        <div className="mt-4 p-3 rounded-lg bg-green-50/40 border border-dashed border-green-300">
+          <div className="text-sm text-green-700 space-y-1">
+            <span className="font-medium">Правильные пары: </span>
+            {pairs.map((p) => (
+              <div key={p.left} className="flex items-center gap-1 ml-2">
+                <span>{p.left}</span>
+                <span>↔</span>
+                <span>{p.right}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {!isChecked && (
         <button
@@ -2324,9 +2343,11 @@ function DragWordsRenderer({
                 ? "border-red-500 bg-red-50 text-red-700"
                 : placedWord
                   ? "border-blue-400 bg-blue-50 text-blue-700"
-                  : selectedWord
-                    ? "border-purple-400 bg-purple-50 cursor-pointer hover:border-purple-500"
-                    : "border-gray-300 bg-gray-50 text-gray-400"
+                  : canSeeAnswers && wordForTooltip
+                    ? "border-green-400 bg-green-50/30 text-green-600"
+                    : selectedWord
+                      ? "border-purple-400 bg-purple-50 cursor-pointer hover:border-purple-500"
+                      : "border-gray-300 bg-gray-50 text-gray-400"
           }`}
         >
           {placedWord || "\u00A0___\u00A0"}
