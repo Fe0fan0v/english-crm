@@ -1387,117 +1387,102 @@ async def mark_attendance(
         ]
 
         if should_charge and not was_charged:
-            # Double-check: no existing debit transaction for this lesson+student
-            existing_tx = await db.execute(
-                select(Transaction).where(
-                    Transaction.user_id == attendance.student_id,
-                    Transaction.lesson_id == lesson_id,
-                    Transaction.type == TransactionType.DEBIT,
-                )
-            )
-            if existing_tx.scalar_one_or_none():
-                # Transaction already exists — just mark as charged, skip creation
-                lesson_student.charged = True
-            else:
-                # Get student with their level
-                student = await db.get(User, attendance.student_id)
-                if student:
-                    # Check if student has sufficient balance (cannot go negative)
-                    if student.balance >= price:
-                        # Charge student
-                        student.balance -= price
+            # FOR UPDATE lock above prevents race conditions — charged flag is authoritative
+            student = await db.get(User, attendance.student_id)
+            if student:
+                if student.balance >= price:
+                    # Charge student
+                    student.balance -= price
 
-                        # Create student transaction (debit)
-                        description = (
-                            f"Урок: {lesson.title}"
-                            if new_status == AttendanceStatus.PRESENT
-                            else f"Неявка без уважительной причины: {lesson.title}"
-                        )
-                        transaction = Transaction(
-                            user_id=attendance.student_id,
-                            amount=price,
-                            type=TransactionType.DEBIT,
-                            lesson_id=lesson_id,
-                            description=description,
-                            created_by_id=current_user.id,
-                        )
-                        db.add(transaction)
-                        lesson_student.charged = True
+                    description = (
+                        f"Урок: {lesson.title}"
+                        if new_status == AttendanceStatus.PRESENT
+                        else f"Неявка без уважительной причины: {lesson.title}"
+                    )
+                    transaction = Transaction(
+                        user_id=attendance.student_id,
+                        amount=price,
+                        type=TransactionType.DEBIT,
+                        lesson_id=lesson_id,
+                        description=description,
+                        created_by_id=current_user.id,
+                    )
+                    db.add(transaction)
+                    lesson_student.charged = True
 
-                        # Check for low balance and create notification
-                        LOW_BALANCE_THRESHOLD = Decimal("5000")
-                        if student.balance < LOW_BALANCE_THRESHOLD:
-                            if student.balance == 0:
-                                notification_message = (
-                                    "Ваш баланс равен 0. Пожалуйста, "
-                                    "пополните баланс для продолжения занятий."
-                                )
-                            else:
-                                notification_message = (
-                                    f"Ваш баланс низкий: {student.balance:,.0f} тг. "
-                                    "Рекомендуем пополнить баланс."
-                                )
-
-                            notification = Notification(
-                                user_id=student.id,
-                                type=NotificationType.LOW_BALANCE.value,
-                                title="Низкий баланс",
-                                message=notification_message,
-                                data={"balance": str(student.balance)},
+                    # Check for low balance and create notification
+                    LOW_BALANCE_THRESHOLD = Decimal("5000")
+                    if student.balance < LOW_BALANCE_THRESHOLD:
+                        if student.balance == 0:
+                            notification_message = (
+                                "Ваш баланс равен 0. Пожалуйста, "
+                                "пополните баланс для продолжения занятий."
                             )
-                            db.add(notification)
-                    else:
-                        # Insufficient balance - create notification but don't charge
-                        message = (
-                            f"Не удалось списать оплату за урок '{lesson.title}'. "
-                            f"Баланс: {student.balance:,.0f} тг, "
-                            f"стоимость: {price:,.0f} тг."
-                        )
+                        else:
+                            notification_message = (
+                                f"Ваш баланс низкий: {student.balance:,.0f} тг. "
+                                "Рекомендуем пополнить баланс."
+                            )
+
                         notification = Notification(
                             user_id=student.id,
                             type=NotificationType.LOW_BALANCE.value,
-                            title="Недостаточно средств",
-                            message=message,
-                            data={"balance": str(student.balance), "price": str(price)},
+                            title="Низкий баланс",
+                            message=notification_message,
+                            data={"balance": str(student.balance)},
                         )
                         db.add(notification)
-                        # Note: lesson_student.charged stays False
+                else:
+                    # Insufficient balance - create notification but don't charge
+                    message = (
+                        f"Не удалось списать оплату за урок '{lesson.title}'. "
+                        f"Баланс: {student.balance:,.0f} тг, "
+                        f"стоимость: {price:,.0f} тг."
+                    )
+                    notification = Notification(
+                        user_id=student.id,
+                        type=NotificationType.LOW_BALANCE.value,
+                        title="Недостаточно средств",
+                        message=message,
+                        data={"balance": str(student.balance), "price": str(price)},
+                    )
+                    db.add(notification)
 
-                    # Pay teacher only if student was actually charged
-                    if teacher and lesson_student.charged:
-                        teacher_payment = None
+                # Pay teacher only if student was actually charged
+                if teacher and lesson_student.charged:
+                    teacher_payment = None
 
-                        # Try to look up payment amount from matrix
-                        if teacher.level_id:
-                            payment_result = await db.execute(
-                                select(LevelLessonTypePayment).where(
-                                    and_(
-                                        LevelLessonTypePayment.level_id == teacher.level_id,
-                                        LevelLessonTypePayment.lesson_type_id
-                                        == lesson_type_id,
-                                    )
+                    # Try to look up payment amount from matrix
+                    if teacher.level_id:
+                        payment_result = await db.execute(
+                            select(LevelLessonTypePayment).where(
+                                and_(
+                                    LevelLessonTypePayment.level_id == teacher.level_id,
+                                    LevelLessonTypePayment.lesson_type_id
+                                    == lesson_type_id,
                                 )
                             )
-                            payment_config = payment_result.scalar_one_or_none()
-                            if payment_config:
-                                teacher_payment = payment_config.teacher_payment
-
-                        # Fallback: 50% of lesson price if no matrix config
-                        if teacher_payment is None:
-                            teacher_payment = price * Decimal("0.5")
-
-                        teacher.balance += teacher_payment
-
-                        # Create teacher transaction (credit)
-                        teacher_transaction = Transaction(
-                            user_id=teacher.id,
-                            amount=teacher_payment,
-                            type=TransactionType.CREDIT,
-                            lesson_id=lesson_id,
-                            description=f"Оплата за урок: {lesson.title} ({student.name})",
-                            created_by_id=current_user.id,
                         )
-                        db.add(teacher_transaction)
+                        payment_config = payment_result.scalar_one_or_none()
+                        if payment_config:
+                            teacher_payment = payment_config.teacher_payment
+
+                    # Fallback: 50% of lesson price if no matrix config
+                    if teacher_payment is None:
+                        teacher_payment = price * Decimal("0.5")
+
+                    teacher.balance += teacher_payment
+
+                    # Create teacher transaction (credit)
+                    teacher_transaction = Transaction(
+                        user_id=teacher.id,
+                        amount=teacher_payment,
+                        type=TransactionType.CREDIT,
+                        lesson_id=lesson_id,
+                        description=f"Оплата за урок: {lesson.title} ({student.name})",
+                        created_by_id=current_user.id,
+                    )
+                    db.add(teacher_transaction)
 
         elif not should_charge and was_charged:
             # Refund student (status changed from charged to excused)

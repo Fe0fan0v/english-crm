@@ -3,7 +3,7 @@
 -- Дата: 2026-03-03
 -- Причина: race condition при отметке посещаемости (двойной клик / concurrent requests)
 -- =============================================================================
--- ВАЖНО: Выполнять на production (ssh jsi → docker exec -it engcrm-db-1 psql -U engcrm engcrm)
+-- ВАЖНО: Выполнять на production (ssh jsi → docker exec -it engcrm-db psql -U postgres engcrm)
 -- Рекомендуется сделать бэкап БД перед запуском!
 -- =============================================================================
 
@@ -25,7 +25,7 @@ SELECT
 FROM transactions t
 JOIN users u ON u.id = t.user_id
 LEFT JOIN lessons l ON l.id = t.lesson_id
-WHERE t.type = 'debit'
+WHERE t.type = 'DEBIT'
   AND t.lesson_id IS NOT NULL
 GROUP BY t.user_id, t.lesson_id, u.name, l.title
 HAVING COUNT(*) > 1
@@ -41,7 +41,7 @@ FROM (
         t.lesson_id,
         SUM(t.amount) - MIN(t.amount) AS overpaid
     FROM transactions t
-    WHERE t.type = 'debit'
+    WHERE t.type = 'DEBIT'
       AND t.lesson_id IS NOT NULL
     GROUP BY t.user_id, t.lesson_id
     HAVING COUNT(*) > 1
@@ -60,7 +60,7 @@ SELECT
 FROM transactions t
 JOIN users u ON u.id = t.user_id
 LEFT JOIN lessons l ON l.id = t.lesson_id
-WHERE t.type = 'credit'
+WHERE t.type = 'CREDIT'
   AND t.lesson_id IS NOT NULL
   AND u.role = 'teacher'
 GROUP BY t.user_id, t.lesson_id, u.name, l.title
@@ -78,7 +78,7 @@ FROM (
         SUM(t.amount) - MIN(t.amount) AS overpaid
     FROM transactions t
     JOIN users u ON u.id = t.user_id
-    WHERE t.type = 'credit'
+    WHERE t.type = 'CREDIT'
       AND t.lesson_id IS NOT NULL
       AND u.role = 'teacher'
     GROUP BY t.user_id, t.lesson_id
@@ -88,13 +88,13 @@ FROM (
 -- 1.5. ID транзакций к удалению (DEBIT дубликаты — все кроме первой)
 SELECT t.id, t.user_id, t.lesson_id, t.amount, t.type, t.created_at, t.description
 FROM transactions t
-WHERE t.type = 'debit'
+WHERE t.type = 'DEBIT'
   AND t.lesson_id IS NOT NULL
   AND t.id NOT IN (
       -- Оставляем только первую (MIN id) транзакцию в каждой группе
       SELECT MIN(t2.id)
       FROM transactions t2
-      WHERE t2.type = 'debit'
+      WHERE t2.type = 'DEBIT'
         AND t2.lesson_id IS NOT NULL
       GROUP BY t2.user_id, t2.lesson_id
   )
@@ -104,7 +104,7 @@ WHERE t.type = 'debit'
       FROM transactions t3
       WHERE t3.user_id = t.user_id
         AND t3.lesson_id = t.lesson_id
-        AND t3.type = 'debit'
+        AND t3.type = 'DEBIT'
       GROUP BY t3.user_id, t3.lesson_id
       HAVING COUNT(*) > 1
   )
@@ -114,14 +114,14 @@ ORDER BY t.user_id, t.lesson_id, t.id;
 SELECT t.id, t.user_id, t.lesson_id, t.amount, t.type, t.created_at, t.description
 FROM transactions t
 JOIN users u ON u.id = t.user_id
-WHERE t.type = 'credit'
+WHERE t.type = 'CREDIT'
   AND t.lesson_id IS NOT NULL
   AND u.role = 'teacher'
   AND t.id NOT IN (
       SELECT MIN(t2.id)
       FROM transactions t2
       JOIN users u2 ON u2.id = t2.user_id
-      WHERE t2.type = 'credit'
+      WHERE t2.type = 'CREDIT'
         AND t2.lesson_id IS NOT NULL
         AND u2.role = 'teacher'
       GROUP BY t2.user_id, t2.lesson_id
@@ -132,7 +132,7 @@ WHERE t.type = 'credit'
       JOIN users u3 ON u3.id = t3.user_id
       WHERE t3.user_id = t.user_id
         AND t3.lesson_id = t.lesson_id
-        AND t3.type = 'credit'
+        AND t3.type = 'CREDIT'
         AND u3.role = 'teacher'
       GROUP BY t3.user_id, t3.lesson_id
       HAVING COUNT(*) > 1
@@ -155,12 +155,12 @@ FROM (
         t.user_id,
         SUM(t.amount) AS overpaid
     FROM transactions t
-    WHERE t.type = 'debit'
+    WHERE t.type = 'DEBIT'
       AND t.lesson_id IS NOT NULL
       AND t.id NOT IN (
           SELECT MIN(t2.id)
           FROM transactions t2
-          WHERE t2.type = 'debit'
+          WHERE t2.type = 'DEBIT'
             AND t2.lesson_id IS NOT NULL
           GROUP BY t2.user_id, t2.lesson_id
       )
@@ -169,7 +169,7 @@ FROM (
           FROM transactions t3
           WHERE t3.user_id = t.user_id
             AND t3.lesson_id = t.lesson_id
-            AND t3.type = 'debit'
+            AND t3.type = 'DEBIT'
           GROUP BY t3.user_id, t3.lesson_id
           HAVING COUNT(*) > 1
       )
@@ -179,12 +179,12 @@ WHERE users.id = correction.user_id;
 
 -- 2.2. Удаление дублированных DEBIT-транзакций (оставляем первую)
 DELETE FROM transactions
-WHERE type = 'debit'
+WHERE type = 'DEBIT'
   AND lesson_id IS NOT NULL
   AND id NOT IN (
       SELECT MIN(t2.id)
       FROM transactions t2
-      WHERE t2.type = 'debit'
+      WHERE t2.type = 'DEBIT'
         AND t2.lesson_id IS NOT NULL
       GROUP BY t2.user_id, t2.lesson_id
   )
@@ -193,7 +193,7 @@ WHERE type = 'debit'
       FROM transactions t3
       WHERE t3.user_id = transactions.user_id
         AND t3.lesson_id = transactions.lesson_id
-        AND t3.type = 'debit'
+        AND t3.type = 'DEBIT'
       GROUP BY t3.user_id, t3.lesson_id
       HAVING COUNT(*) > 1
   );
@@ -207,14 +207,14 @@ FROM (
         SUM(t.amount) AS overpaid
     FROM transactions t
     JOIN users u ON u.id = t.user_id
-    WHERE t.type = 'credit'
+    WHERE t.type = 'CREDIT'
       AND t.lesson_id IS NOT NULL
       AND u.role = 'teacher'
       AND t.id NOT IN (
           SELECT MIN(t2.id)
           FROM transactions t2
           JOIN users u2 ON u2.id = t2.user_id
-          WHERE t2.type = 'credit'
+          WHERE t2.type = 'CREDIT'
             AND t2.lesson_id IS NOT NULL
             AND u2.role = 'teacher'
           GROUP BY t2.user_id, t2.lesson_id
@@ -225,7 +225,7 @@ FROM (
           JOIN users u3 ON u3.id = t3.user_id
           WHERE t3.user_id = t.user_id
             AND t3.lesson_id = t.lesson_id
-            AND t3.type = 'credit'
+            AND t3.type = 'CREDIT'
             AND u3.role = 'teacher'
           GROUP BY t3.user_id, t3.lesson_id
           HAVING COUNT(*) > 1
@@ -236,20 +236,20 @@ WHERE users.id = correction.user_id;
 
 -- 2.4. Удаление дублированных CREDIT-транзакций учителей (оставляем первую)
 DELETE FROM transactions
-WHERE type = 'credit'
+WHERE type = 'CREDIT'
   AND lesson_id IS NOT NULL
   AND id IN (
       SELECT t.id
       FROM transactions t
       JOIN users u ON u.id = t.user_id
-      WHERE t.type = 'credit'
+      WHERE t.type = 'CREDIT'
         AND t.lesson_id IS NOT NULL
         AND u.role = 'teacher'
         AND t.id NOT IN (
             SELECT MIN(t2.id)
             FROM transactions t2
             JOIN users u2 ON u2.id = t2.user_id
-            WHERE t2.type = 'credit'
+            WHERE t2.type = 'CREDIT'
               AND t2.lesson_id IS NOT NULL
               AND u2.role = 'teacher'
             GROUP BY t2.user_id, t2.lesson_id
@@ -260,7 +260,7 @@ WHERE type = 'credit'
             JOIN users u3 ON u3.id = t3.user_id
             WHERE t3.user_id = t.user_id
               AND t3.lesson_id = t.lesson_id
-              AND t3.type = 'credit'
+              AND t3.type = 'CREDIT'
               AND u3.role = 'teacher'
             GROUP BY t3.user_id, t3.lesson_id
             HAVING COUNT(*) > 1
@@ -276,7 +276,7 @@ SELECT COUNT(*) AS remaining_debit_duplicates
 FROM (
     SELECT user_id, lesson_id
     FROM transactions
-    WHERE type = 'debit' AND lesson_id IS NOT NULL
+    WHERE type = 'DEBIT' AND lesson_id IS NOT NULL
     GROUP BY user_id, lesson_id
     HAVING COUNT(*) > 1
 ) sub;
@@ -287,7 +287,7 @@ FROM (
     SELECT t.user_id, t.lesson_id
     FROM transactions t
     JOIN users u ON u.id = t.user_id
-    WHERE t.type = 'credit' AND t.lesson_id IS NOT NULL AND u.role = 'teacher'
+    WHERE t.type = 'CREDIT' AND t.lesson_id IS NOT NULL AND u.role = 'teacher'
     GROUP BY t.user_id, t.lesson_id
     HAVING COUNT(*) > 1
 ) sub;
@@ -305,7 +305,7 @@ FROM users u
 LEFT JOIN (
     SELECT
         user_id,
-        SUM(CASE WHEN type = 'credit' THEN amount ELSE -amount END) AS calculated_balance
+        SUM(CASE WHEN type = 'CREDIT' THEN amount ELSE -amount END) AS calculated_balance
     FROM transactions
     GROUP BY user_id
 ) calc ON calc.user_id = u.id
