@@ -478,7 +478,7 @@ export default function Layout({ children }: LayoutProps) {
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex overflow-x-hidden">
+    <div className="min-h-screen bg-gray-50 flex" style={{ overflowX: "clip" }}>
       <LiveSessionBanner />
       {/* Mobile Header */}
       <header className="fixed top-0 left-0 right-0 h-14 bg-white border-b border-gray-100 z-40 lg:hidden flex items-center justify-between px-4">
