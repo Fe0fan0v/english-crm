@@ -13,7 +13,7 @@ from app.api.uploads import (
 )
 from app.config import settings
 from app.models.group import Group, GroupStudent
-from app.models.lesson import Lesson, LessonStudent
+from app.models.lesson import Lesson, LessonStatus, LessonStudent
 from app.models.lesson_type import LessonType
 from app.models.teacher_student import TeacherStudent
 from app.models.transaction import Transaction, TransactionType
@@ -283,6 +283,57 @@ async def delete_user(
         )
 
     user.is_active = False
+
+    # Clean up scheduled lessons for students
+    if user.role == UserRole.STUDENT:
+        # Find all SCHEDULED lessons where this student participates
+        scheduled_ls_result = await db.execute(
+            select(LessonStudent, Lesson)
+            .join(Lesson, LessonStudent.lesson_id == Lesson.id)
+            .where(
+                LessonStudent.student_id == user_id,
+                Lesson.status == LessonStatus.SCHEDULED,
+            )
+        )
+        scheduled_entries = scheduled_ls_result.all()
+
+        for ls, lesson in scheduled_entries:
+            # Count other students in this lesson
+            count_result = await db.execute(
+                select(func.count(LessonStudent.id)).where(
+                    LessonStudent.lesson_id == lesson.id,
+                    LessonStudent.student_id != user_id,
+                )
+            )
+            other_count = count_result.scalar() or 0
+
+            # Individual lesson (no group, no other students) → delete lesson entirely
+            if not lesson.group_id and other_count == 0:
+                # Unlink transactions
+                await db.execute(
+                    select(Transaction).where(Transaction.lesson_id == lesson.id)
+                )
+                from sqlalchemy import update as sa_update
+                await db.execute(
+                    sa_update(Transaction)
+                    .where(Transaction.lesson_id == lesson.id)
+                    .values(lesson_id=None)
+                )
+                # Delete lesson_students
+                await db.execute(
+                    select(LessonStudent).where(LessonStudent.lesson_id == lesson.id)
+                )
+                ls_to_delete = (await db.execute(
+                    select(LessonStudent).where(LessonStudent.lesson_id == lesson.id)
+                )).scalars().all()
+                for ls_del in ls_to_delete:
+                    await db.delete(ls_del)
+                # Delete lesson
+                await db.delete(lesson)
+            else:
+                # Group or multi-student → just remove this student
+                await db.delete(ls)
+
     await db.flush()
 
 

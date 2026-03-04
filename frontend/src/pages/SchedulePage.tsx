@@ -46,7 +46,7 @@ function formatDateISOEnd(date: Date): string {
 }
 
 const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
-const TIME_SLOTS = Array.from({ length: 24 }, (_, i) => `${i}:00`); // 0:00 - 23:00
+const ALL_TIME_SLOTS = Array.from({ length: 24 }, (_, i) => ({ label: `${i}:00`, hour: i }));
 
 // Status colors
 const statusColors: Record<string, string> = {
@@ -160,6 +160,24 @@ export default function SchedulePage() {
   const [selectedLessonId, setSelectedLessonId] = useState<number | null>(null);
   const [prefillDate, setPrefillDate] = useState<string | undefined>();
   const [prefillTime, setPrefillTime] = useState<string | undefined>();
+  const [startHour, setStartHour] = useState(() => {
+    const saved = localStorage.getItem("schedule_hours_main_start");
+    return saved ? Number(saved) : 8;
+  });
+  const [endHour, setEndHour] = useState(() => {
+    const saved = localStorage.getItem("schedule_hours_main_end");
+    return saved ? Number(saved) : 20;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("schedule_hours_main_start", String(startHour));
+    localStorage.setItem("schedule_hours_main_end", String(endHour));
+  }, [startHour, endHour]);
+
+  const filteredTimeSlots = useMemo(
+    () => ALL_TIME_SLOTS.filter((s) => s.hour >= startHour && s.hour <= endHour),
+    [startHour, endHour]
+  );
 
   // Handle cell click to create lesson with prefilled date/time
   const handleCellClick = (dayIndex: number, hour: number) => {
@@ -334,6 +352,28 @@ export default function SchedulePage() {
             ))}
           </select>
 
+          {/* Hour range */}
+          <div className="flex items-center gap-1 text-sm text-gray-600">
+            <span>Часы:</span>
+            <input
+              type="number"
+              min={0}
+              max={endHour}
+              value={startHour}
+              onChange={(e) => setStartHour(Math.max(0, Math.min(Number(e.target.value), endHour)))}
+              className="input w-16 text-center py-1"
+            />
+            <span>—</span>
+            <input
+              type="number"
+              min={startHour}
+              max={23}
+              value={endHour}
+              onChange={(e) => setEndHour(Math.max(startHour, Math.min(Number(e.target.value), 23)))}
+              className="input w-16 text-center py-1"
+            />
+          </div>
+
           {/* Week navigation */}
           <div className="flex items-center gap-2 bg-white rounded-xl shadow-sm border border-gray-100 p-1">
             <button
@@ -400,14 +440,14 @@ export default function SchedulePage() {
                 </tr>
               </thead>
               <tbody>
-                {TIME_SLOTS.map((time, timeIndex) => (
-                  <tr key={time}>
+                {filteredTimeSlots.map((slot) => (
+                  <tr key={slot.hour}>
                     <td className="p-2 border-b border-r border-gray-100 bg-gray-50 text-center text-sm text-gray-500 font-medium sticky left-0 z-[5]">
-                      {time}
+                      {slot.label}
                     </td>
                     {WEEKDAYS.map((_, dayIndex) => {
-                      const slotLessons = getLessonsForSlot(dayIndex, timeIndex);
-                      const hour = timeIndex;
+                      const slotLessons = getLessonsForSlot(dayIndex, slot.hour);
+                      const hour = slot.hour;
                       return (
                         <td
                           key={dayIndex}

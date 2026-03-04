@@ -73,17 +73,22 @@ async def ensure_teacher_student_assignment(
 
 def build_lesson_response(lesson: Lesson) -> LessonResponse:
     """Build LessonResponse from Lesson model."""
-    students = [
-        StudentInfo(
-            id=ls.student.id,
-            name=ls.student.name,
-            email=ls.student.email,
-            phone=ls.student.phone,
-            attendance_status=ls.attendance_status,
-            charged=ls.charged,
+    price = lesson.lesson_type.price if lesson.lesson_type else 0
+    students = []
+    for ls in lesson.students:
+        balance = float(ls.student.balance) if ls.student.balance else 0
+        remaining = int(balance / float(price)) if price and float(price) > 0 and balance > 0 else 0
+        students.append(
+            StudentInfo(
+                id=ls.student.id,
+                name=ls.student.name,
+                email=ls.student.email,
+                phone=ls.student.phone,
+                attendance_status=ls.attendance_status,
+                charged=ls.charged,
+                remaining_lessons=remaining,
+            )
         )
-        for ls in lesson.students
-    ]
     return LessonResponse(
         id=lesson.id,
         title=lesson.title,

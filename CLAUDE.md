@@ -71,7 +71,7 @@ backup/                 # Автобэкапы PostgreSQL в S3
 ### Группы
 - Уроки привязываются к группе (`group_id`) → автоподтягивание учеников
 - Групповой чат через WebSocket: `wss://lms.jsi.kz/api/groups/ws/{group_id}/chat?token={jwt}`
-- Синхронизация учеников: `sync_group_students_to_future_lessons()` при добавлении/удалении ученика из группы обновляет `lesson_students` всех SCHEDULED уроков группы
+- Синхронизация учеников: `sync_group_students_to_lessons()` при добавлении/удалении ученика из группы обновляет `lesson_students` всех уроков группы (кроме CANCELLED). Добавление — во все уроки (включая прошлые), удаление — только если `attendance_status == PENDING`
 - **ВАЖНО**: фильтр по `status=SCHEDULED` вместо `datetime.now()` — БД хранит naive local time (UTC+5), а сервер в UTC
 
 ### Прямые назначения преподаватель-ученик
@@ -270,7 +270,9 @@ backup/                 # Автобэкапы PostgreSQL в S3
 - **Профиль ученика (admin/manager)**: назначенный преподаватель (`GET /api/users/{id}/assigned-teachers`), остаток уроков по типам (`GET /api/users/{id}/remaining-lessons`)
 - **Скрытый баланс студента**: временно скрыты баланс в шапке, карточка баланса, секция «Остаток уроков» на дашборде. Флаг `HIDE_BALANCE` в `StudentDashboardPage.tsx`
 - **Layout overflow fix**: корневой div — `overflow-x: clip` (не `overflow-x: hidden`!, hidden создаёт scroll-контейнер и ломает sticky). `<main>` — `min-w-0` (позволяет flex-item сжиматься, не блокирует горизонтальный скролл вложенных контейнеров)
-- **Расписание**: таблица `min-w-[900px]` для гарантированного горизонтального скролла на узких экранах
+- **Расписание**: таблица `min-w-[900px]` для гарантированного горизонтального скролла на узких экранах. Настраиваемый диапазон часов (по умолчанию 8-20), сохраняется в localStorage
+- **Удаление ученика**: при soft-delete студента автоматически удаляются его индивидуальные SCHEDULED уроки (без группы, один студент), из групповых — студент удаляется из `lesson_students`
+- **Удаление будущих уроков**: кнопка в LessonDetailModal (admin/manager) — вызывает `DELETE /api/lessons/batch-scheduled?student_id=` для удаления всех запланированных уроков ученика
 
 ## Production
 - **Сервер**: ps.kz VPS (Debian 12), IP: 78.40.108.93, SSH: `ssh jsi`

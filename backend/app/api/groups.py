@@ -23,22 +23,19 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-async def sync_group_students_to_future_lessons(
+async def sync_group_students_to_lessons(
     db,
     group_id: int,
     added_student_ids: list[int],
     removed_student_ids: list[int],
     teacher_id: int | None,
 ) -> None:
-    """Sync group student changes to all future scheduled lessons of the group."""
-    # Find all scheduled lessons for this group
-    # Note: rely on status=SCHEDULED rather than datetime comparison,
-    # because DB stores naive local time (Kazakhstan UTC+5) while
-    # server datetime.now() returns UTC, causing timezone mismatch.
+    """Sync group student changes to all lessons of the group (except cancelled)."""
+    # Find all non-cancelled lessons for this group
     future_lessons_result = await db.execute(
         select(Lesson).where(
             Lesson.group_id == group_id,
-            Lesson.status == LessonStatus.SCHEDULED,
+            Lesson.status != LessonStatus.CANCELLED,
         )
     )
     future_lessons = future_lessons_result.scalars().all()
@@ -46,7 +43,7 @@ async def sync_group_students_to_future_lessons(
     logger.info(
         f"sync_group_students: group={group_id}, "
         f"added={added_student_ids}, removed={removed_student_ids}, "
-        f"future_lessons={len(future_lessons)}"
+        f"lessons={len(future_lessons)}"
     )
 
     if not future_lessons:
@@ -445,7 +442,7 @@ async def add_students_to_group(
 
     # Sync new students to future scheduled lessons
     if new_student_ids:
-        await sync_group_students_to_future_lessons(
+        await sync_group_students_to_lessons(
             db, group_id, added_student_ids=new_student_ids, removed_student_ids=[], teacher_id=group.teacher_id
         )
         await db.flush()
@@ -488,7 +485,7 @@ async def remove_students_from_group(
 
     # Remove students from future scheduled lessons (only if attendance is pending)
     if removed_ids:
-        await sync_group_students_to_future_lessons(
+        await sync_group_students_to_lessons(
             db, group_id, added_student_ids=[], removed_student_ids=removed_ids, teacher_id=group.teacher_id
         )
         await db.flush()

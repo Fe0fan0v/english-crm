@@ -52,6 +52,7 @@ export default function LessonDetailModal({
   const [showStandalonePicker, setShowStandalonePicker] = useState(false);
   const [lessonTypes, setLessonTypes] = useState<LessonType[]>([]);
   const [isChangingLessonType, setIsChangingLessonType] = useState(false);
+  const [deletingFutureForStudentId, setDeletingFutureForStudentId] = useState<number | null>(null);
   const { user: currentUser } = useAuthStore();
   const navigate = useNavigate();
 
@@ -290,6 +291,21 @@ export default function LessonDetailModal({
       setError("Не удалось обновить посещаемость");
     } finally {
       setUpdatingStudentId(null);
+    }
+  };
+
+  const handleDeleteFutureLessons = async (studentId: number) => {
+    if (!confirm("Удалить все будущие запланированные уроки этого ученика?")) return;
+    try {
+      setDeletingFutureForStudentId(studentId);
+      await lessonsApi.deleteBatchScheduled(studentId);
+      await loadLesson();
+      onUpdate();
+    } catch (err) {
+      console.error("Failed to delete future lessons:", err);
+      setError("Не удалось удалить будущие уроки");
+    } finally {
+      setDeletingFutureForStudentId(null);
     }
   };
 
@@ -597,10 +613,32 @@ export default function LessonDetailModal({
                     className="flex items-center justify-between p-4 bg-gray-50 rounded-xl"
                   >
                     <div className="flex-1">
-                      <div className="font-medium text-gray-800">{student.name}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-gray-800">{student.name}</span>
+                        {student.remaining_lessons != null && (
+                          <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                            student.remaining_lessons <= 2
+                              ? 'bg-red-100 text-red-700'
+                              : student.remaining_lessons <= 5
+                              ? 'bg-orange-100 text-orange-700'
+                              : 'bg-gray-100 text-gray-600'
+                          }`}>
+                            {student.remaining_lessons} ур.
+                          </span>
+                        )}
+                      </div>
                       <div className="text-sm text-gray-500">{student.email}</div>
                       {student.charged && (
                         <div className="text-xs text-green-600 mt-1">Списано</div>
+                      )}
+                      {(currentUser?.role === 'admin' || currentUser?.role === 'manager') && (
+                        <button
+                          onClick={() => handleDeleteFutureLessons(student.id)}
+                          disabled={deletingFutureForStudentId === student.id}
+                          className="text-xs text-red-500 hover:text-red-700 mt-1 disabled:opacity-50"
+                        >
+                          {deletingFutureForStudentId === student.id ? "Удаление..." : "Удалить будущие уроки"}
+                        </button>
                       )}
                     </div>
                     <div className="ml-4">

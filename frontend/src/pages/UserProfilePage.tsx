@@ -7,7 +7,7 @@ import BalanceChangeModal from '../components/BalanceChangeModal';
 import EditUserModal, { type EditUserData } from '../components/EditUserModal';
 import clsx from 'clsx';
 
-type TabType = 'info' | 'classes' | 'students' | 'materials' | 'groups' | 'transactions' | 'schedule';
+type TabType = 'info' | 'classes' | 'students' | 'materials' | 'groups' | 'transactions';
 
 export default function UserProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -168,10 +168,14 @@ export default function UserProfilePage() {
     if (activeTab === 'transactions') {
       fetchTransactions();
     }
-    if (activeTab === 'schedule') {
+  }, [activeTab, transactionsPage, id]);
+
+  // Load schedule for students/teachers on mount and when date range changes
+  useEffect(() => {
+    if (user && (user.role === 'student' || user.role === 'teacher')) {
       fetchSchedule();
     }
-  }, [activeTab, transactionsPage, id, scheduleDateFrom, scheduleDateTo]);
+  }, [user?.id, user?.role, scheduleDateFrom, scheduleDateTo]);
 
   const handleBalanceChange = async (amount: number, description: string) => {
     if (!id) return;
@@ -335,14 +339,6 @@ export default function UserProfilePage() {
             className={clsx('tab pb-3', activeTab === 'groups' && 'tab-active')}
           >
             Группы
-          </button>
-        )}
-        {(isStudent || isTeacher) && (
-          <button
-            onClick={() => setActiveTab('schedule')}
-            className={clsx('tab pb-3', activeTab === 'schedule' && 'tab-active')}
-          >
-            Расписание
           </button>
         )}
         {isStudent && (
@@ -652,8 +648,9 @@ export default function UserProfilePage() {
         </div>
       )}
 
-      {activeTab === 'schedule' && (isStudent || isTeacher) && (
-        <div className="card">
+      {/* Schedule section — always visible for students and teachers */}
+      {(isStudent || isTeacher) && (
+        <div className="card mt-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="section-title">Расписание</h2>
             {isStudent && scheduleLessons.some(l => l.status === 'scheduled') && (

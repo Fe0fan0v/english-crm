@@ -256,6 +256,7 @@ export interface LessonStudentDetail {
   phone: string | null;
   attendance_status: AttendanceStatus;
   charged: boolean;
+  remaining_lessons?: number | null;
 }
 
 export interface LessonMaterial {

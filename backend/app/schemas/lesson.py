@@ -144,6 +144,7 @@ class StudentInfo(BaseModel):
     phone: str | None
     attendance_status: AttendanceStatus
     charged: bool
+    remaining_lessons: int | None = None
 
     class Config:
         from_attributes = True
