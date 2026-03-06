@@ -89,7 +89,7 @@ export default function WhiteboardPage() {
       },
       onSessionEnd: () => {
         wb.clearStorage();
-        navigate('/schedule');
+        navigate(isStudent ? '/student' : '/schedule');
       },
     },
   );

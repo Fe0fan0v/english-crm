@@ -141,7 +141,7 @@ export default function LessonPreviewPage() {
         setRemoteStrokes([]);
       },
       onSessionEnd: () => {
-        navigate('/schedule');
+        navigate(isStudent ? '/student' : '/schedule');
       },
       onPeerJoined: () => {
         // Student sends snapshot when teacher joins/reconnects (only 1:1)
