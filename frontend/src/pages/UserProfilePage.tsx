@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { usersApi, levelsApi, teacherApi, lessonsApi } from '../services/api';
 import type { User, UserGroup, Transaction, TransactionListResponse, Level, TeacherDashboardResponse, TeacherStudentInfo, ScheduleLesson } from '../types';
+import ProfileScheduleGrid from '../components/ProfileScheduleGrid';
 import Avatar from '../components/Avatar';
 import BalanceChangeModal from '../components/BalanceChangeModal';
 import EditUserModal, { type EditUserData } from '../components/EditUserModal';
@@ -26,16 +27,6 @@ export default function UserProfilePage() {
   const [assignedTeachers, setAssignedTeachers] = useState<{ id: number; name: string }[]>([]);
   const [remainingLessons, setRemainingLessons] = useState<{ lesson_type_name: string; price: string; count: number }[]>([]);
   const [scheduleLessons, setScheduleLessons] = useState<ScheduleLesson[]>([]);
-  const [scheduleLoading, setScheduleLoading] = useState(false);
-  const [scheduleDateFrom, setScheduleDateFrom] = useState(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  });
-  const [scheduleDateTo, setScheduleDateTo] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 30);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  });
 
   const fetchUser = async () => {
     if (!id) return;
@@ -146,11 +137,13 @@ export default function UserProfilePage() {
 
   const fetchSchedule = async () => {
     if (!id) return;
-    setScheduleLoading(true);
     try {
       const userId = parseInt(id);
-      const from = scheduleDateFrom + 'T00:00:00';
-      const to = scheduleDateTo + 'T23:59:59';
+      const now = new Date();
+      const from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T00:00:00`;
+      const future = new Date(now);
+      future.setDate(future.getDate() + 90);
+      const to = `${future.getFullYear()}-${String(future.getMonth() + 1).padStart(2, '0')}-${String(future.getDate()).padStart(2, '0')}T23:59:59`;
       const data = await lessonsApi.getSchedule(
         from, to,
         user?.role === 'teacher' ? userId : undefined,
@@ -159,8 +152,6 @@ export default function UserProfilePage() {
       setScheduleLessons(data);
     } catch (error) {
       console.error('Failed to fetch schedule:', error);
-    } finally {
-      setScheduleLoading(false);
     }
   };
 
@@ -170,12 +161,12 @@ export default function UserProfilePage() {
     }
   }, [activeTab, transactionsPage, id]);
 
-  // Load schedule for students/teachers on mount and when date range changes
+  // Load schedule for students (needed for "delete all scheduled" button)
   useEffect(() => {
-    if (user && (user.role === 'student' || user.role === 'teacher')) {
+    if (user && user.role === 'student') {
       fetchSchedule();
     }
-  }, [user?.id, user?.role, scheduleDateFrom, scheduleDateTo]);
+  }, [user?.id, user?.role]);
 
   const handleBalanceChange = async (amount: number, description: string) => {
     if (!id) return;
@@ -648,12 +639,15 @@ export default function UserProfilePage() {
         </div>
       )}
 
-      {/* Schedule section — always visible for students and teachers */}
-      {(isStudent || isTeacher) && (
+      {/* Schedule section — weekly grid for students and teachers */}
+      {(isStudent || isTeacher) && user && (
         <div className="card mt-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="section-title">Расписание</h2>
-            {isStudent && scheduleLessons.some(l => l.status === 'scheduled') && (
+          <ProfileScheduleGrid
+            userId={user.id}
+            role={user.role as "student" | "teacher"}
+          />
+          {isStudent && scheduleLessons.some(l => l.status === 'scheduled') && (
+            <div className="mt-4 pt-4 border-t">
               <button
                 onClick={async () => {
                   const scheduledCount = scheduleLessons.filter(l => l.status === 'scheduled').length;
@@ -671,82 +665,6 @@ export default function UserProfilePage() {
               >
                 Удалить все запланированные
               </button>
-            )}
-          </div>
-          <div className="flex flex-wrap items-end gap-4 mb-6">
-            <div>
-              <label className="block text-sm text-gray-500 mb-1">С</label>
-              <input
-                type="date"
-                value={scheduleDateFrom}
-                onChange={(e) => setScheduleDateFrom(e.target.value)}
-                className="input"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-500 mb-1">По</label>
-              <input
-                type="date"
-                value={scheduleDateTo}
-                onChange={(e) => setScheduleDateTo(e.target.value)}
-                className="input"
-              />
-            </div>
-          </div>
-
-          {scheduleLoading ? (
-            <div className="text-center py-8 text-gray-500">Загрузка...</div>
-          ) : scheduleLessons.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">Нет уроков за выбранный период</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-200 text-left text-gray-500">
-                    <th className="py-3 px-4">Дата</th>
-                    <th className="py-3 px-4">Время</th>
-                    <th className="py-3 px-4">Тип</th>
-                    <th className="py-3 px-4">Статус</th>
-                    <th className="py-3 px-4">{isStudent ? 'Преподаватель' : 'Ученики'}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {scheduleLessons.map((lesson) => {
-                    const dt = new Date(lesson.scheduled_at);
-                    const statusLabels: Record<string, string> = {
-                      scheduled: 'Запланирован',
-                      completed: 'Завершён',
-                      cancelled: 'Отменён',
-                    };
-                    const statusColors: Record<string, string> = {
-                      scheduled: 'bg-blue-100 text-blue-700',
-                      completed: 'bg-green-100 text-green-700',
-                      cancelled: 'bg-red-100 text-red-700',
-                    };
-                    return (
-                      <tr key={lesson.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-3 px-4">
-                          {dt.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })}
-                        </td>
-                        <td className="py-3 px-4">
-                          {dt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
-                        </td>
-                        <td className="py-3 px-4">{lesson.lesson_type_name}</td>
-                        <td className="py-3 px-4">
-                          <span className={clsx('px-2 py-1 rounded-full text-xs font-medium', statusColors[lesson.status] || 'bg-gray-100 text-gray-600')}>
-                            {statusLabels[lesson.status] || lesson.status}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4">
-                          {isStudent
-                            ? lesson.teacher_name
-                            : lesson.student_names?.join(', ') || (lesson.group_name ? `Группа: ${lesson.group_name}` : '—')}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
             </div>
           )}
         </div>
