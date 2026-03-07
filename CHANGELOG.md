@@ -4,6 +4,57 @@
 
 ## Март 2026
 
+### 149. Недельная сетка расписания в профиле студента/преподавателя (7 марта 2026)
+
+- Заменена таблица-список уроков на недельную сетку (как на основном расписании) в профиле пользователя (admin/manager → профиль студента или преподавателя)
+- Навигация по неделям (стрелки), авто-определение диапазона часов
+- **Для преподавателей**: рабочее время (availability) отображается зелёным фоном ячеек
+- Легенда статусов и рабочего времени
+- Кнопка «Удалить все запланированные» по-прежнему доступна для студентов
+- Компонент `ProfileScheduleGrid.tsx` — переиспользуемый
+- **Файлы**: `ProfileScheduleGrid.tsx`, `UserProfilePage.tsx`
+
+### 148. Mac-скроллинг, словарь, произношение, перевод по наведению, переделка ДЗ (7 марта 2026)
+
+#### Видимые скроллбары расписания на macOS
+- CSS-класс `schedule-scroll` с видимыми скроллбарами (8px, серые, hover-эффект)
+- Применён к `SchedulePage`, `StudentSchedulePage`, `ProfileScheduleGrid`
+- Поддержка WebKit (Chrome/Safari) и Firefox (`scrollbar-width: thin`)
+- **Файлы**: `index.css`, `SchedulePage.tsx`, `StudentSchedulePage.tsx`
+
+#### Кнопка «Добавить в мой словарь» в блоке Vocabulary
+- Студенты видят кнопку ➕ справа от каждого слова в блоке «Словарь»
+- При нажатии слово добавляется в персональный словарь (`vocabularyApi.addMyWord()`)
+- После добавления — галочка, кнопка блокируется
+- Lazy-import API для минимизации бандла
+- **Файлы**: `BlockRenderer.tsx` (VocabularyRenderer)
+
+#### Исправлено произношение в блоке Vocabulary
+- Заменён простой `speechSynthesis` на `pronounceWord()` из `audioUtils.ts`
+- Сначала ищет реальное аудио носителя из Free Dictionary API
+- Fallback: Speech API с умным выбором голоса (Google US English → Microsoft English → любой en-US)
+- **Файлы**: `BlockRenderer.tsx` (VocabularyRenderer)
+
+#### Перевод по наведению (Yandex Dictionary API)
+- При наведении на англ. слово в уроке — tooltip с русским переводом (аналог Яндекс.Переводчика)
+- Backend: `GET /api/vocabulary/translate?word=` → Yandex Dictionary API
+- API-ключ хранится в env `YANDEX_DICT_API_KEY` (не в коде)
+- Frontend: компонент `TranslationTooltip.tsx` — `caretRangeFromPoint`, debounce 400ms, кеш в памяти
+- Показывает: слово, транскрипцию, часть речи, варианты перевода
+- Работает и в live-сессии, и в обычном просмотре
+- **Файлы**: `dictionary.py`, `vocabulary.py` (backend), `TranslationTooltip.tsx`, `LessonPreviewPage.tsx`, `api.ts`
+
+#### Переделка системы домашних заданий
+- Каждый шаблон ДЗ теперь = полноценный интерактивный урок с блок-редактором (все 21 тип блоков)
+- При создании шаблона авто-создаётся `InteractiveLesson` (`is_standalone=true`, `is_homework=true`)
+- Миграция 035: добавлено `interactive_lesson_id` в `homework_templates`
+- UI: кнопки предпросмотр / редактирование блоков / переименование / удаление на странице шаблонов
+- При создании — сразу переход в блок-редактор
+- Доступ для admin и teacher (было: только admin)
+- Автоназначение при прикреплении курса работает как раньше
+- **Удалено**: маршрут `/homework/editor`, пункт меню «Конструктор заданий» (`HomeworkEditorPage`)
+- **Файлы**: `homework_templates.py`, `homework_template.py`, `homework.py` (model), `TestsPage.tsx`, `Layout.tsx`, `App.tsx`, `api.ts`, миграция 035
+
 ### 147. Удаление будущих уроков, синхронизация группы, очистка при удалении ученика, настраиваемые часы расписания (4 марта 2026)
 
 #### Кнопка «Удалить будущие уроки» в модалке урока

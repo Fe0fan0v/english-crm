@@ -17,7 +17,7 @@ backend/
 │   ├── schemas/       # Pydantic схемы
 │   ├── utils/         # Утилиты (grading.py — серверная проверка ответов)
 │   └── database.py    # Подключение к БД
-├── alembic/versions/  # Миграции (000-032)
+├── alembic/versions/  # Миграции (000-035)
 └── requirements.txt
 
 frontend/
@@ -162,22 +162,28 @@ backup/                 # Автобэкапы PostgreSQL в S3
 - **UI преподавателя** (LessonDetailModal → таб «Курсы»): кнопка «Задать ДЗ» / badge «ДЗ назначено» на каждом lesson-материале, секция «Назначенные ДЗ» с прогрессом и кнопками «Принять»/удалить
 - **UI ученика** (StudentDashboardPage): таб «Домашнее задание» (бывший «Тесты») — карточки ДЗ с прогресс-баром, статус-badges, кнопками «Открыть» и «Сдать»
 - **Файлы**: `homework.py` (model, schema, api), `homeworkApi` в api.ts
-- **Шаблоны ДЗ** (HomeworkTemplate, миграция 032): admin создаёт шаблоны (название + курс + список интерактивных уроков), при прикреплении курсового материала к уроку — ДЗ автоназначается ученикам по шаблонам
-  - CRUD API: `/api/homework-templates` (AdminUser)
-  - Автоназначение: в `attach_course_material()` (`lessons.py`) после создания attachment
-  - UI: страница «Домашние задания» (бывший «Тесты») — конструктор шаблонов с выбором курса и чекбоксами уроков
-  - **Файлы**: `homework_templates.py` (api), `homework_template.py` (schema), `homeworkTemplatesApi` в api.ts
-
-**Конструктор ДЗ (standalone уроки):** admin и teacher создают интерактивные уроки для домашних работ
-- Модель: `InteractiveLesson` с `is_standalone=true`, `topic_id=null`
-- API: `POST/GET/PUT/DELETE /api/homework-lessons/` (TeacherUser). GET: admin/manager видят все, teacher — только свои
-- Frontend: `/homework/editor` — список, создание, редактирование (переиспользование LessonEditorPage). Доступен для admin и teacher
-- Назначение: в LessonDetailModal → «Свои задания» → «Задать ДЗ»
-- **Файлы**: `homework_lessons.py` (api), `HomeworkEditorPage.tsx`, миграция 034
+- **Шаблоны ДЗ** (HomeworkTemplate, миграции 032, 035): каждый шаблон = полноценный интерактивный урок с блок-редактором
+  - При создании шаблона авто-создаётся `InteractiveLesson` (`is_standalone=true`, `is_homework=true`)
+  - CRUD API: `/api/homework-templates` (TeacherUser — admin, manager, teacher)
+  - UI: страница «Домашние задания» (`/tests`) — создание, предпросмотр, редактирование блоков, переименование, удаление
+  - При создании → сразу переход в блок-редактор (все 21 тип блоков)
+  - Автоназначение: в `attach_course_material()` (`lessons.py`) — при прикреплении курса ДЗ авто-назначается ученикам
+  - **Файлы**: `homework_templates.py` (api), `homework_template.py` (schema), `TestsPage.tsx`, `homeworkTemplatesApi` в api.ts
+  - ~~Конструктор заданий~~ (`/homework/editor`) — удалён, функциональность перенесена в шаблоны ДЗ
 
 **Авто-транскрипция в словаре:** при вводе слова — debounced запрос к Free Dictionary API
 - Backend: `GET /api/vocabulary/lookup?word=` → `app/utils/dictionary.py` → `dictionaryapi.dev`
 - Frontend: автозаполнение транскрипции в VocabularyBlockEditor, подсказка определения
+
+**Произношение в блоке «Словарь»:** `VocabularyRenderer` использует `pronounceWord()` из `audioUtils.ts`
+- Сначала ищет реальное аудио носителя из Free Dictionary API, fallback — Speech API с выбором голоса (`getEnglishVoice()`)
+- Кнопка «Добавить в словарь» (только для студентов) — добавляет слово в персональный словарь через `vocabularyApi.addMyWord()`
+
+**Перевод по наведению (Yandex Dictionary API):** hover-tooltip с переводом en→ru для любого англ. слова в уроке
+- Backend: `GET /api/vocabulary/translate?word=` → Yandex Dictionary API (env `YANDEX_DICT_API_KEY`)
+- Frontend: компонент `TranslationTooltip.tsx` — оборачивает блоки в `LessonPreviewPage`, определяет слово через `caretRangeFromPoint`, debounce 400ms, кеширование в памяти
+- Показывает: слово, транскрипцию, часть речи, варианты перевода
+- Работает и в live-сессии, и в обычном просмотре
 
 **Курсовые материалы (legacy «Уроки»):** вкладка на дашборде студента с постоянным доступом ко всем курсовым материалам (без лимита 30 дней). Endpoint: `GET /api/student/homework`. Вкладка «Материалы» показывает PDF-файлы (30 дней), «Уроки» — курсовые материалы (всё время)
 
@@ -267,10 +273,10 @@ backup/                 # Автобэкапы PostgreSQL в S3
 - **Видеоблок**: поддержка YouTube (watch, shorts, live, embed, si-param), Vimeo, прямые .mp4/.webm/.ogg, fallback для любых `/embed/` URL
 - **Мобильная версия**: брейкпоинт `lg:` (1024px), гамбургер-меню, адаптивные сетки
 - **Фильтр по балансу**: `GET /api/users` поддерживает `balance_from`, `balance_to`, `sort_by` (name, balance_asc, balance_desc). UI: поля «Баланс от/до» + сортировка на странице пользователей
-- **Профиль ученика (admin/manager)**: назначенный преподаватель (`GET /api/users/{id}/assigned-teachers`), остаток уроков по типам (`GET /api/users/{id}/remaining-lessons`)
+- **Профиль ученика/преподавателя (admin/manager)**: назначенный преподаватель (`GET /api/users/{id}/assigned-teachers`), остаток уроков по типам (`GET /api/users/{id}/remaining-lessons`). Недельная сетка расписания (`ProfileScheduleGrid.tsx`) вместо таблицы-списка, для преподавателей отображается рабочее время (availability) зелёным фоном
 - **Скрытый баланс студента**: временно скрыты баланс в шапке, карточка баланса, секция «Остаток уроков» на дашборде. Флаг `HIDE_BALANCE` в `StudentDashboardPage.tsx`
 - **Layout overflow fix**: корневой div — `overflow-x: clip` (не `overflow-x: hidden`!, hidden создаёт scroll-контейнер и ломает sticky). `<main>` — `min-w-0` (позволяет flex-item сжиматься, не блокирует горизонтальный скролл вложенных контейнеров)
-- **Расписание**: таблица `min-w-[900px]` для гарантированного горизонтального скролла на узких экранах. Настраиваемый диапазон часов (по умолчанию 8-20), сохраняется в localStorage
+- **Расписание**: таблица `min-w-[900px]` для гарантированного горизонтального скролла на узких экранах. Настраиваемый диапазон часов (по умолчанию 8-20), сохраняется в localStorage. CSS-класс `schedule-scroll` — видимые скроллбары на macOS (webkit + Firefox)
 - **Удаление ученика**: при soft-delete студента автоматически удаляются его индивидуальные SCHEDULED уроки (без группы, один студент), из групповых — студент удаляется из `lesson_students`
 - **Удаление будущих уроков**: кнопка в LessonDetailModal (admin/manager) — вызывает `DELETE /api/lessons/batch-scheduled?student_id=` для удаления всех запланированных уроков ученика
 
@@ -296,7 +302,7 @@ backup/                 # Автобэкапы PostgreSQL в S3
 - Frontend: загрузка студентов через `usersApi.list(1, 10000, undefined, "student")`
 
 ## Миграции (Alembic)
-Текущая версия: **034**. Применяются автоматически при деплое.
+Текущая версия: **035**. Применяются автоматически при деплое.
 
 ## Полезные команды
 ```bash
