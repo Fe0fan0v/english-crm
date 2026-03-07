@@ -455,6 +455,8 @@ export interface HomeworkTemplate {
   title: string;
   course_id: number;
   course_title: string;
+  interactive_lesson_id: number | null;
+  blocks_count: number;
   created_by: number;
   creator_name: string;
   created_at: string;
@@ -470,7 +472,6 @@ export const homeworkTemplatesApi = {
   create: async (data: {
     title: string;
     course_id: number;
-    interactive_lesson_ids: number[];
   }): Promise<HomeworkTemplate> => {
     const response = await api.post<HomeworkTemplate>("/homework-templates", data);
     return response.data;
@@ -1035,10 +1036,22 @@ export const courseMaterialsApi = {
 };
 
 // Vocabulary (Personal Dictionary) API
+export interface TranslationResult {
+  word: string;
+  ts: string;
+  definitions: { pos: string; ts: string; tr: string[] }[];
+}
+
 export const vocabularyApi = {
   // Dictionary lookup
   lookup: async (word: string): Promise<{ phonetic: string; definition: string }> => {
     const resp = await api.get(`/vocabulary/lookup?word=${encodeURIComponent(word)}`);
+    return resp.data;
+  },
+
+  // Yandex Dictionary translate (en→ru)
+  translate: async (word: string): Promise<TranslationResult> => {
+    const resp = await api.get(`/vocabulary/translate?word=${encodeURIComponent(word)}`);
     return resp.data;
   },
 

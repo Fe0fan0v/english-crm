@@ -33,7 +33,6 @@ import LessonResultsPage from "./pages/LessonResultsPage";
 import StudentCourseMaterialPage from "./pages/StudentCourseMaterialPage";
 import StudentSchedulePage from "./pages/StudentSchedulePage";
 import WhiteboardPage from "./pages/WhiteboardPage";
-import HomeworkEditorPage from "./pages/HomeworkEditorPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { token, user, fetchUser, logout } = useAuthStore();
@@ -436,14 +435,6 @@ export default function App() {
         element={
           <ProtectedRoute>
             <TestsPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/homework/editor"
-        element={
-          <ProtectedRoute>
-            <HomeworkEditorPage />
           </ProtectedRoute>
         }
       />

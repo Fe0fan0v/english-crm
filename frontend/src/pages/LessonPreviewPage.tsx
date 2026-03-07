@@ -11,6 +11,7 @@ import type {
 import BlockRenderer from "../components/blocks/BlockRenderer";
 import RemoteCursor from "../components/RemoteCursor";
 import DrawingOverlay from "../components/DrawingOverlay";
+import TranslationTooltip from "../components/TranslationTooltip";
 import type { DrawingStroke } from "../hooks/useLiveSession";
 
 // Block type labels for the sidebar
@@ -638,6 +639,7 @@ export default function LessonPreviewPage() {
           )}
 
           {/* Blocks */}
+          <TranslationTooltip>
           <div className="space-y-6">
             {currentPageBlocks.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
@@ -676,6 +678,7 @@ export default function LessonPreviewPage() {
               })
             )}
           </div>
+          </TranslationTooltip>
 
           {/* Page navigation - bottom */}
           {totalPages > 1 && (

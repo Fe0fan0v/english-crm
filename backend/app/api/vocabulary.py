@@ -33,6 +33,20 @@ async def lookup_word_endpoint(
     return result
 
 
+@router.get("/translate")
+async def translate_word_endpoint(
+    word: str = Query(..., min_length=1, max_length=100),
+    current_user: CurrentUser = None,
+):
+    """Translate a word using Yandex Dictionary API (en→ru)."""
+    from app.utils.dictionary import translate_word
+
+    result = await translate_word(word.strip().lower())
+    if result is None:
+        return {"word": word, "ts": "", "definitions": []}
+    return result
+
+
 def _word_to_response(word: VocabularyWord) -> VocabularyWordResponse:
     return VocabularyWordResponse(
         id=word.id,

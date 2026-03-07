@@ -279,7 +279,7 @@ export default function StudentSchedulePage() {
             <div className="text-gray-500">Загрузка...</div>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto schedule-scroll">
             <table className="w-full min-w-[900px] border-collapse">
               <thead>
                 <tr>

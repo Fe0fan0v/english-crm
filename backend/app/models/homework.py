@@ -78,7 +78,7 @@ class HomeworkAssignment(Base):
 
 
 class HomeworkTemplate(Base):
-    """Template for homework assignments — a named collection of interactive lessons."""
+    """Template for homework assignments — each template owns an interactive lesson with blocks."""
 
     __tablename__ = "homework_templates"
 
@@ -88,6 +88,12 @@ class HomeworkTemplate(Base):
         Integer,
         ForeignKey("courses.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
+    )
+    interactive_lesson_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("interactive_lessons.id", ondelete="SET NULL"),
+        nullable=True,
         index=True,
     )
     created_by: Mapped[int] = mapped_column(
@@ -101,6 +107,9 @@ class HomeworkTemplate(Base):
 
     # Relationships
     course: Mapped["Course"] = relationship("Course", foreign_keys=[course_id])
+    interactive_lesson: Mapped["InteractiveLesson | None"] = relationship(
+        "InteractiveLesson", foreign_keys=[interactive_lesson_id]
+    )
     creator: Mapped["User"] = relationship("User", foreign_keys=[created_by])
     items: Mapped[list["HomeworkTemplateItem"]] = relationship(
         "HomeworkTemplateItem", back_populates="template", cascade="all, delete-orphan"

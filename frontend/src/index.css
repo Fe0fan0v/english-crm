@@ -104,6 +104,27 @@ body {
         scrollbar-width: none;
     }
 
+    /* Visible scrollbar for schedule tables (macOS hides scrollbars by default) */
+    .schedule-scroll::-webkit-scrollbar {
+        height: 8px;
+        width: 8px;
+    }
+    .schedule-scroll::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 4px;
+    }
+    .schedule-scroll::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+    }
+    .schedule-scroll::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+    }
+    .schedule-scroll {
+        scrollbar-width: thin;
+        scrollbar-color: #cbd5e1 #f1f5f9;
+    }
+
     /* Touch-friendly target size (44x44px) */
     .touch-target {
         @apply min-h-[44px] min-w-[44px];

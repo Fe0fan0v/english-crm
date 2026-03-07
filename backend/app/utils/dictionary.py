@@ -1,4 +1,40 @@
+import os
+
 import httpx
+
+YANDEX_DICT_API_KEY = os.getenv("YANDEX_DICT_API_KEY", "")
+
+
+async def translate_word(word: str, lang: str = "en-ru") -> dict | None:
+    """Translate a word using Yandex Dictionary API."""
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(
+                "https://dictionary.yandex.net/api/v1/dicservice.json/lookup",
+                params={"key": YANDEX_DICT_API_KEY, "lang": lang, "text": word},
+            )
+            if resp.status_code != 200:
+                return None
+            data = resp.json()
+            defs = data.get("def", [])
+            if not defs:
+                return None
+            results = []
+            for d in defs:
+                pos = d.get("pos", "")
+                ts = d.get("ts", "")
+                translations = [tr.get("text", "") for tr in d.get("tr", [])[:3]]
+                if translations:
+                    results.append({"pos": pos, "ts": ts, "tr": translations})
+            if not results:
+                return None
+            return {
+                "word": word,
+                "ts": results[0].get("ts", ""),
+                "definitions": results,
+            }
+    except Exception:
+        return None
 
 
 async def lookup_word(word: str) -> dict | None:

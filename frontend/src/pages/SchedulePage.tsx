@@ -414,7 +414,7 @@ export default function SchedulePage() {
             <div className="text-gray-500">Загрузка...</div>
           </div>
         ) : (
-          <div className="overflow-x-auto max-h-[calc(100vh-200px)] overflow-y-auto">
+          <div className="overflow-x-auto max-h-[calc(100vh-200px)] overflow-y-auto schedule-scroll">
             <table className="w-full min-w-[900px] border-collapse">
               <thead className="sticky top-0 z-10">
                 <tr>

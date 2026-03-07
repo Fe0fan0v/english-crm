@@ -353,7 +353,7 @@ const navItems: NavItem[] = [
     path: "/tests",
     label: "Домашние задания",
     icon: icons.test,
-    roles: ["admin"],
+    roles: ["admin", "teacher"],
   },
   {
     path: "/news-management",
@@ -391,12 +391,6 @@ const navItems: NavItem[] = [
     label: "База знаний",
     icon: icons.book,
     roles: ["teacher"],
-  },
-  {
-    path: "/homework/editor",
-    label: "Конструктор заданий",
-    icon: icons.test,
-    roles: ["admin", "teacher"],
   },
   // Student items
   {
