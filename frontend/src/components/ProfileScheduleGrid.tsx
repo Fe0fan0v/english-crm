@@ -117,26 +117,50 @@ export default function ProfileScheduleGrid({
     );
   };
 
-  const { startHour, endHour } = useMemo(() => {
-    let min = 8;
-    let max = 20;
+  const [startHour, setStartHour] = useState(() => {
+    const saved = localStorage.getItem("schedule_hours_profile_start");
+    return saved ? Number(saved) : 8;
+  });
+  const [endHour, setEndHour] = useState(() => {
+    const saved = localStorage.getItem("schedule_hours_profile_end");
+    return saved ? Number(saved) : 20;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("schedule_hours_profile_start", String(startHour));
+    localStorage.setItem("schedule_hours_profile_end", String(endHour));
+  }, [startHour, endHour]);
+
+  // Expand range if lessons/availability fall outside
+  const effectiveStart = useMemo(() => {
+    let min = startHour;
     for (const l of lessons) {
       const h = new Date(l.scheduled_at).getHours();
       if (h < min) min = h;
-      if (h >= max) max = h + 1;
     }
     for (const a of availability) {
       const sh = parseInt(a.start_time.split(":")[0]);
-      const eh = parseInt(a.end_time.split(":")[0]);
       if (sh < min) min = sh;
+    }
+    return min;
+  }, [lessons, availability, startHour]);
+
+  const effectiveEnd = useMemo(() => {
+    let max = endHour;
+    for (const l of lessons) {
+      const h = new Date(l.scheduled_at).getHours();
+      if (h >= max) max = h + 1;
+    }
+    for (const a of availability) {
+      const eh = parseInt(a.end_time.split(":")[0]);
       if (eh > max) max = eh;
     }
-    return { startHour: min, endHour: max };
-  }, [lessons, availability]);
+    return max;
+  }, [lessons, availability, endHour]);
 
   const timeSlots = useMemo(
-    () => Array.from({ length: endHour - startHour }, (_, i) => startHour + i),
-    [startHour, endHour]
+    () => Array.from({ length: effectiveEnd - effectiveStart }, (_, i) => effectiveStart + i),
+    [effectiveStart, effectiveEnd]
   );
 
   const goToPrevWeek = () => {
@@ -208,6 +232,27 @@ export default function ProfileScheduleGrid({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>
+          {/* Hour range */}
+          <div className="flex items-center gap-1 text-sm text-gray-600 ml-4">
+            <span className="text-xs">Часы:</span>
+            <input
+              type="number"
+              min={0}
+              max={endHour}
+              value={startHour}
+              onChange={(e) => setStartHour(Math.max(0, Math.min(Number(e.target.value), endHour)))}
+              className="input w-14 text-center py-1 text-sm"
+            />
+            <span>—</span>
+            <input
+              type="number"
+              min={startHour}
+              max={23}
+              value={endHour}
+              onChange={(e) => setEndHour(Math.max(startHour, Math.min(Number(e.target.value), 23)))}
+              className="input w-14 text-center py-1 text-sm"
+            />
+          </div>
         </div>
       </div>
 
