@@ -4,8 +4,11 @@ from sqlalchemy.orm import selectinload
 
 from app.api.deps import AdminUser, DBSession, TeacherUser
 from app.models.course import Course, ExerciseBlock, InteractiveLesson
-from app.models.homework import HomeworkTemplate, HomeworkTemplateItem
+from app.models.homework import HomeworkAssignment, HomeworkTemplate, HomeworkTemplateItem
+from app.models.lesson import Lesson
+from app.models.lesson_type import LessonType
 from app.schemas.homework_template import (
+    HomeworkAssignedLesson,
     HomeworkTemplateCreate,
     HomeworkTemplateResponse,
     HomeworkTemplateUpdate,
@@ -19,7 +22,11 @@ INTERACTIVE_TYPES = {
 }
 
 
-def _template_to_response(t: HomeworkTemplate, blocks_count: int = 0) -> HomeworkTemplateResponse:
+def _template_to_response(
+    t: HomeworkTemplate,
+    blocks_count: int = 0,
+    assigned_lessons: list[HomeworkAssignedLesson] | None = None,
+) -> HomeworkTemplateResponse:
     return HomeworkTemplateResponse(
         id=t.id,
         title=t.title,
@@ -40,6 +47,7 @@ def _template_to_response(t: HomeworkTemplate, blocks_count: int = 0) -> Homewor
             }
             for item in t.items
         ],
+        assigned_lessons=assigned_lessons or [],
     )
 
 
@@ -95,18 +103,55 @@ async def list_homework_templates(
         templates = list(result.scalars().all())
 
     # Get blocks count for each template's interactive lesson
-    lesson_ids = [t.interactive_lesson_id for t in templates if t.interactive_lesson_id]
+    il_ids = [t.interactive_lesson_id for t in templates if t.interactive_lesson_id]
     blocks_counts: dict[int, int] = {}
-    if lesson_ids:
+    if il_ids:
         counts_result = await db.execute(
             select(ExerciseBlock.lesson_id, func.count(ExerciseBlock.id))
-            .where(ExerciseBlock.lesson_id.in_(lesson_ids))
+            .where(ExerciseBlock.lesson_id.in_(il_ids))
             .group_by(ExerciseBlock.lesson_id)
         )
         blocks_counts = dict(counts_result.all())
 
+    # Get assigned lessons for each template
+    assigned_map: dict[int, list[HomeworkAssignedLesson]] = {}
+    if il_ids:
+        assignments_result = await db.execute(
+            select(
+                HomeworkAssignment.interactive_lesson_id,
+                HomeworkAssignment.lesson_id,
+                Lesson.scheduled_at,
+                LessonType.name.label("lesson_type_name"),
+                func.count(HomeworkAssignment.student_id).label("student_count"),
+            )
+            .join(Lesson, Lesson.id == HomeworkAssignment.lesson_id)
+            .join(LessonType, LessonType.id == Lesson.lesson_type_id)
+            .where(HomeworkAssignment.interactive_lesson_id.in_(il_ids))
+            .group_by(
+                HomeworkAssignment.interactive_lesson_id,
+                HomeworkAssignment.lesson_id,
+                Lesson.scheduled_at,
+                LessonType.name,
+            )
+            .order_by(Lesson.scheduled_at.desc())
+        )
+        for row in assignments_result.all():
+            il_id = row[0]
+            if il_id not in assigned_map:
+                assigned_map[il_id] = []
+            assigned_map[il_id].append(HomeworkAssignedLesson(
+                lesson_id=row[1],
+                scheduled_at=row[2],
+                lesson_type_name=row[3],
+                student_count=row[4],
+            ))
+
     return [
-        _template_to_response(t, blocks_counts.get(t.interactive_lesson_id, 0) if t.interactive_lesson_id else 0)
+        _template_to_response(
+            t,
+            blocks_counts.get(t.interactive_lesson_id, 0) if t.interactive_lesson_id else 0,
+            assigned_map.get(t.interactive_lesson_id, []) if t.interactive_lesson_id else [],
+        )
         for t in templates
     ]
 

@@ -16,6 +16,13 @@ class HomeworkTemplateUpdate(BaseModel):
     interactive_lesson_ids: list[int] | None = None
 
 
+class HomeworkAssignedLesson(BaseModel):
+    lesson_id: int
+    scheduled_at: datetime
+    lesson_type_name: str
+    student_count: int
+
+
 class HomeworkTemplateResponse(BaseModel):
     id: int
     title: str
@@ -27,3 +34,4 @@ class HomeworkTemplateResponse(BaseModel):
     creator_name: str
     created_at: datetime
     items: list[dict[str, Any]] = []
+    assigned_lessons: list[HomeworkAssignedLesson] = []

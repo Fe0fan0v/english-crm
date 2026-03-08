@@ -450,6 +450,13 @@ export interface HomeworkTemplateItem {
   interactive_lesson_title: string;
 }
 
+export interface HomeworkAssignedLesson {
+  lesson_id: number;
+  scheduled_at: string;
+  lesson_type_name: string;
+  student_count: number;
+}
+
 export interface HomeworkTemplate {
   id: number;
   title: string;
@@ -461,6 +468,7 @@ export interface HomeworkTemplate {
   creator_name: string;
   created_at: string;
   items: HomeworkTemplateItem[];
+  assigned_lessons: HomeworkAssignedLesson[];
 }
 
 export const homeworkTemplatesApi = {

@@ -88,6 +88,26 @@ export default function TestsPage() {
                       {new Date(tmpl.created_at).toLocaleDateString("ru-RU")}
                     </span>
                   </div>
+                  {tmpl.assigned_lessons && tmpl.assigned_lessons.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {tmpl.assigned_lessons.map((al) => (
+                        <span
+                          key={al.lesson_id}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-50 text-purple-700 rounded-full text-xs"
+                        >
+                          {al.lesson_type_name}{" "}
+                          {new Date(al.scheduled_at).toLocaleDateString("ru-RU", {
+                            day: "numeric",
+                            month: "short",
+                          })}
+                          <span className="text-purple-400">
+                            ({al.student_count}{" "}
+                            {al.student_count === 1 ? "уч." : "уч."})
+                          </span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 ml-4">
                   {/* Preview */}
