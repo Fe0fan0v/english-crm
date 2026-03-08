@@ -4,6 +4,36 @@
 
 ## Март 2026
 
+### 151. Редактирование блоков standalone уроков (ДЗ шаблоны) (8 марта 2026)
+
+- **Исправлено**: конструктор блоков в шаблонах ДЗ игнорировал нажатия (создание/редактирование/удаление блоков возвращало 403)
+- **Корневая причина**: `get_course_for_lesson()` выбрасывал 404 для standalone уроков (без section/topic), `can_edit_course()` разрешал только admin
+- `get_course_for_lesson()` теперь возвращает `None` для standalone уроков вместо ошибки
+- `can_edit_course()` разрешает admin/manager/teacher для standalone уроков (course=None)
+- `LessonEditorPage` разрешает доступ для admin/manager/teacher (было: только admin)
+- **Файлы**: `courses.py`, `LessonEditorPage.tsx`
+
+### 150. Устойчивость endpoint homework-templates + отображение назначений (8 марта 2026)
+
+- Карточки шаблонов ДЗ на странице `/tests` показывают привязанные уроки (тип, дата, кол-во учеников) — фиолетовые badges
+- Backend: запрос assigned_lessons (JOIN HomeworkAssignment → Lesson → LessonType) обёрнут в try-except — ошибка не ломает весь список
+- Backend: авто-создание `InteractiveLesson` для старых шаблонов без `interactive_lesson_id` + re-query после commit (SQLAlchemy expiry fix)
+- Backend: `GET /courses/lessons/{id}` поддерживает standalone уроки (без section/topic) — исправлена ошибка «Не удалось загрузить урок»
+- Frontend: логирование ошибок в `loadStandaloneLessons()` вместо молчаливого catch
+- Frontend: секция «Свои задания» в LessonDetailModal → таб «Курсы» использует `homeworkTemplatesApi.list()`
+- **Файлы**: `homework_templates.py`, `homework_template.py` (schema), `TestsPage.tsx`, `LessonDetailModal.tsx`, `courses.py`, `api.ts`
+
+### 149½. Интерактивная сетка расписания в профиле + CI/CD + кеширование (8 марта 2026)
+
+- `ProfileScheduleGrid`: клик по уроку → LessonDetailModal, клик по пустой ячейке → LessonCreateModal
+- Равные ширины колонок (`table-fixed` + `<colgroup>`)
+- Настраиваемый диапазон часов (от/до) с сохранением в localStorage
+- Авто-расширение диапазона если уроки выходят за границы
+- **CI/CD fix**: `git checkout -- docker-compose.yml` перед `git pull` (файл модифицировался cp), `--no-cache` для docker build
+- **Кеширование fix**: nginx `no-cache` для index.html, `immutable` для hashed assets
+- **Удалено**: `HomeworkEditorPage` (старый «Конструктор заданий»), `homework_lessons.py` (старый API)
+- **Файлы**: `ProfileScheduleGrid.tsx`, `ci-cd.yml`, `frontend/nginx.conf`
+
 ### 149. Недельная сетка расписания в профиле студента/преподавателя (7 марта 2026)
 
 - Заменена таблица-список уроков на недельную сетку (как на основном расписании) в профиле пользователя (admin/manager → профиль студента или преподавателя)

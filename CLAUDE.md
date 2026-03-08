@@ -110,7 +110,7 @@ backup/                 # Автобэкапы PostgreSQL в S3
 
 **Ключевые модели:** Course, CourseSection, CourseTopic, InteractiveLesson, ExerciseBlock, LessonCourseMaterial, MaterialFolder, HomeworkAssignment, HomeworkTemplate, HomeworkTemplateItem
 
-**Права:** admin — полный CRUD; teacher — read-only + прикрепление; student — просмотр прикреплённой части
+**Права:** admin — полный CRUD; manager/teacher — CRUD для standalone уроков (ДЗ шаблоны); teacher — read-only + прикрепление для курсов; student — просмотр прикреплённой части
 
 **Загрузка файлов:** изображения/аудио в S3 (`jsi/courses/`), до 50 МБ
 
@@ -169,6 +169,10 @@ backup/                 # Автобэкапы PostgreSQL в S3
   - При создании → сразу переход в блок-редактор (все 21 тип блоков)
   - Автоназначение: в `attach_course_material()` (`lessons.py`) — при прикреплении курса ДЗ авто-назначается ученикам
   - **Файлы**: `homework_templates.py` (api), `homework_template.py` (schema), `TestsPage.tsx`, `homeworkTemplatesApi` в api.ts
+  - Назначение ДЗ: LessonDetailModal → таб «Курсы» → секция «Свои задания» (если есть шаблоны)
+  - Карточки шаблонов показывают привязанные уроки (фиолетовые badges с типом, датой, кол-вом учеников)
+  - `get_course_for_lesson()` возвращает `None` для standalone → `can_edit_course()` разрешает admin/manager/teacher
+  - `LessonEditorPage` доступен для admin/manager/teacher (не только admin)
   - ~~Конструктор заданий~~ (`/homework/editor`) — удалён, функциональность перенесена в шаблоны ДЗ
 
 **Авто-транскрипция в словаре:** при вводе слова — debounced запрос к Free Dictionary API
@@ -329,6 +333,9 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ## CI/CD
 При пуше в `main`: pytest → lint+build → docker build → deploy на VPS + миграции.
+- **ВАЖНО**: перед `git pull` на сервере выполняется `git checkout -- docker-compose.yml` (файл модифицируется `cp docker-compose.prod.yml`)
+- Docker build с `--no-cache` для гарантии свежих образов
+- Frontend nginx: `no-cache` для index.html, `immutable` для `/assets/` (hashed filenames)
 
 ## История изменений
 Подробная история: [CHANGELOG.md](CHANGELOG.md)
