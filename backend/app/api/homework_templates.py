@@ -116,35 +116,39 @@ async def list_homework_templates(
     # Get assigned lessons for each template
     assigned_map: dict[int, list[HomeworkAssignedLesson]] = {}
     if il_ids:
-        assignments_result = await db.execute(
-            select(
-                HomeworkAssignment.interactive_lesson_id,
-                HomeworkAssignment.lesson_id,
-                Lesson.scheduled_at,
-                LessonType.name.label("lesson_type_name"),
-                func.count(HomeworkAssignment.student_id).label("student_count"),
+        try:
+            assignments_result = await db.execute(
+                select(
+                    HomeworkAssignment.interactive_lesson_id,
+                    HomeworkAssignment.lesson_id,
+                    Lesson.scheduled_at,
+                    LessonType.name.label("lesson_type_name"),
+                    func.count(HomeworkAssignment.student_id).label("student_count"),
+                )
+                .join(Lesson, Lesson.id == HomeworkAssignment.lesson_id)
+                .join(LessonType, LessonType.id == Lesson.lesson_type_id)
+                .where(HomeworkAssignment.interactive_lesson_id.in_(il_ids))
+                .group_by(
+                    HomeworkAssignment.interactive_lesson_id,
+                    HomeworkAssignment.lesson_id,
+                    Lesson.scheduled_at,
+                    LessonType.name,
+                )
+                .order_by(Lesson.scheduled_at.desc())
             )
-            .join(Lesson, Lesson.id == HomeworkAssignment.lesson_id)
-            .join(LessonType, LessonType.id == Lesson.lesson_type_id)
-            .where(HomeworkAssignment.interactive_lesson_id.in_(il_ids))
-            .group_by(
-                HomeworkAssignment.interactive_lesson_id,
-                HomeworkAssignment.lesson_id,
-                Lesson.scheduled_at,
-                LessonType.name,
-            )
-            .order_by(Lesson.scheduled_at.desc())
-        )
-        for row in assignments_result.all():
-            il_id = row[0]
-            if il_id not in assigned_map:
-                assigned_map[il_id] = []
-            assigned_map[il_id].append(HomeworkAssignedLesson(
-                lesson_id=row[1],
-                scheduled_at=row[2],
-                lesson_type_name=row[3],
-                student_count=row[4],
-            ))
+            for row in assignments_result.all():
+                il_id = row[0]
+                if il_id not in assigned_map:
+                    assigned_map[il_id] = []
+                assigned_map[il_id].append(HomeworkAssignedLesson(
+                    lesson_id=row[1],
+                    scheduled_at=row[2],
+                    lesson_type_name=row[3],
+                    student_count=row[4],
+                ))
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("Failed to load assigned lessons")
 
     return [
         _template_to_response(

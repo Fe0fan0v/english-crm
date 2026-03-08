@@ -158,8 +158,8 @@ export default function LessonDetailModal({
     try {
       const data = await homeworkTemplatesApi.list();
       setStandaloneLessons(data);
-    } catch {
-      // Standalone lessons not available (e.g., non-teacher)
+    } catch (err) {
+      console.error("Failed to load homework templates:", err);
     }
   };
 
