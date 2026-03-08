@@ -43,17 +43,21 @@ from app.schemas.lesson_course_material import CourseTreeItem
 router = APIRouter()
 
 
-def get_course_for_lesson(lesson: InteractiveLesson) -> Course:
-    """Get the course for an interactive lesson, supporting both section and topic paths."""
+def get_course_for_lesson(lesson: InteractiveLesson) -> Course | None:
+    """Get the course for an interactive lesson, supporting both section and topic paths.
+    Returns None for standalone lessons (homework templates)."""
     if lesson.section:
         return lesson.section.course
     elif lesson.topic:
         return lesson.topic.section.course
-    raise HTTPException(status_code=404, detail="Lesson has no section or topic")
+    return None
 
 
-def can_edit_course(user: User, course: Course) -> bool:
-    """Check if user can edit the course. Only admin can edit courses."""
+def can_edit_course(user: User, course: Course | None) -> bool:
+    """Check if user can edit the course. Only admin can edit courses.
+    For standalone lessons (course=None), admin/manager/teacher can edit."""
+    if course is None:
+        return user.role in [UserRole.ADMIN, UserRole.MANAGER, UserRole.TEACHER]
     return user.role == UserRole.ADMIN
 
 

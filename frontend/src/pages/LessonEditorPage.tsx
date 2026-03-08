@@ -25,9 +25,9 @@ export default function LessonEditorPage() {
   const [editingBlock, setEditingBlock] = useState<ExerciseBlock | null>(null);
   const [insertPosition, setInsertPosition] = useState<number | null>(null);
 
-  // Only admin can edit lessons
+  // Only admin, manager, teacher can edit lessons
   useEffect(() => {
-    if (user && user.role !== "admin") {
+    if (user && user.role === "student") {
       navigate("/courses");
     }
   }, [user, navigate]);
