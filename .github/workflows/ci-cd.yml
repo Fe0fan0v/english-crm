@@ -137,13 +137,14 @@ jobs:
             cd ~/english-crm
 
             echo "=== Pulling latest code ==="
+            git checkout -- docker-compose.yml
             git pull origin main
 
             echo "=== Using production docker-compose ==="
             cp docker-compose.prod.yml docker-compose.yml
 
             echo "=== Building containers ==="
-            docker compose build
+            docker compose build --no-cache
 
             echo "=== Restarting services ==="
             docker compose up -d
