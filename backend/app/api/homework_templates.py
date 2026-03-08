@@ -64,6 +64,7 @@ async def list_homework_templates(
     templates = list(result.scalars().all())
 
     # Auto-create interactive lessons for old templates missing one
+    needs_refresh = False
     for t in templates:
         if not t.interactive_lesson_id:
             il = InteractiveLesson(
@@ -75,7 +76,23 @@ async def list_homework_templates(
             db.add(il)
             await db.flush()
             t.interactive_lesson_id = il.id
-    await db.commit()
+            needs_refresh = True
+    if needs_refresh:
+        await db.commit()
+        # Re-query to get fresh objects with relationships
+        result = await db.execute(
+            select(HomeworkTemplate)
+            .options(
+                selectinload(HomeworkTemplate.course),
+                selectinload(HomeworkTemplate.creator),
+                selectinload(HomeworkTemplate.interactive_lesson),
+                selectinload(HomeworkTemplate.items).selectinload(
+                    HomeworkTemplateItem.interactive_lesson
+                ),
+            )
+            .order_by(HomeworkTemplate.created_at.desc())
+        )
+        templates = list(result.scalars().all())
 
     # Get blocks count for each template's interactive lesson
     lesson_ids = [t.interactive_lesson_id for t in templates if t.interactive_lesson_id]
