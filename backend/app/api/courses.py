@@ -1031,14 +1031,19 @@ async def get_lesson(
         raise HTTPException(status_code=404, detail="Lesson not found")
 
     # Support both old structure (lesson.section) and new structure (lesson.topic.section)
+    # Standalone lessons (homework templates) have no section or topic
     if lesson.section:
         course = lesson.section.course
     elif lesson.topic:
         course = lesson.topic.section.course
     else:
-        raise HTTPException(status_code=404, detail="Lesson has no section or topic")
+        course = None
 
-    if not can_view_course(current_user, course):
+    if course and not can_view_course(current_user, course):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Standalone lessons: only admin, manager, teacher can access
+    if not course and current_user.role == UserRole.STUDENT:
         raise HTTPException(status_code=403, detail="Access denied")
 
     # Students can only see published lessons
