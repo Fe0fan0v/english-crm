@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { lessonsApi, teacherApi } from "../services/api";
 import type { ScheduleLesson, TeacherAvailability } from "../types";
+import LessonDetailModal from "./LessonDetailModal";
+import LessonCreateModal, { type LessonFormData } from "./LessonCreateModal";
 
 const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 const MONTHS = [
@@ -43,6 +45,10 @@ export default function ProfileScheduleGrid({
   const [lessons, setLessons] = useState<ScheduleLesson[]>([]);
   const [availability, setAvailability] = useState<TeacherAvailability[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedLessonId, setSelectedLessonId] = useState<number | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [prefillDate, setPrefillDate] = useState<string | undefined>();
+  const [prefillTime, setPrefillTime] = useState<string | undefined>();
 
   const weekStart = useMemo(() => getWeekStart(currentWeek), [currentWeek]);
   const weekDates = useMemo(() => {
@@ -55,34 +61,35 @@ export default function ProfileScheduleGrid({
 
   const weekEnd = weekDates[6];
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const from = formatLocal(weekDates[0]) + "T00:00:00";
-        const to = formatLocal(weekDates[6]) + "T23:59:59";
-        const data = await lessonsApi.getSchedule(
-          from,
-          to,
-          role === "teacher" ? userId : undefined,
-          role === "student" ? userId : undefined
-        );
-        setLessons(data);
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const from = formatLocal(weekDates[0]) + "T00:00:00";
+      const to = formatLocal(weekDates[6]) + "T23:59:59";
+      const data = await lessonsApi.getSchedule(
+        from,
+        to,
+        role === "teacher" ? userId : undefined,
+        role === "student" ? userId : undefined
+      );
+      setLessons(data);
 
-        if (role === "teacher") {
-          try {
-            const av = await teacherApi.getAvailabilityByTeacherId(userId);
-            setAvailability(av.items || []);
-          } catch {
-            setAvailability([]);
-          }
+      if (role === "teacher") {
+        try {
+          const av = await teacherApi.getAvailabilityByTeacherId(userId);
+          setAvailability(av.items || []);
+        } catch {
+          setAvailability([]);
         }
-      } catch (error) {
-        console.error("Failed to fetch schedule:", error);
-      } finally {
-        setLoading(false);
       }
-    };
+    } catch (error) {
+      console.error("Failed to fetch schedule:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchData();
   }, [userId, role, weekStart]);
 
@@ -110,7 +117,6 @@ export default function ProfileScheduleGrid({
     );
   };
 
-  // Auto-detect hour range from lessons and availability
   const { startHour, endHour } = useMemo(() => {
     let min = 8;
     let max = 20;
@@ -143,6 +149,37 @@ export default function ProfileScheduleGrid({
     const d = new Date(currentWeek);
     d.setDate(d.getDate() + 7);
     setCurrentWeek(d);
+  };
+
+  const handleCellClick = (date: Date, hour: number) => {
+    const dateStr = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}-${date.getDate().toString().padStart(2, "0")}`;
+    const timeStr = `${hour.toString().padStart(2, "0")}:00`;
+    setPrefillDate(dateStr);
+    setPrefillTime(timeStr);
+    setShowCreateModal(true);
+  };
+
+  const handleCloseCreateModal = () => {
+    setShowCreateModal(false);
+    setPrefillDate(undefined);
+    setPrefillTime(undefined);
+  };
+
+  const handleCreateLesson = async (data: LessonFormData) => {
+    if (!data.teacher_id) {
+      throw new Error("Teacher ID is required");
+    }
+    await lessonsApi.createLesson({
+      title: data.title,
+      teacher_id: data.teacher_id,
+      lesson_type_id: data.lesson_type_id,
+      scheduled_at: data.scheduled_at,
+      student_ids: data.student_ids || [],
+      group_id: data.group_id,
+      duration_minutes: data.duration_minutes,
+    });
+    handleCloseCreateModal();
+    fetchData();
   };
 
   return (
@@ -178,16 +215,22 @@ export default function ProfileScheduleGrid({
         <div className="text-center py-8 text-gray-500">Загрузка...</div>
       ) : (
         <div className="overflow-x-auto schedule-scroll">
-          <table className="w-full min-w-[800px] border-collapse">
+          <table className="w-full min-w-[800px] border-collapse table-fixed">
+            <colgroup>
+              <col className="w-14" />
+              {weekDates.map((_, i) => (
+                <col key={i} />
+              ))}
+            </colgroup>
             <thead>
               <tr>
-                <th className="w-14 p-2 text-left text-xs text-gray-500 border-b" />
+                <th className="p-2 text-left text-xs text-gray-500 border-b" />
                 {weekDates.map((date, i) => {
                   const isToday = date.toDateString() === new Date().toDateString();
                   return (
                     <th
                       key={i}
-                      className={`p-2 text-center border-b min-w-[110px] ${isToday ? "bg-cyan-50" : ""}`}
+                      className={`p-2 text-center border-b ${isToday ? "bg-cyan-50" : ""}`}
                     >
                       <div className="text-xs text-gray-500">{WEEKDAYS[i]}</div>
                       <div className={`text-sm font-medium ${isToday ? "text-cyan-600" : ""}`}>
@@ -208,12 +251,21 @@ export default function ProfileScheduleGrid({
                     return (
                       <td
                         key={dayIndex}
-                        className={`p-1 align-top ${avail ? "bg-green-50" : ""}`}
+                        className={`p-1 align-top cursor-pointer hover:bg-gray-50 transition-colors ${avail ? "bg-green-50" : ""}`}
+                        onClick={() => {
+                          if (slotLessons.length === 0) {
+                            handleCellClick(date, hour);
+                          }
+                        }}
                       >
                         {slotLessons.map((lesson) => (
                           <div
                             key={lesson.id}
-                            className={`rounded px-2 py-1 mb-1 text-xs ${STATUS_COLORS[lesson.status] || "bg-gray-100 text-gray-700"}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedLessonId(lesson.id);
+                            }}
+                            className={`rounded px-2 py-1 mb-1 text-xs cursor-pointer hover:shadow-md transition-shadow ${STATUS_COLORS[lesson.status] || "bg-gray-100 text-gray-700"}`}
                           >
                             <div className="font-medium truncate">
                               {new Date(lesson.scheduled_at).toLocaleTimeString("ru-RU", {
@@ -261,6 +313,26 @@ export default function ProfileScheduleGrid({
           </div>
         )}
       </div>
+
+      {/* Lesson detail modal */}
+      {selectedLessonId && (
+        <LessonDetailModal
+          lessonId={selectedLessonId}
+          onClose={() => setSelectedLessonId(null)}
+          onUpdate={fetchData}
+        />
+      )}
+
+      {/* Create lesson modal */}
+      {showCreateModal && (
+        <LessonCreateModal
+          onClose={handleCloseCreateModal}
+          onSubmit={handleCreateLesson}
+          onBatchSubmit={() => fetchData()}
+          prefillDate={prefillDate}
+          prefillTime={prefillTime}
+        />
+      )}
     </div>
   );
 }
