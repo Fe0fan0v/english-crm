@@ -1144,37 +1144,5 @@ export const homeworkApi = {
   },
 };
 
-// Standalone Homework Lessons API
-export interface StandaloneLesson {
-  id: number;
-  title: string;
-  description: string | null;
-  is_standalone: boolean;
-  created_by_id: number;
-  created_at: string;
-  updated_at: string;
-  blocks_count: number;
-}
-
-export const homeworkLessonsApi = {
-  list: async (): Promise<StandaloneLesson[]> => {
-    const response = await api.get<StandaloneLesson[]>("/homework-lessons/");
-    return response.data;
-  },
-
-  create: async (data: { title: string; description?: string }): Promise<StandaloneLesson> => {
-    const response = await api.post<StandaloneLesson>("/homework-lessons/", data);
-    return response.data;
-  },
-
-  update: async (id: number, data: { title?: string; description?: string }): Promise<StandaloneLesson> => {
-    const response = await api.put<StandaloneLesson>(`/homework-lessons/${id}`, data);
-    return response.data;
-  },
-
-  delete: async (id: number): Promise<void> => {
-    await api.delete(`/homework-lessons/${id}`);
-  },
-};
 
 export default api;

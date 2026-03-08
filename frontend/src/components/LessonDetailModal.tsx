@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { lessonsApi, teacherApi, courseMaterialsApi, homeworkApi, homeworkLessonsApi, lessonTypesApi, type StandaloneLesson } from "../services/api";
+import { lessonsApi, teacherApi, courseMaterialsApi, homeworkApi, homeworkTemplatesApi, lessonTypesApi, type HomeworkTemplate } from "../services/api";
 import { liveSessionApi } from "../services/liveSessionApi";
 import { useAuthStore } from "../store/authStore";
 import type { LessonDetail, AttendanceStatus, LessonMaterial, LessonCourseMaterial, HomeworkAssignment, LessonType } from "../types";
@@ -48,7 +48,7 @@ export default function LessonDetailModal({
   const [isStartingLiveSession, setIsStartingLiveSession] = useState(false);
   const [homeworkAssignments, setHomeworkAssignments] = useState<HomeworkAssignment[]>([]);
   const [isAssigningHomework, setIsAssigningHomework] = useState(false);
-  const [standaloneLessons, setStandaloneLessons] = useState<StandaloneLesson[]>([]);
+  const [standaloneLessons, setStandaloneLessons] = useState<HomeworkTemplate[]>([]);
   const [showStandalonePicker, setShowStandalonePicker] = useState(false);
   const [lessonTypes, setLessonTypes] = useState<LessonType[]>([]);
   const [isChangingLessonType, setIsChangingLessonType] = useState(false);
@@ -156,7 +156,7 @@ export default function LessonDetailModal({
 
   const loadStandaloneLessons = async () => {
     try {
-      const data = await homeworkLessonsApi.list();
+      const data = await homeworkTemplatesApi.list();
       setStandaloneLessons(data);
     } catch {
       // Standalone lessons not available (e.g., non-teacher)
@@ -840,9 +840,9 @@ export default function LessonDetailModal({
                   </div>
                   {showStandalonePicker && (
                     <div className="space-y-1 max-h-40 overflow-y-auto">
-                      {standaloneLessons.map((sl) => {
+                      {standaloneLessons.filter(sl => sl.interactive_lesson_id).map((sl) => {
                         const assigned = homeworkAssignments.some(
-                          (hw) => hw.interactive_lesson_id === sl.id,
+                          (hw) => hw.interactive_lesson_id === sl.interactive_lesson_id,
                         );
                         return (
                           <div key={sl.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
@@ -851,7 +851,7 @@ export default function LessonDetailModal({
                               <span className="text-xs text-green-600 font-medium">Назначено</span>
                             ) : (
                               <button
-                                onClick={() => handleAssignStandaloneHomework(sl.id)}
+                                onClick={() => handleAssignStandaloneHomework(sl.interactive_lesson_id!)}
                                 disabled={isAssigningHomework}
                                 className="btn btn-sm bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 text-xs"
                               >
