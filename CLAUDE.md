@@ -17,7 +17,7 @@ backend/
 │   ├── schemas/       # Pydantic схемы
 │   ├── utils/         # Утилиты (grading.py — серверная проверка ответов)
 │   └── database.py    # Подключение к БД
-├── alembic/versions/  # Миграции (000-035)
+├── alembic/versions/  # Миграции (000-037)
 └── requirements.txt
 
 frontend/
@@ -167,7 +167,7 @@ backup/                 # Автобэкапы PostgreSQL в S3
   - CRUD API: `/api/homework-templates` (TeacherUser — admin, manager, teacher)
   - UI: страница «Домашние задания» (`/tests`) — создание, предпросмотр, редактирование блоков, переименование, удаление
   - При создании → сразу переход в блок-редактор (все 21 тип блоков)
-  - Автоназначение: в `attach_course_material()` (`lessons.py`) — при прикреплении курса ДЗ авто-назначается ученикам
+  - Автоназначение: в `attach_course_material()` (`lessons.py`) — при прикреплении курса ДЗ авто-назначается ученикам (только НЕ-standalone уроки; standalone шаблоны назначаются вручную)
   - **Файлы**: `homework_templates.py` (api), `homework_template.py` (schema), `TestsPage.tsx`, `homeworkTemplatesApi` в api.ts
   - Назначение ДЗ: LessonDetailModal → таб «Курсы» → секция «Свои задания» (если есть шаблоны)
   - Карточки шаблонов показывают привязанные уроки (фиолетовые badges с типом, датой, кол-вом учеников)
@@ -306,7 +306,7 @@ backup/                 # Автобэкапы PostgreSQL в S3
 - Frontend: загрузка студентов через `usersApi.list(1, 10000, undefined, "student")`
 
 ## Миграции (Alembic)
-Текущая версия: **035**. Применяются автоматически при деплое.
+Текущая версия: **037**. Применяются автоматически при деплое.
 
 ## Полезные команды
 ```bash
