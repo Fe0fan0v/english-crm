@@ -253,7 +253,7 @@ class InteractiveLessonBase(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)
     description: str | None = None
     position: int = 0
-    is_published: bool = False
+    is_published: bool = True
     is_homework: bool = False
 
 
@@ -397,7 +397,7 @@ class CourseBase(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)
     description: str | None = None
     cover_url: str | None = None
-    is_published: bool = False
+    is_published: bool = True
 
 
 class CourseCreate(CourseBase):
