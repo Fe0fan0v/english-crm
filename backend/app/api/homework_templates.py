@@ -190,13 +190,6 @@ async def create_homework_template(
     )
     db.add(template)
 
-    # Also add as legacy item for backward compat with auto-assignment
-    item = HomeworkTemplateItem(
-        template_id=template.id,
-        interactive_lesson_id=il.id,
-    )
-    db.add(item)
-
     await db.commit()
 
     # Reload with relationships

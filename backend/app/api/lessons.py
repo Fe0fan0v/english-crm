@@ -1614,7 +1614,10 @@ async def attach_course_material(
                 templates_result = await db.execute(
                     select(HomeworkTemplate)
                     .where(HomeworkTemplate.course_id == attached_course_id)
-                    .options(selectinload(HomeworkTemplate.items))
+                    .options(
+                        selectinload(HomeworkTemplate.items)
+                        .selectinload(HomeworkTemplateItem.interactive_lesson)
+                    )
                 )
                 templates = templates_result.scalars().all()
 
@@ -1629,6 +1632,9 @@ async def attach_course_material(
 
                     for tmpl in templates:
                         for item in tmpl.items:
+                            # Skip standalone lessons (homework templates with their own editor)
+                            if item.interactive_lesson and item.interactive_lesson.is_standalone:
+                                continue
                             for sid in student_ids:
                                 # Check if assignment already exists
                                 existing = await db.execute(
