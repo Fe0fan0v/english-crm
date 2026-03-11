@@ -1427,8 +1427,11 @@ function MatchingRenderer({
   const [selectedLeft, setSelectedLeft] = useState<string | null>(null);
   const matches = answer || {};
 
+  // Track which right-side index is used for each left item
+  const [matchedRightIndices, setMatchedRightIndices] = useState<Record<string, number>>({});
+
   const rightItems = useMemo(() => {
-    const items = pairs.map((p) => p.right);
+    const items = pairs.map((p, i) => ({ text: p.right, origIndex: i }));
     if (shuffleRight) {
       return [...items].sort(() => Math.random() - 0.5);
     }
@@ -1440,9 +1443,13 @@ function MatchingRenderer({
     setSelectedLeft(selectedLeft === left ? null : left);
   };
 
-  const handleRightClick = (right: string) => {
+  const handleRightClick = (rightText: string, rightIdx: number) => {
     if (isChecked || !selectedLeft) return;
-    onAnswerChange({ ...matches, [selectedLeft]: right });
+    // Free the old right index if this left was already matched
+    const newMatchedIndices = { ...matchedRightIndices };
+    newMatchedIndices[selectedLeft] = rightIdx;
+    setMatchedRightIndices(newMatchedIndices);
+    onAnswerChange({ ...matches, [selectedLeft]: rightText });
     setSelectedLeft(null);
   };
 
@@ -1498,16 +1505,16 @@ function MatchingRenderer({
 
         {/* Right column */}
         <div className="flex-1 basis-1/2 min-w-0 flex flex-col gap-2">
-          {rightItems.map((right) => {
-            const isMatched = Object.values(matches).includes(right);
+          {rightItems.map((item) => {
+            const isMatched = Object.values(matchedRightIndices).includes(item.origIndex);
             const isImage =
               /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(
-                right,
+                item.text,
               );
             return (
               <button
-                key={right}
-                onClick={() => handleRightClick(right)}
+                key={`right-${item.origIndex}`}
+                onClick={() => handleRightClick(item.text, item.origIndex)}
                 disabled={isChecked || !selectedLeft}
                 className={`flex-1 w-full min-h-[48px] px-4 py-3 rounded-lg border-2 text-left transition-colors break-words ${
                   isMatched
@@ -1517,12 +1524,12 @@ function MatchingRenderer({
               >
                 {isImage ? (
                   <img
-                    src={right}
+                    src={item.text}
                     alt=""
                     className="w-full h-32 object-cover rounded"
                   />
                 ) : (
-                  right
+                  item.text
                 )}
               </button>
             );
@@ -2254,45 +2261,64 @@ function DragWordsRenderer({
     user?.role === "admin" ||
     user?.role === "manager" ||
     user?.role === "teacher";
-  const [selectedWord, setSelectedWord] = useState<string | null>(null);
+  // selectedPoolIndex tracks which pool item is selected (not the word string)
+  const [selectedPoolIndex, setSelectedPoolIndex] = useState<number | null>(null);
   const answers = answer || {};
 
-  // Build shuffled pool: correct words + distractors
+  // Build shuffled pool: each item has a unique poolIndex + word string
   const wordPool = useMemo(() => {
     const correctWords = words.map((w) => w.word).filter(Boolean);
     const all = [...correctWords, ...(distractors || [])];
-    return [...all].sort(() => Math.random() - 0.5);
+    const indexed = all.map((word, i) => ({ poolIndex: i, word }));
+    return indexed.sort(() => Math.random() - 0.5);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [words.length, distractors?.length]);
 
-  // Which words are already placed
-  const placedWords = Object.values(answers);
+  // Track which pool indices are placed in gaps (stored as `_pool_{poolIndex}` marker won't work —
+  // we need a side map). We use a separate state to track gap→poolIndex mapping.
+  // But answers are Record<number, string> (gap→word), so we track placed pool indices separately.
+  const [placedPoolIndices, setPlacedPoolIndices] = useState<Record<number, number>>({});
 
-  const handleWordClick = (word: string) => {
+  const handleWordClick = (poolIndex: number) => {
     if (isChecked) return;
-    setSelectedWord(selectedWord === word ? null : word);
+    setSelectedPoolIndex(selectedPoolIndex === poolIndex ? null : poolIndex);
   };
 
   const handleGapClick = (gapIndex: number) => {
     if (isChecked) return;
 
-    if (selectedWord) {
-      // Place selected word into gap
-      // Remove the word from any other gap it was in
+    if (selectedPoolIndex !== null) {
+      const selectedWord = wordPool.find((w) => w.poolIndex === selectedPoolIndex)?.word;
+      if (!selectedWord) return;
+
+      // If this pool item was already placed in another gap, remove it from there
       const newAnswers = { ...answers };
-      for (const [key, val] of Object.entries(newAnswers)) {
-        if (val === selectedWord) {
+      const newPlaced = { ...placedPoolIndices };
+      for (const [key, pi] of Object.entries(newPlaced)) {
+        if (pi === selectedPoolIndex) {
           delete newAnswers[Number(key)];
+          delete newPlaced[Number(key)];
         }
       }
+
+      // If this gap already had a different word, free its pool index
+      if (newPlaced[gapIndex] !== undefined) {
+        delete newPlaced[gapIndex];
+      }
+
       newAnswers[gapIndex] = selectedWord;
+      newPlaced[gapIndex] = selectedPoolIndex;
       onAnswerChange(newAnswers);
-      setSelectedWord(null);
+      setPlacedPoolIndices(newPlaced);
+      setSelectedPoolIndex(null);
     } else if (answers[gapIndex]) {
       // Click on filled gap — remove the word back to pool
       const newAnswers = { ...answers };
+      const newPlaced = { ...placedPoolIndices };
       delete newAnswers[gapIndex];
+      delete newPlaced[gapIndex];
       onAnswerChange(newAnswers);
+      setPlacedPoolIndices(newPlaced);
     }
   };
 
@@ -2346,7 +2372,7 @@ function DragWordsRenderer({
                   ? "border-blue-400 bg-blue-50 text-blue-700"
                   : canSeeAnswers && wordForTooltip
                     ? "border-green-400 bg-green-50/30 text-green-600"
-                    : selectedWord
+                    : selectedPoolIndex !== null
                       ? "border-purple-400 bg-purple-50 cursor-pointer hover:border-purple-500"
                       : "border-gray-300 bg-gray-50 text-gray-400"
           }`}
@@ -2357,19 +2383,25 @@ function DragWordsRenderer({
     });
   };
 
-  const allFilled = words.length > 0 && words.every((w) => answers[w.index]);
+  // Count gaps from text placeholders (works even without w.index for students)
+  const gapCount = useMemo(() => {
+    const matches = text.match(/\{\d+\}/g);
+    return matches ? matches.length : 0;
+  }, [text]);
+
+  const allFilled = gapCount > 0 && Object.keys(answers).length >= gapCount;
 
   return (
     <div className="bg-white p-4 rounded-lg border border-gray-100">
       {/* Word pool */}
       <div className="flex flex-wrap gap-2 mb-4">
-        {wordPool.map((word, idx) => {
-          const isPlaced = placedWords.includes(word);
-          const isSelected = selectedWord === word;
+        {wordPool.map((item) => {
+          const isPlaced = Object.values(placedPoolIndices).includes(item.poolIndex);
+          const isSelected = selectedPoolIndex === item.poolIndex;
           return (
             <button
-              key={`${word}-${idx}`}
-              onClick={() => handleWordClick(word)}
+              key={`pool-${item.poolIndex}`}
+              onClick={() => handleWordClick(item.poolIndex)}
               disabled={isChecked || isPlaced}
               className={`px-3 py-1.5 rounded-lg border-2 text-sm font-medium transition-colors ${
                 isPlaced
@@ -2379,7 +2411,7 @@ function DragWordsRenderer({
                     : "border-gray-200 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50"
               }`}
             >
-              {word}
+              {item.word}
             </button>
           );
         })}
