@@ -185,7 +185,9 @@ backup/                 # Автобэкапы PostgreSQL в S3
 
 **Перевод по наведению (Yandex Dictionary API):** hover-tooltip с переводом en→ru для любого англ. слова в уроке
 - Backend: `GET /api/vocabulary/translate?word=` → Yandex Dictionary API (env `YANDEX_DICT_API_KEY`)
+- **ВАЖНО**: `YANDEX_DICT_API_KEY` должен быть в `.env` И в `docker-compose.prod.yml` (секция backend environment)
 - Frontend: компонент `TranslationTooltip.tsx` — оборачивает блоки в `LessonPreviewPage`, определяет слово через `caretRangeFromPoint`, debounce 400ms, кеширование в памяти
+- Loading-индикатор «...» позиционируется у курсора (не в углу экрана)
 - Показывает: слово, транскрипцию, часть речи, варианты перевода
 - Работает и в live-сессии, и в обычном просмотре
 
@@ -200,8 +202,16 @@ backup/                 # Автобэкапы PostgreSQL в S3
 **Блок drag_words (перетаскивание слов):** текст с пропусками + пул слов для перетаскивания
 - Формат: `text` с плейсхолдерами `{0}`, `{1}`, массив `words` [{index, word}], массив `distractors`
 - Click-based взаимодействие: клик по слову → клик по пропуску (мобильная поддержка)
+- **Дубликаты слов**: отслеживание по `poolIndex` (не по строке) — два одинаковых слова (напр. "in") работают независимо
 - Серверная проверка: `_grade_drag_words()`, `drag_results` в details
-- Защита: `strip_answers_from_content()` убирает `word` из массива, оставляет только `index`
+- Защита: `strip_answers_from_content()` убирает `index` (привязку слово→пропуск), оставляет `word` (студент видит пул слов, но не знает какое куда), перемешивает массив
+
+**Блок matching (сопоставление):** пары left↔right, студент кликает слева, затем справа
+- **UX сдвига пар**: при сопоставлении правый элемент перемещается рядом с левым (в одну строку), несопоставленные остаются в пуле внизу
+- **Цветовые метки**: каждая пара получает уникальный цвет (10 цветов), клик по сопоставленному правому — разъединяет пару
+- **Дубликаты**: отслеживание по `origIndex` — одинаковые значения (True/False) работают независимо
+- Защита: `strip_answers_from_content()` перемешивает правые значения в массиве `pairs`
+- Серверная проверка: `pair_results`, `correct_pairs` в details
 
 **Блок sentence_choice (выбор варианта из dropdown в тексте):** текст с inline dropdown'ами по паттерну fill_gaps
 - Формат: `text` с плейсхолдерами `{0}`, `{1}`, массив `questions: [{id, options: string[], correct_index: number}]`
@@ -240,6 +250,7 @@ backup/                 # Автобэкапы PostgreSQL в S3
 - **Медиа**: `onMediaControl`/`mediaCommand` пропсы в `BlockRenderer` → `VideoRenderer`/`AudioRenderer` (play/pause/seeked), флаг `isRemoteAction` предотвращает цикл обратной связи
 - **Скролл «За мной»**: кнопка в баннере live-сессии — преподаватель отправляет scroll-позицию + номер страницы, все ученики переключаются на нужную страницу и прокручиваются к позиции. Баннер sticky (`top-14 lg:top-0`, закреплён вверху при скролле), вынесен за пределы `max-w-5xl` контейнера для корректной работы sticky
 - **Graceful 409**: повторное нажатие «Открыть» при активной сессии — просто открывает сессию без ошибки
+- **Кнопка «Завершить»**: `endSession()` + немедленная навигация на `/schedule` (не зависит от WebSocket-сообщения `session_end`)
 - **Reconnect**: exponential backoff (1s→10s, max 10 попыток), heartbeat ping каждые 30 сек
 - **Cleanup**: 60-сек таймаут после отключения всех участников, `_delayed_cleanup` через asyncio.Task
 - **REST API**: `POST /api/live-sessions/` (TeacherUser, без student_id — все ученики урока), `GET /active` (CurrentUser), `DELETE /{id}` (TeacherUser)
