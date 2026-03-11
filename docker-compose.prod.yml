@@ -42,6 +42,8 @@ services:
       S3_BUCKET_NAME: ${S3_BUCKET_NAME:-}
       S3_REGION: ${S3_REGION:-kz-ala-1}
       S3_PUBLIC_URL: ${S3_PUBLIC_URL:-}
+      # Yandex Dictionary API
+      YANDEX_DICT_API_KEY: ${YANDEX_DICT_API_KEY:-}
     volumes:
       - storage_data:/app/storage
     ports:

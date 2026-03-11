@@ -45,6 +45,7 @@ export default function TranslationTooltip({
     data: TranslationResult;
   } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [cursorPos, setCursorPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const abortRef = useRef(false);
@@ -58,6 +59,7 @@ export default function TranslationTooltip({
 
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
+      setCursorPos({ x: e.clientX, y: e.clientY });
       const word = getWordAtPoint(e);
 
       if (!word) {
@@ -121,8 +123,8 @@ export default function TranslationTooltip({
         <div
           className="fixed z-[9999] pointer-events-none"
           style={{
-            left: tooltip ? Math.min(tooltip.x, window.innerWidth - 280) : 0,
-            top: tooltip ? tooltip.y + 20 : 0,
+            left: Math.min((tooltip?.x ?? cursorPos.x), window.innerWidth - 280),
+            top: (tooltip?.y ?? cursorPos.y) + 20,
           }}
         >
           {loading && !tooltip && (
