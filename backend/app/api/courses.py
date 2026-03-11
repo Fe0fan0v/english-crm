@@ -154,10 +154,12 @@ def strip_answers_from_content(block_type: str, content: dict) -> dict:
 
     if block_type == "drag_words":
         content = dict(content)
-        # Strip correct words, keep only indices so student sees gap count
+        # Keep words visible (student needs them for the word pool)
+        # but strip the index→word mapping so student doesn't know which word goes where
         stripped_words = []
         for w in content.get("words", []):
-            stripped_words.append({"index": w.get("index")})
+            stripped_words.append({"word": w.get("word")})
+        random.shuffle(stripped_words)
         content["words"] = stripped_words
         return content
 
