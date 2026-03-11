@@ -1430,6 +1430,38 @@ function MatchingRenderer({
   // Track which right-side index is used for each left item
   const [matchedRightIndices, setMatchedRightIndices] = useState<Record<string, number>>({});
 
+  // Color palette for matched pairs
+  const pairColors = [
+    { border: "border-blue-400", bg: "bg-blue-50", badge: "bg-blue-100 text-blue-700" },
+    { border: "border-emerald-400", bg: "bg-emerald-50", badge: "bg-emerald-100 text-emerald-700" },
+    { border: "border-amber-400", bg: "bg-amber-50", badge: "bg-amber-100 text-amber-700" },
+    { border: "border-pink-400", bg: "bg-pink-50", badge: "bg-pink-100 text-pink-700" },
+    { border: "border-violet-400", bg: "bg-violet-50", badge: "bg-violet-100 text-violet-700" },
+    { border: "border-cyan-400", bg: "bg-cyan-50", badge: "bg-cyan-100 text-cyan-700" },
+    { border: "border-orange-400", bg: "bg-orange-50", badge: "bg-orange-100 text-orange-700" },
+    { border: "border-teal-400", bg: "bg-teal-50", badge: "bg-teal-100 text-teal-700" },
+    { border: "border-rose-400", bg: "bg-rose-50", badge: "bg-rose-100 text-rose-700" },
+    { border: "border-indigo-400", bg: "bg-indigo-50", badge: "bg-indigo-100 text-indigo-700" },
+  ];
+
+  // Assign a consistent color index to each matched left item
+  const matchedLeftItems = Object.keys(matches);
+  const getColorForLeft = (left: string) => {
+    const idx = matchedLeftItems.indexOf(left);
+    return idx >= 0 ? pairColors[idx % pairColors.length] : null;
+  };
+
+  // Reverse lookup: which left item is matched to a given right index
+  const getRightMatchInfo = (rightIdx: number): { left: string; color: typeof pairColors[0] } | null => {
+    for (const [left, rIdx] of Object.entries(matchedRightIndices)) {
+      if (rIdx === rightIdx) {
+        const color = getColorForLeft(left);
+        if (color) return { left, color };
+      }
+    }
+    return null;
+  };
+
   const rightItems = useMemo(() => {
     const items = pairs.map((p, i) => ({ text: p.right, origIndex: i }));
     if (shuffleRight) {
@@ -1445,8 +1477,20 @@ function MatchingRenderer({
 
   const handleRightClick = (rightText: string, rightIdx: number) => {
     if (isChecked || !selectedLeft) return;
-    // Free the old right index if this left was already matched
     const newMatchedIndices = { ...matchedRightIndices };
+    // If this right item was matched to another left, free that left
+    for (const [left, rIdx] of Object.entries(newMatchedIndices)) {
+      if (rIdx === rightIdx && left !== selectedLeft) {
+        const newMatches = { ...matches };
+        delete newMatches[left];
+        delete newMatchedIndices[left];
+        onAnswerChange({ ...newMatches, [selectedLeft]: rightText });
+        newMatchedIndices[selectedLeft] = rightIdx;
+        setMatchedRightIndices(newMatchedIndices);
+        setSelectedLeft(null);
+        return;
+      }
+    }
     newMatchedIndices[selectedLeft] = rightIdx;
     setMatchedRightIndices(newMatchedIndices);
     onAnswerChange({ ...matches, [selectedLeft]: rightText });
@@ -1477,27 +1521,36 @@ function MatchingRenderer({
         <div className="flex-1 basis-1/2 min-w-0 flex flex-col gap-2">
           {pairs.map((pair) => {
             const result = isCorrect(pair.left);
+            const color = getColorForLeft(pair.left);
+            const matchedRight = matches[pair.left];
+            const matchedIsImage = matchedRight && /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(matchedRight);
+            const leftIsImage = /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(pair.left);
             return (
               <button
                 key={pair.left}
                 onClick={() => handleLeftClick(pair.left)}
                 disabled={isChecked}
                 title={canSeeAnswers ? `✓ ${pair.right}` : undefined}
-                className={`flex-1 w-full min-h-[48px] px-4 py-3 rounded-lg border-2 text-left transition-colors break-words flex items-center ${
+                className={`flex-1 w-full min-h-[48px] px-4 py-3 rounded-lg border-2 text-left transition-colors break-words flex items-center gap-2 ${
                   result === true
                     ? "border-green-500 bg-green-50"
                     : result === false
                       ? "border-red-500 bg-red-50"
                       : selectedLeft === pair.left
                         ? "border-purple-500 bg-purple-50"
-                        : matches[pair.left]
-                          ? "border-blue-300 bg-blue-50"
+                        : color
+                          ? `${color.border} ${color.bg}`
                           : canSeeAnswers
                             ? "border-green-400 border-dashed bg-green-50/30"
                             : "border-gray-200 hover:border-gray-300"
                 }`}
               >
-                {pair.left}
+                <span className="flex-1">{leftIsImage ? <img src={pair.left} alt="" className="w-full h-32 object-cover rounded" /> : pair.left}</span>
+                {matchedRight && !isChecked && (
+                  <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${color?.badge || "bg-blue-100 text-blue-700"}`}>
+                    {matchedIsImage ? "img" : (matchedRight.length > 20 ? matchedRight.slice(0, 20) + "…" : matchedRight)}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -1506,31 +1559,39 @@ function MatchingRenderer({
         {/* Right column */}
         <div className="flex-1 basis-1/2 min-w-0 flex flex-col gap-2">
           {rightItems.map((item) => {
-            const isMatched = Object.values(matchedRightIndices).includes(item.origIndex);
+            const matchInfo = getRightMatchInfo(item.origIndex);
             const isImage =
               /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(
                 item.text,
               );
+            const leftIsImage = matchInfo && /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(matchInfo.left);
             return (
               <button
                 key={`right-${item.origIndex}`}
                 onClick={() => handleRightClick(item.text, item.origIndex)}
                 disabled={isChecked || !selectedLeft}
-                className={`flex-1 w-full min-h-[48px] px-4 py-3 rounded-lg border-2 text-left transition-colors break-words ${
-                  isMatched
-                    ? "border-blue-300 bg-blue-50"
+                className={`flex-1 w-full min-h-[48px] px-4 py-3 rounded-lg border-2 text-left transition-colors break-words flex items-center gap-2 ${
+                  matchInfo
+                    ? `${matchInfo.color.border} ${matchInfo.color.bg}`
                     : "border-gray-200 hover:border-gray-300"
                 } ${!isChecked && selectedLeft ? "hover:border-purple-300" : ""}`}
               >
-                {isImage ? (
-                  <img
-                    src={item.text}
-                    alt=""
-                    className="w-full h-32 object-cover rounded"
-                  />
-                ) : (
-                  item.text
+                {matchInfo && !isChecked && (
+                  <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${matchInfo.color.badge}`}>
+                    {leftIsImage ? "img" : (matchInfo.left.length > 20 ? matchInfo.left.slice(0, 20) + "…" : matchInfo.left)}
+                  </span>
                 )}
+                <span className="flex-1">
+                  {isImage ? (
+                    <img
+                      src={item.text}
+                      alt=""
+                      className="w-full h-32 object-cover rounded"
+                    />
+                  ) : (
+                    item.text
+                  )}
+                </span>
               </button>
             );
           })}

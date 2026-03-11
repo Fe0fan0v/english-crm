@@ -490,7 +490,10 @@ export default function LessonPreviewPage() {
                 За мной
               </button>
               <button
-                onClick={() => liveSession.endSession()}
+                onClick={() => {
+                  liveSession.endSession();
+                  navigate('/schedule');
+                }}
                 className="px-3 py-1.5 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition-colors"
               >
                 Завершить
