@@ -827,7 +827,7 @@ export default function LessonDetailModal({
               )}
 
               {/* Standalone Homework Picker */}
-              {currentUser?.role !== "student" && standaloneLessons.length > 0 && (
+              {(currentUser?.role === "admin" || currentUser?.role === "manager") && standaloneLessons.length > 0 && (
                 <div className="mt-4 border-t border-gray-200 pt-4">
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-sm font-semibold text-gray-700">Свои задания</h3>
