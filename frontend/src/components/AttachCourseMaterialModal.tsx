@@ -411,44 +411,8 @@ export default function AttachCourseMaterialModal({ isOpen, onClose, lessonId, o
                           {/* Topics or direct lessons (legacy) */}
                           {expandedSections.has(section.id) && section.children.length > 0 && (
                             <div className="ml-4 border-l">
-                              {section.children[0]?.type === 'lesson' ? (
-                                /* Legacy: lessons directly under section */
-                                section.children.map((lesson) => {
-                                  const isSuggested = lesson.id === suggestedLessonId && !searchQuery;
-                                  return (
-                                    <div
-                                      key={lesson.id}
-                                      ref={isSuggested ? suggestedRef : undefined}
-                                      className={`flex items-center justify-between p-2 group ${
-                                        isSuggested
-                                          ? 'bg-blue-50 ring-2 ring-blue-300 rounded-md'
-                                          : 'hover:bg-green-50'
-                                      }`}
-                                    >
-                                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                                        <svg className="w-4 h-4 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                                        </svg>
-                                        <span className="text-sm truncate">{highlightMatch(lesson.title, searchQuery)}</span>
-                                        {isSuggested && (
-                                          <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium flex-shrink-0">
-                                            Следующий
-                                          </span>
-                                        )}
-                                      </div>
-                                      <button
-                                        onClick={() => handleAttach('lesson', lesson.id)}
-                                        disabled={attaching}
-                                        className="ml-2 text-sm px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50 flex-shrink-0 font-medium"
-                                      >
-                                        Добавить
-                                      </button>
-                                    </div>
-                                  );
-                                })
-                              ) : (
-                                /* New structure: topics with lessons */
-                                section.children.map((topic) => (
+                              {/* Topics */}
+                              {section.children.filter(item => item.type === 'topic').map((topic) => (
                                 <div key={topic.id}>
                                   <div className="flex items-center justify-between p-2 hover:bg-gray-50">
                                     <button
@@ -463,7 +427,7 @@ export default function AttachCourseMaterialModal({ isOpen, onClose, lessonId, o
                                     </button>
                                   </div>
 
-                                  {/* Lessons — primary selection target */}
+                                  {/* Lessons inside topic */}
                                   {expandedTopics.has(topic.id) && topic.children.length > 0 && (
                                     <div className="ml-4 border-l">
                                       {topic.children.map((lesson) => {
@@ -502,8 +466,41 @@ export default function AttachCourseMaterialModal({ isOpen, onClose, lessonId, o
                                     </div>
                                   )}
                                 </div>
-                              ))
-                              )}
+                              ))}
+                              {/* Legacy lessons directly under section (mixed structure) */}
+                              {section.children.filter(item => item.type === 'lesson').map((lesson) => {
+                                const isSuggested = lesson.id === suggestedLessonId && !searchQuery;
+                                return (
+                                  <div
+                                    key={lesson.id}
+                                    ref={isSuggested ? suggestedRef : undefined}
+                                    className={`flex items-center justify-between p-2 group ${
+                                      isSuggested
+                                        ? 'bg-blue-50 ring-2 ring-blue-300 rounded-md'
+                                        : 'hover:bg-green-50'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                                      <svg className="w-4 h-4 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                      </svg>
+                                      <span className="text-sm truncate">{highlightMatch(lesson.title, searchQuery)}</span>
+                                      {isSuggested && (
+                                        <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium flex-shrink-0">
+                                          Следующий
+                                        </span>
+                                      )}
+                                    </div>
+                                    <button
+                                      onClick={() => handleAttach('lesson', lesson.id)}
+                                      disabled={attaching}
+                                      className="ml-2 text-sm px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50 flex-shrink-0 font-medium"
+                                    >
+                                      Добавить
+                                    </button>
+                                  </div>
+                                );
+                              })}
                             </div>
                           )}
                         </div>
