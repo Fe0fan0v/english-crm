@@ -11,11 +11,12 @@ interface LastAttachedPosition {
   lessonId: number;
 }
 
-/** Get all lessons from a section (handles both topic-based and legacy flat structures) */
+/** Get all lessons from a section (handles topic-based, legacy, and mixed structures) */
 function getSectionLessons(section: CourseTreeItem): CourseTreeItem[] {
   if (section.children.length === 0) return [];
-  if (section.children[0].type === 'lesson') return section.children;
-  return section.children.flatMap(topic => topic.children);
+  const directLessons = section.children.filter(item => item.type === 'lesson');
+  const topicLessons = section.children.filter(item => item.type === 'topic').flatMap(topic => topic.children);
+  return [...topicLessons, ...directLessons];
 }
 
 /** Count lessons in a section (handles both structures) */
