@@ -116,7 +116,6 @@ export default function AttachCourseMaterialModal({ isOpen, onClose, lessonId, o
   const [error, setError] = useState<string | null>(null);
   const [expandedCourses, setExpandedCourses] = useState<Set<number>>(new Set());
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set());
-  const [expandedTopics, setExpandedTopics] = useState<Set<number>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [suggestedLessonId, setSuggestedLessonId] = useState<number | null>(null);
   const suggestedRef = useRef<HTMLDivElement>(null);
@@ -130,7 +129,6 @@ export default function AttachCourseMaterialModal({ isOpen, onClose, lessonId, o
       // Expand tree to the last position
       setExpandedCourses(prev => new Set([...prev, last.courseId]));
       setExpandedSections(prev => new Set([...prev, last.sectionId]));
-      setExpandedTopics(prev => new Set([...prev, last.topicId]));
 
       // Find and suggest next lesson
       const nextId = findNextLesson(loadedTree, last);
@@ -139,7 +137,6 @@ export default function AttachCourseMaterialModal({ isOpen, onClose, lessonId, o
         if (pos) {
           setExpandedCourses(prev => new Set([...prev, pos.courseId]));
           setExpandedSections(prev => new Set([...prev, pos.sectionId]));
-          setExpandedTopics(prev => new Set([...prev, pos.topicId]));
         }
         setSuggestedLessonId(nextId);
       }
@@ -171,34 +168,17 @@ export default function AttachCourseMaterialModal({ isOpen, onClose, lessonId, o
     if (!searchQuery) return;
     const courseIds = new Set<number>();
     const sectionIds = new Set<number>();
-    const topicIds = new Set<number>();
 
     for (const course of tree) {
       for (const section of course.children) {
         if (section.title.toLowerCase().includes(searchQuery.toLowerCase())) {
           courseIds.add(course.id);
         }
-        const isLegacy = section.children[0]?.type === 'lesson';
-        if (isLegacy) {
-          for (const lesson of section.children) {
-            if (lesson.title.toLowerCase().includes(searchQuery.toLowerCase())) {
-              courseIds.add(course.id);
-              sectionIds.add(section.id);
-            }
-          }
-        } else {
-          for (const topic of section.children) {
-            if (topic.title.toLowerCase().includes(searchQuery.toLowerCase())) {
-              courseIds.add(course.id);
-              sectionIds.add(section.id);
-            }
-            for (const lesson of topic.children) {
-              if (lesson.title.toLowerCase().includes(searchQuery.toLowerCase())) {
-                courseIds.add(course.id);
-                sectionIds.add(section.id);
-                topicIds.add(topic.id);
-              }
-            }
+        // Check all lessons (flatten topics + legacy)
+        for (const lesson of getSectionLessons(section)) {
+          if (lesson.title.toLowerCase().includes(searchQuery.toLowerCase())) {
+            courseIds.add(course.id);
+            sectionIds.add(section.id);
           }
         }
       }
@@ -206,7 +186,6 @@ export default function AttachCourseMaterialModal({ isOpen, onClose, lessonId, o
 
     setExpandedCourses(courseIds);
     setExpandedSections(sectionIds);
-    setExpandedTopics(topicIds);
   }, [searchQuery, tree]);
 
   const loadTree = async () => {
@@ -280,12 +259,6 @@ export default function AttachCourseMaterialModal({ isOpen, onClose, lessonId, o
     setExpandedSections(newExpanded);
   };
 
-  const toggleTopic = (topicId: number) => {
-    const newExpanded = new Set(expandedTopics);
-    if (newExpanded.has(topicId)) newExpanded.delete(topicId);
-    else newExpanded.add(topicId);
-    setExpandedTopics(newExpanded);
-  };
 
   // Filter tree based on search query
   const filterTree = (items: CourseTreeItem[], query: string): CourseTreeItem[] => {
