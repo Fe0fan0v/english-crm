@@ -236,8 +236,9 @@ async def get_courses_tree(
                             id=lesson.id, title=lesson.title, type="lesson", children=[]
                         )
                         topic_item.children.append(lesson_item)
-                # Include all topics (even empty ones for admin to edit)
-                section_item.children.append(topic_item)
+                # Only include topics that have published lessons
+                if topic_item.children:
+                    section_item.children.append(topic_item)
             # Legacy: lessons directly under section (may coexist with topics)
             if section.lessons:
                 for lesson in sorted(section.lessons, key=lambda l: l.position):
