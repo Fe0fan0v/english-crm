@@ -96,6 +96,12 @@ class HomeworkTemplate(Base):
         nullable=True,
         index=True,
     )
+    source_lesson_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("interactive_lessons.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     created_by: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("users.id", ondelete="CASCADE"),
@@ -109,6 +115,9 @@ class HomeworkTemplate(Base):
     course: Mapped["Course"] = relationship("Course", foreign_keys=[course_id])
     interactive_lesson: Mapped["InteractiveLesson | None"] = relationship(
         "InteractiveLesson", foreign_keys=[interactive_lesson_id]
+    )
+    source_lesson: Mapped["InteractiveLesson | None"] = relationship(
+        "InteractiveLesson", foreign_keys=[source_lesson_id]
     )
     creator: Mapped["User"] = relationship("User", foreign_keys=[created_by])
     items: Mapped[list["HomeworkTemplateItem"]] = relationship(

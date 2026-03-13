@@ -73,7 +73,11 @@ export default function TestsPage() {
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-gray-800">{tmpl.title}</h3>
                   <p className="text-sm text-gray-500 mt-1">
-                    Курс: <span className="font-medium">{tmpl.course_title}</span>
+                    {tmpl.source_lesson_title ? (
+                      <>Урок: <span className="font-medium">{tmpl.source_lesson_title}</span> <span className="text-gray-400">({tmpl.course_title})</span></>
+                    ) : (
+                      <>Курс: <span className="font-medium">{tmpl.course_title}</span></>
+                    )}
                   </p>
                   <div className="flex items-center gap-3 mt-1">
                     <span className="text-xs text-gray-400">
@@ -268,7 +272,13 @@ function HomeworkTemplateModal({
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
   const [courseTree, setCourseTree] = useState<CourseTreeItem[]>([]);
-  const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null);
+  const [selectedLesson, setSelectedLesson] = useState<{
+    lessonId: number;
+    courseId: number;
+    path: string;
+  } | null>(null);
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -279,10 +289,11 @@ function HomeworkTemplateModal({
       loadTree();
       if (template) {
         setTitle(template.title);
-        setSelectedCourseId(template.course_id);
       } else {
         setTitle("");
-        setSelectedCourseId(null);
+        setSelectedLesson(null);
+        setSearchQuery("");
+        setExpandedNodes(new Set());
       }
     }
   }, [isOpen, template]);
@@ -299,9 +310,87 @@ function HomeworkTemplateModal({
     }
   };
 
+  // Find course ID by traversing up the tree
+  const findCourseId = (tree: CourseTreeItem[], lessonId: number): number | null => {
+    for (const course of tree) {
+      if (course.type === "course") {
+        if (findLessonInNode(course, lessonId)) return course.id;
+      }
+    }
+    return null;
+  };
+
+  const findLessonInNode = (node: CourseTreeItem, lessonId: number): boolean => {
+    if (node.type === "lesson" && node.id === lessonId) return true;
+    return node.children?.some((child) => findLessonInNode(child, lessonId)) || false;
+  };
+
+  // Build path string for a lesson
+  const buildPath = (tree: CourseTreeItem[], lessonId: number): string => {
+    const parts: string[] = [];
+    const find = (node: CourseTreeItem): boolean => {
+      if (node.type === "lesson" && node.id === lessonId) {
+        parts.push(node.title);
+        return true;
+      }
+      for (const child of node.children || []) {
+        if (find(child)) {
+          parts.push(node.title);
+          return true;
+        }
+      }
+      return false;
+    };
+    for (const course of tree) {
+      if (find(course)) break;
+    }
+    return parts.reverse().join(" → ");
+  };
+
+  const handleSelectLesson = (lessonId: number) => {
+    const courseId = findCourseId(courseTree, lessonId);
+    if (!courseId) return;
+    const path = buildPath(courseTree, lessonId);
+    setSelectedLesson({ lessonId, courseId, path });
+  };
+
+  const toggleNode = (key: string) => {
+    setExpandedNodes((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  // Auto-expand nodes matching search
+  useEffect(() => {
+    if (!searchQuery.trim()) return;
+    const q = searchQuery.toLowerCase();
+    const toExpand = new Set<string>();
+
+    const walk = (node: CourseTreeItem, parentKeys: string[]) => {
+      const key = `${node.type}-${node.id}`;
+      const match = node.title.toLowerCase().includes(q);
+      let childMatch = false;
+      for (const child of node.children || []) {
+        if (walk(child, [...parentKeys, key])) childMatch = true;
+      }
+      if (match || childMatch) {
+        for (const pk of parentKeys) toExpand.add(pk);
+        if (childMatch) toExpand.add(key);
+        return true;
+      }
+      return false;
+    };
+
+    for (const course of courseTree) walk(course, []);
+    setExpandedNodes(toExpand);
+  }, [searchQuery, courseTree]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || (!isEditing && !selectedCourseId)) return;
+    if (!title.trim() || (!isEditing && !selectedLesson)) return;
 
     setIsSaving(true);
     try {
@@ -314,11 +403,11 @@ function HomeworkTemplateModal({
       } else {
         const created = await homeworkTemplatesApi.create({
           title: title.trim(),
-          course_id: selectedCourseId!,
+          course_id: selectedLesson!.courseId,
+          source_lesson_id: selectedLesson!.lessonId,
         });
         onSave();
         onClose();
-        // Navigate to block editor
         if (created.interactive_lesson_id) {
           navigate(`/courses/lessons/${created.interactive_lesson_id}/edit`);
         }
@@ -332,11 +421,20 @@ function HomeworkTemplateModal({
 
   if (!isOpen) return null;
 
+  const q = searchQuery.toLowerCase().trim();
+
+  // Filter tree nodes based on search
+  const filterNode = (node: CourseTreeItem): boolean => {
+    if (!q) return true;
+    if (node.title.toLowerCase().includes(q)) return true;
+    return node.children?.some((child) => filterNode(child)) || false;
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6">
+      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-2xl mx-4 p-6 max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold text-gray-800">
             {isEditing ? "Переименовать шаблон ДЗ" : "Создать шаблон ДЗ"}
@@ -361,7 +459,7 @@ function HomeworkTemplateModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Название *
@@ -377,29 +475,57 @@ function HomeworkTemplateModal({
           </div>
 
           {!isEditing && (
-            <div>
+            <div className="flex flex-col flex-1 min-h-0">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Курс *
+                Урок из курса *
               </label>
+
+              {selectedLesson && (
+                <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-cyan-50 border border-cyan-200 rounded-lg text-sm">
+                  <span className="text-cyan-700 flex-1 truncate">{selectedLesson.path}</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedLesson(null)}
+                    className="text-cyan-400 hover:text-cyan-600 shrink-0"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="input w-full mb-2"
+                placeholder="Поиск по названию урока..."
+              />
+
               {isLoading ? (
-                <p className="text-gray-500 text-sm">Загрузка...</p>
+                <p className="text-gray-500 text-sm py-4 text-center">Загрузка дерева курсов...</p>
               ) : (
-                <select
-                  value={selectedCourseId || ""}
-                  onChange={(e) =>
-                    setSelectedCourseId(
-                      e.target.value ? Number(e.target.value) : null
-                    )
-                  }
-                  className="input w-full"
-                >
-                  <option value="">Выберите курс</option>
-                  {courseTree.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.title}
-                    </option>
+                <div className="border rounded-lg overflow-y-auto flex-1 min-h-0" style={{ maxHeight: "340px" }}>
+                  {courseTree.filter(filterNode).map((course) => (
+                    <TreeNode
+                      key={`course-${course.id}`}
+                      node={course}
+                      depth={0}
+                      expandedNodes={expandedNodes}
+                      onToggle={toggleNode}
+                      selectedLessonId={selectedLesson?.lessonId ?? null}
+                      onSelectLesson={handleSelectLesson}
+                      searchQuery={q}
+                      filterNode={filterNode}
+                    />
                   ))}
-                </select>
+                  {courseTree.filter(filterNode).length === 0 && (
+                    <p className="text-gray-400 text-sm text-center py-4">
+                      {q ? "Ничего не найдено" : "Нет доступных курсов"}
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -417,7 +543,7 @@ function HomeworkTemplateModal({
               type="submit"
               className="flex-1 btn btn-primary"
               disabled={
-                isSaving || !title.trim() || (!isEditing && !selectedCourseId)
+                isSaving || !title.trim() || (!isEditing && !selectedLesson)
               }
             >
               {isSaving
@@ -429,6 +555,108 @@ function HomeworkTemplateModal({
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+// Tree node component for course tree
+function TreeNode({
+  node,
+  depth,
+  expandedNodes,
+  onToggle,
+  selectedLessonId,
+  onSelectLesson,
+  searchQuery,
+  filterNode,
+}: {
+  node: CourseTreeItem;
+  depth: number;
+  expandedNodes: Set<string>;
+  onToggle: (key: string) => void;
+  selectedLessonId: number | null;
+  onSelectLesson: (id: number) => void;
+  searchQuery: string;
+  filterNode: (node: CourseTreeItem) => boolean;
+}) {
+  const key = `${node.type}-${node.id}`;
+  const isExpanded = expandedNodes.has(key);
+  const isLesson = node.type === "lesson";
+  const isSelected = isLesson && node.id === selectedLessonId;
+  const hasChildren = node.children && node.children.length > 0;
+
+  // Highlight matching text
+  const renderTitle = () => {
+    if (!searchQuery) return node.title;
+    const idx = node.title.toLowerCase().indexOf(searchQuery);
+    if (idx === -1) return node.title;
+    return (
+      <>
+        {node.title.slice(0, idx)}
+        <span className="bg-yellow-200 rounded px-0.5">{node.title.slice(idx, idx + searchQuery.length)}</span>
+        {node.title.slice(idx + searchQuery.length)}
+      </>
+    );
+  };
+
+  const typeIcon = () => {
+    if (isLesson) return "📄";
+    if (node.type === "course") return "📚";
+    if (node.type === "section") return "📁";
+    if (node.type === "topic") return "📂";
+    return "";
+  };
+
+  return (
+    <div>
+      <div
+        className={`flex items-center gap-1 px-2 py-1.5 cursor-pointer hover:bg-gray-50 transition-colors ${
+          isSelected ? "bg-cyan-50 border-l-2 border-cyan-500" : ""
+        }`}
+        style={{ paddingLeft: `${depth * 20 + 8}px` }}
+        onClick={() => {
+          if (isLesson) {
+            onSelectLesson(node.id);
+          } else if (hasChildren) {
+            onToggle(key);
+          }
+        }}
+      >
+        {/* Expand/collapse arrow */}
+        {hasChildren && !isLesson ? (
+          <svg
+            className={`w-4 h-4 text-gray-400 shrink-0 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        ) : (
+          <span className="w-4 shrink-0" />
+        )}
+        <span className="text-sm shrink-0">{typeIcon()}</span>
+        <span className={`text-sm truncate ${isLesson ? "text-gray-700" : "font-medium text-gray-800"} ${isSelected ? "text-cyan-700 font-semibold" : ""}`}>
+          {renderTitle()}
+        </span>
+      </div>
+      {isExpanded && hasChildren && (
+        <div>
+          {node.children.filter(filterNode).map((child) => (
+            <TreeNode
+              key={`${child.type}-${child.id}`}
+              node={child}
+              depth={depth + 1}
+              expandedNodes={expandedNodes}
+              onToggle={onToggle}
+              selectedLessonId={selectedLessonId}
+              onSelectLesson={onSelectLesson}
+              searchQuery={searchQuery}
+              filterNode={filterNode}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

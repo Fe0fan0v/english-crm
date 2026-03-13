@@ -32,6 +32,8 @@ def _template_to_response(
         title=t.title,
         course_id=t.course_id,
         course_title=t.course.title if t.course else "",
+        source_lesson_id=t.source_lesson_id,
+        source_lesson_title=t.source_lesson.title if t.source_lesson else None,
         interactive_lesson_id=t.interactive_lesson_id,
         blocks_count=blocks_count,
         created_by=t.created_by,
@@ -63,6 +65,7 @@ async def list_homework_templates(
             selectinload(HomeworkTemplate.course),
             selectinload(HomeworkTemplate.creator),
             selectinload(HomeworkTemplate.interactive_lesson),
+            selectinload(HomeworkTemplate.source_lesson),
             selectinload(HomeworkTemplate.items).selectinload(
                 HomeworkTemplateItem.interactive_lesson
             ),
@@ -185,6 +188,7 @@ async def create_homework_template(
     template = HomeworkTemplate(
         title=data.title,
         course_id=data.course_id,
+        source_lesson_id=data.source_lesson_id,
         interactive_lesson_id=il.id,
         created_by=current_user.id,
     )
@@ -200,6 +204,7 @@ async def create_homework_template(
             selectinload(HomeworkTemplate.course),
             selectinload(HomeworkTemplate.creator),
             selectinload(HomeworkTemplate.interactive_lesson),
+            selectinload(HomeworkTemplate.source_lesson),
             selectinload(HomeworkTemplate.items).selectinload(
                 HomeworkTemplateItem.interactive_lesson
             ),
@@ -246,6 +251,7 @@ async def update_homework_template(
             selectinload(HomeworkTemplate.course),
             selectinload(HomeworkTemplate.creator),
             selectinload(HomeworkTemplate.interactive_lesson),
+            selectinload(HomeworkTemplate.source_lesson),
             selectinload(HomeworkTemplate.items).selectinload(
                 HomeworkTemplateItem.interactive_lesson
             ),

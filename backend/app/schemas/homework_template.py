@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 class HomeworkTemplateCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)
     course_id: int
+    source_lesson_id: int | None = None
     # Legacy: still accepted for backward compat but ignored for new flow
     interactive_lesson_ids: list[int] = Field(default_factory=list)
 
@@ -28,6 +29,8 @@ class HomeworkTemplateResponse(BaseModel):
     title: str
     course_id: int
     course_title: str
+    source_lesson_id: int | None = None
+    source_lesson_title: str | None = None
     interactive_lesson_id: int | None = None
     blocks_count: int = 0
     created_by: int

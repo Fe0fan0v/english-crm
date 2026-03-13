@@ -462,6 +462,8 @@ export interface HomeworkTemplate {
   title: string;
   course_id: number;
   course_title: string;
+  source_lesson_id: number | null;
+  source_lesson_title: string | null;
   interactive_lesson_id: number | null;
   blocks_count: number;
   created_by: number;
@@ -480,6 +482,7 @@ export const homeworkTemplatesApi = {
   create: async (data: {
     title: string;
     course_id: number;
+    source_lesson_id?: number;
   }): Promise<HomeworkTemplate> => {
     const response = await api.post<HomeworkTemplate>("/homework-templates", data);
     return response.data;

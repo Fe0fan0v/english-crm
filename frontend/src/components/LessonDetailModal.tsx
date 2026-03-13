@@ -177,6 +177,39 @@ export default function LessonDetailModal({
     }
   };
 
+  // Find homework templates matching attached course lessons
+  const getMatchingHomeworkTemplates = () => {
+    const attachedLessonIds = new Set(
+      courseMaterials
+        .filter((m) => m.material_type === "lesson" && m.interactive_lesson_id)
+        .map((m) => m.interactive_lesson_id!),
+    );
+    return standaloneLessons.filter(
+      (t) =>
+        t.source_lesson_id &&
+        t.interactive_lesson_id &&
+        attachedLessonIds.has(t.source_lesson_id) &&
+        !homeworkAssignments.some((hw) => hw.interactive_lesson_id === t.interactive_lesson_id),
+    );
+  };
+
+  const handleAutoAssignHomework = async () => {
+    const matching = getMatchingHomeworkTemplates();
+    if (matching.length === 0) return;
+    try {
+      setIsAssigningHomework(true);
+      for (const tmpl of matching) {
+        await homeworkApi.assign(lessonId, tmpl.interactive_lesson_id!);
+      }
+      await loadHomeworkAssignments();
+    } catch (err) {
+      console.error("Failed to auto-assign homework:", err);
+      setError("Не удалось назначить ДЗ");
+    } finally {
+      setIsAssigningHomework(false);
+    }
+  };
+
   const handleDetachCourseMaterial = async (materialId: number) => {
     if (!confirm("Открепить этот материал от урока?")) return;
     await courseMaterialsApi.detachCourseMaterial(lessonId, materialId);
@@ -735,12 +768,28 @@ export default function LessonDetailModal({
             <div className="space-y-4">
               {/* Attach button - only for teacher/admin/manager */}
               {lesson && currentUser?.role !== "student" && (
-                <button
-                  onClick={() => setIsAttachCourseMaterialModalOpen(true)}
-                  className="btn btn-primary w-full"
-                >
-                  + Прикрепить материал из курса
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setIsAttachCourseMaterialModalOpen(true)}
+                    className="btn btn-primary flex-1"
+                  >
+                    + Прикрепить материал из курса
+                  </button>
+                  {(() => {
+                    const matching = getMatchingHomeworkTemplates();
+                    if (matching.length === 0) return null;
+                    return (
+                      <button
+                        onClick={handleAutoAssignHomework}
+                        disabled={isAssigningHomework}
+                        className="btn bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 whitespace-nowrap"
+                        title={`Найдено ${matching.length} шаблон(ов) ДЗ для прикреплённых уроков`}
+                      >
+                        {isAssigningHomework ? "..." : `Прикрепить ДЗ (${matching.length})`}
+                      </button>
+                    );
+                  })()}
+                </div>
               )}
 
               {/* Course Materials list */}
