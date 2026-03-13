@@ -281,12 +281,14 @@ function HomeworkTemplateModal({
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState("");
 
   const isEditing = !!template;
 
   useEffect(() => {
     if (isOpen) {
       loadTree();
+      setError("");
       if (template) {
         setTitle(template.title);
       } else {
@@ -412,8 +414,10 @@ function HomeworkTemplateModal({
           navigate(`/courses/lessons/${created.interactive_lesson_id}/edit`);
         }
       }
-    } catch (error) {
-      console.error("Failed to save template:", error);
+    } catch (err) {
+      console.error("Failed to save template:", err);
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setError(msg || "Не удалось сохранить шаблон");
     } finally {
       setIsSaving(false);
     }
@@ -528,6 +532,10 @@ function HomeworkTemplateModal({
                 </div>
               )}
             </div>
+          )}
+
+          {error && (
+            <p className="text-red-500 text-sm">{error}</p>
           )}
 
           <div className="flex gap-3 pt-4">

@@ -1,14 +1,14 @@
 """add source_lesson_id to homework_templates
 
-Revision ID: 038
-Revises: 037
+Revision ID: 038_add_source_lesson_to_homework_templates
+Revises: 037_cleanup_standalone_hw_assignments
 Create Date: 2026-03-13
 """
 from alembic import op
 import sqlalchemy as sa
 
-revision = "038"
-down_revision = "037"
+revision = "038_add_source_lesson_to_homework_templates"
+down_revision = "037_cleanup_standalone_hw_assignments"
 branch_labels = None
 depends_on = None
 
